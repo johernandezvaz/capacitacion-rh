@@ -367,6 +367,10 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                                 <p className="font-semibold text-gray-700">Duración del curso</p>
                                 <p className="text-gray-600">{questionnaire.course_participant.course.duration_hours} horas</p>
                             </div>
+                            <div>
+                                <p className="font-semibold text-gray-700">Código del cuestionario</p>
+                                <p className="text-gray-600">04-S10 F 18 6</p>
+                            </div>
                             {isLocked && questionnaire.average_score !== null && (
                                 <div>
                                     <p className="font-semibold text-gray-700">Promedio</p>

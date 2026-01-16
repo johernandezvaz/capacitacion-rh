@@ -319,6 +319,10 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                                 <p className="font-semibold text-gray-700">Duración del curso</p>
                                 <p className="text-gray-600">{questionnaire.course_participant.course.duration_hours} horas</p>
                             </div>
+                            <div>
+                                <p className="font-semibold text-gray-700">Código del cuestionario</p>
+                                <p className="text-gray-600">04-S10 F 18 5</p>
+                            </div>
                             {isLocked && questionnaire.average_score && (
                                 <div>
                                     <p className="font-semibold text-gray-700">Promedio</p>
@@ -440,6 +444,6 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }
