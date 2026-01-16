@@ -5,6 +5,11 @@
 /.pnp
 .pnp.js
 
+# jupyter
+.ipynb_checkpoints
+/insertar_datos.ipynb
+/lista_empleados.csv
+
 # testing
 /coverage
 

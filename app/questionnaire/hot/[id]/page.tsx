@@ -1,0 +1,445 @@
+'use client';
+
+import { use, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
+import { ArrowLeft, CheckCircle2, Lock } from 'lucide-react';
+import { format } from 'date-fns';
+import { toast } from 'sonner';
+
+interface QuestionnaireData {
+    id: string;
+    course_participant_id: string;
+    status: string;
+    submitted_at: string | null;
+    average_score: number | null;
+    additional_comments: string | null;
+    course_participant: {
+        id: string;
+        course_id: string;
+        course: {
+            name: string;
+            date: string;
+            duration_hours: number;
+        };
+        employee: {
+            nombre: string;
+            employee_number: string;
+            puesto: string;
+            area: string;
+        };
+    };
+}
+
+interface Response {
+    id: string;
+    question_key: string;
+    question_text: string;
+    response_type: string;
+    percentage_value: number | null;
+    yes_no_value: boolean | null;
+    text_value: string | null;
+    section: string;
+}
+
+const PERCENTAGE_OPTIONS = [
+    { label: 'Bajo (40%)', value: 40 },
+    { label: 'Suficiente (60%)', value: 60 },
+    { label: 'Bien (80%)', value: 80 },
+    { label: 'Excelente (100%)', value: 100 },
+];
+
+export default function HotQuestionnairePage({ params }: { params: Promise<{ id: string }> }) {
+    const resolvedParams = use(params);
+    const router = useRouter();
+    const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null);
+    const [responses, setResponses] = useState<Response[]>([]);
+    const [additionalComments, setAdditionalComments] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [showProblemsDetail, setShowProblemsDetail] = useState(false);
+
+    useEffect(() => {
+        fetchQuestionnaire();
+    }, [resolvedParams.id]);
+
+    const fetchQuestionnaire = async () => {
+        try {
+            const { data: qData, error: qError } = await supabase
+                .from('questionnaires')
+                .select(`
+          id,
+          course_participant_id,
+          status,
+          submitted_at,
+          average_score,
+          additional_comments,
+          course_participant:course_participants(
+            id,
+            course_id,
+            course:courses(name, date, duration_hours),
+            employee:employees(nombre, employee_number, puesto, area)
+          )
+        `)
+                .eq('id', resolvedParams.id)
+                .eq('type', 'hot')
+                .maybeSingle();
+
+            if (qError) throw qError;
+            if (!qData) {
+                throw new Error('Cuestionario no encontrado');
+            }
+
+            const { data: rData, error: rError } = await supabase
+                .from('questionnaire_responses')
+                .select('*')
+                .eq('questionnaire_id', resolvedParams.id)
+                .order('question_key');
+
+            if (rError) throw rError;
+
+            setQuestionnaire(qData as any);
+            setResponses(rData as Response[]);
+            setAdditionalComments(qData.additional_comments || '');
+
+            const hasProblems = rData.find(r => r.question_key === 'has_problems');
+            if (hasProblems?.yes_no_value === true) {
+                setShowProblemsDetail(true);
+            }
+        } catch (error: any) {
+            console.error('Error fetching questionnaire:', error);
+            toast.error('Error al cargar el cuestionario');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const updateResponse = async (questionKey: string, value: any, type: 'percentage' | 'yes_no' | 'text') => {
+        if (questionnaire?.status === 'locked') return;
+
+        const updateData: any = {
+            updated_at: new Date().toISOString(),
+        };
+
+        if (type === 'percentage') {
+            updateData.percentage_value = value;
+        } else if (type === 'yes_no') {
+            updateData.yes_no_value = value;
+
+            if (questionKey === 'has_problems') {
+                setShowProblemsDetail(value === true);
+                if (value === false) {
+                    await supabase
+                        .from('questionnaire_responses')
+                        .update({ text_value: null })
+                        .eq('questionnaire_id', resolvedParams.id)
+                        .eq('question_key', 'problems_detail');
+                }
+            }
+        } else if (type === 'text') {
+            updateData.text_value = value;
+        }
+
+        const { error } = await supabase
+            .from('questionnaire_responses')
+            .update(updateData)
+            .eq('questionnaire_id', resolvedParams.id)
+            .eq('question_key', questionKey);
+
+        if (error) {
+            console.error('Error updating response:', error);
+            toast.error('Error al guardar la respuesta');
+            return;
+        }
+
+        setResponses(prev =>
+            prev.map(r =>
+                r.question_key === questionKey
+                    ? { ...r, ...updateData }
+                    : r
+            )
+        );
+    };
+
+    const validateForm = () => {
+        const evaluationResponses = responses.filter(r => r.section === 'evaluation');
+        const allEvaluationAnswered = evaluationResponses.every(r => r.percentage_value !== null);
+
+        if (!allEvaluationAnswered) {
+            toast.error('Por favor responda todas las preguntas de evaluación');
+            return false;
+        }
+
+        const feedbackResponses = responses.filter(r => r.section === 'feedback' && r.response_type === 'yes_no');
+        const allFeedbackAnswered = feedbackResponses.every(r => r.yes_no_value !== null);
+
+        if (!allFeedbackAnswered) {
+            toast.error('Por favor responda todas las preguntas de retroalimentación');
+            return false;
+        }
+
+        const hasProblems = responses.find(r => r.question_key === 'has_problems');
+        const problemsDetail = responses.find(r => r.question_key === 'problems_detail');
+
+        if (hasProblems?.yes_no_value === true && !problemsDetail?.text_value?.trim()) {
+            toast.error('Por favor especifique el problema que debe abordarse');
+            return false;
+        }
+
+        return true;
+    };
+
+    const handleSubmit = async () => {
+        if (!validateForm()) return;
+
+        setSaving(true);
+        try {
+            const evaluationResponses = responses.filter(
+                r => r.section === 'evaluation' && r.percentage_value !== null
+            );
+            const average = evaluationResponses.reduce((sum, r) => sum + (r.percentage_value || 0), 0) / evaluationResponses.length;
+
+            const { error } = await supabase
+                .from('questionnaires')
+                .update({
+                    status: 'locked',
+                    submitted_at: new Date().toISOString(),
+                    average_score: average,
+                    additional_comments: additionalComments || null,
+                })
+                .eq('id', resolvedParams.id);
+
+            if (error) throw error;
+
+            toast.success('Cuestionario enviado exitosamente');
+
+            setTimeout(() => {
+                router.push(`/course/${questionnaire?.course_participant.course_id}`);
+            }, 1500);
+        } catch (error: any) {
+            console.error('Error submitting questionnaire:', error);
+            toast.error('Error al enviar el cuestionario');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+                <div className="text-gray-500">Cargando cuestionario...</div>
+            </div>
+        );
+    }
+
+    if (!questionnaire) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+                <Card className="max-w-md">
+                    <CardHeader>
+                        <CardTitle>Cuestionario no encontrado</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={() => router.back()}>Volver</Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    const isLocked = questionnaire.status === 'locked';
+    const evaluationQuestions = responses.filter(r => r.section === 'evaluation');
+    const feedbackQuestions = responses.filter(r => r.section === 'feedback');
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+            <div className="max-w-4xl mx-auto">
+                <Button
+                    variant="ghost"
+                    onClick={() => router.push(`/course/${questionnaire.course_participant.course_id}`)}
+                    className="mb-6"
+                >
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Volver al curso
+                </Button>
+
+                <Card className="mb-6">
+                    <CardHeader>
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <CardTitle className="text-2xl mb-2">Cuestionario del Empleado (Caliente)</CardTitle>
+                                <CardDescription>
+                                    {isLocked ? (
+                                        <span className="flex items-center text-green-600">
+                                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                                            Completado el {questionnaire.submitted_at && format(new Date(questionnaire.submitted_at), 'dd/MM/yyyy')}
+                                        </span>
+                                    ) : (
+                                        'Complete todas las secciones para enviar el cuestionario'
+                                    )}
+                                </CardDescription>
+                            </div>
+                            {isLocked && (
+                                <Lock className="h-6 w-6 text-gray-400" />
+                            )}
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <p className="font-semibold text-gray-700">Nombre del curso</p>
+                                <p className="text-gray-600">{questionnaire.course_participant.course.name}</p>
+                            </div>
+                            <div>
+                                <p className="font-semibold text-gray-700">Empleado</p>
+                                <p className="text-gray-600">{questionnaire.course_participant.employee.nombre}</p>
+                            </div>
+                            <div>
+                                <p className="font-semibold text-gray-700">Puesto del empleado</p>
+                                <p className="text-gray-600">{questionnaire.course_participant.employee.puesto}</p>
+                            </div>
+                            <div>
+                                <p className="font-semibold text-gray-700">Área del empleado</p>
+                                <p className="text-gray-600">{questionnaire.course_participant.employee.area}</p>
+                            </div>
+                            <div>
+                                <p className="font-semibold text-gray-700">Fecha del curso</p>
+                                <p className="text-gray-600">{format(new Date(questionnaire.course_participant.course.date), 'dd/MM/yyyy')}</p>
+                            </div>
+                            <div>
+                                <p className="font-semibold text-gray-700">Número de empleado</p>
+                                <p className="text-gray-600">{questionnaire.course_participant.employee.employee_number}</p>
+                            </div>
+                            <div>
+                                <p className="font-semibold text-gray-700">Duración del curso</p>
+                                <p className="text-gray-600">{questionnaire.course_participant.course.duration_hours} horas</p>
+                            </div>
+                            {isLocked && questionnaire.average_score && (
+                                <div>
+                                    <p className="font-semibold text-gray-700">Promedio</p>
+                                    <p className="text-gray-600">{questionnaire.average_score.toFixed(2)}%</p>
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle>Sección 1 - Evaluación Porcentual</CardTitle>
+                        <CardDescription>
+                            Todas las preguntas son obligatorias
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        {evaluationQuestions.map((question) => (
+                            <div key={question.id} className="space-y-3">
+                                <Label className="text-base font-semibold">{question.question_text}</Label>
+                                <RadioGroup
+                                    value={question.percentage_value?.toString() || ''}
+                                    onValueChange={(value) => updateResponse(question.question_key, parseInt(value), 'percentage')}
+                                    disabled={isLocked}
+                                    className="flex flex-col space-y-2"
+                                >
+                                    {PERCENTAGE_OPTIONS.map((option) => (
+                                        <div key={option.value} className="flex items-center space-x-2">
+                                            <RadioGroupItem value={option.value.toString()} id={`${question.id}-${option.value}`} />
+                                            <Label
+                                                htmlFor={`${question.id}-${option.value}`}
+                                                className="font-normal cursor-pointer"
+                                            >
+                                                {option.label}
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </RadioGroup>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle>Sección 2 - Retroalimentación</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        {feedbackQuestions.map((question) => {
+                            if (question.response_type === 'yes_no') {
+                                return (
+                                    <div key={question.id} className="space-y-3">
+                                        <Label className="text-base font-semibold">{question.question_text}</Label>
+                                        <RadioGroup
+                                            value={question.yes_no_value === null ? '' : question.yes_no_value.toString()}
+                                            onValueChange={(value) => updateResponse(question.question_key, value === 'true', 'yes_no')}
+                                            disabled={isLocked}
+                                            className="flex gap-6"
+                                        >
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="true" id={`${question.id}-yes`} />
+                                                <Label htmlFor={`${question.id}-yes`} className="font-normal cursor-pointer">
+                                                    Sí
+                                                </Label>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="false" id={`${question.id}-no`} />
+                                                <Label htmlFor={`${question.id}-no`} className="font-normal cursor-pointer">
+                                                    No
+                                                </Label>
+                                            </div>
+                                        </RadioGroup>
+                                    </div>
+                                );
+                            }
+
+                            if (question.question_key === 'problems_detail' && showProblemsDetail) {
+                                return (
+                                    <div key={question.id} className="space-y-3">
+                                        <Label className="text-base font-semibold">{question.question_text}</Label>
+                                        <Textarea
+                                            value={question.text_value || ''}
+                                            onChange={(e) => updateResponse(question.question_key, e.target.value, 'text')}
+                                            disabled={isLocked}
+                                            placeholder="Especifique el problema..."
+                                            rows={3}
+                                        />
+                                    </div>
+                                );
+                            }
+
+                            return null;
+                        })}
+
+                        <div className="space-y-3">
+                            <Label className="text-base font-semibold">Comentarios adicionales</Label>
+                            <Textarea
+                                value={additionalComments}
+                                onChange={(e) => setAdditionalComments(e.target.value)}
+                                disabled={isLocked}
+                                placeholder="Comentarios opcionales..."
+                                rows={4}
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {!isLocked && (
+                    <div className="flex justify-end">
+                        <Button
+                            onClick={handleSubmit}
+                            disabled={saving}
+                            size="lg"
+                            className="min-w-[200px]"
+                        >
+                            {saving ? 'Enviando...' : 'Enviar Cuestionario'}
+                        </Button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

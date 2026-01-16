@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Plus, ChevronRight } from 'lucide-react';
+import { Plus, ChevronRight, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { CourseCard } from '@/components/course-card';
 import { CreateCourseModal } from '@/components/create-course-modal';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { supabase, TrainingYear, Course } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -18,6 +19,10 @@ export default function YearDetailPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteDialog, setDeleteDialog] = useState({
+    open: false,
+    hasCourses: false,
+  });
 
   const fetchYearAndCourses = async () => {
     try {
@@ -67,6 +72,56 @@ export default function YearDetailPage() {
     });
   };
 
+  const handleDeleteClick = () => {
+    setDeleteDialog({
+      open: true,
+      hasCourses: courses.length > 0,
+    });
+  };
+
+  const handleDeleteYear = async () => {
+    try {
+      if (courses.length > 0) {
+        for (const course of courses) {
+          await supabase
+            .from('course_participants')
+            .delete()
+            .eq('course_id', course.id);
+        }
+
+        const { error: coursesError } = await supabase
+          .from('courses')
+          .delete()
+          .eq('year_id', params.id);
+
+        if (coursesError) throw coursesError;
+      }
+
+      const { error: yearError } = await supabase
+        .from('training_years')
+        .delete()
+        .eq('id', params.id);
+
+      if (yearError) throw yearError;
+
+      toast({
+        title: 'Éxito',
+        description: 'Año eliminado correctamente',
+      });
+
+      router.push('/');
+    } catch (error: any) {
+      console.error('Error deleting year:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo eliminar el año',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleteDialog({ open: false, hasCourses: false });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen p-8">
@@ -102,14 +157,24 @@ export default function YearDetailPage() {
               Gestión de cursos del año {year.year}
             </p>
           </div>
-          <Button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-[#2166be] hover:bg-[#1a5299] text-white"
-            size="lg"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Crear Curso
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={handleDeleteClick}
+              className="text-red-600 hover:text-red-700"
+            >
+              <Trash2 className="w-5 h-5 mr-2" />
+              Eliminar Año
+            </Button>
+            <Button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-[#2166be] hover:bg-[#1a5299] text-white"
+              size="lg"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Crear Curso
+            </Button>
+          </div>
         </div>
 
         {courses.length === 0 ? (
@@ -145,6 +210,22 @@ export default function YearDetailPage() {
         onOpenChange={setIsCreateModalOpen}
         onSuccess={handleCourseCreated}
         yearId={params.id as string}
+      />
+
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) =>
+          setDeleteDialog({ open, hasCourses: deleteDialog.hasCourses })
+        }
+        title={deleteDialog.hasCourses ? "¿Eliminar año con todos sus cursos?" : "¿Eliminar año?"}
+        description={
+          deleteDialog.hasCourses
+            ? `Este año contiene ${courses.length} curso(s). Al eliminar el año, se eliminarán TODOS los cursos y sus cuestionarios asociados. Esta acción es irreversible y no se puede deshacer. ¿Estás seguro de continuar?`
+            : `¿Estás seguro de que deseas eliminar el año ${year.year}? Esta acción no se puede deshacer.`
+        }
+        confirmText="Eliminar Año"
+        onConfirm={handleDeleteYear}
+        variant="destructive"
       />
     </div>
   );

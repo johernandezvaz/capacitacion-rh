@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Calendar, BarChart3 } from 'lucide-react';
+import { Calendar, BarChart3, Users } from 'lucide-react';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -13,7 +13,13 @@ export function Sidebar() {
       name: 'Años y Cursos',
       href: '/',
       icon: Calendar,
-      active: pathname === '/' || pathname.startsWith('/year'),
+      active: pathname === '/' || pathname.startsWith('/year') || pathname.startsWith('/course'),
+    },
+    {
+      name: 'Empleados',
+      href: '/employees',
+      icon: Users,
+      active: pathname === '/employees' || pathname.startsWith('/employee'),
     },
     {
       name: 'Reportes',

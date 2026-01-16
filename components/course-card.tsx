@@ -1,8 +1,9 @@
 "use client";
 
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { BookOpen, Calendar, Clock } from 'lucide-react';
+import { BookOpen, Calendar, Clock, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Course } from '@/lib/supabase';
@@ -27,10 +28,14 @@ const statusConfig = {
 };
 
 export function CourseCard({ course }: CourseCardProps) {
+  const router = useRouter();
   const status = statusConfig[course.status];
 
   return (
-    <Card className="p-6 hover:shadow-md transition-shadow">
+    <Card
+      className="p-6 hover:shadow-lg transition-all cursor-pointer group"
+      onClick={() => router.push(`/course/${course.id}`)}
+    >
       <div className="flex items-start justify-between">
         <div className="flex gap-4 flex-1">
           <div className="w-12 h-12 rounded-lg bg-[#2166be]/10 flex items-center justify-center flex-shrink-0">
@@ -66,6 +71,7 @@ export function CourseCard({ course }: CourseCardProps) {
             </div>
           </div>
         </div>
+        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
       </div>
     </Card>
   );
