@@ -120,7 +120,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
     };
 
     const updateResponse = async (questionKey: string, value: any, type: 'percentage' | 'yes_no' | 'text') => {
-        if (questionnaire?.status === 'locked') return;
+        if (questionnaire?.submitted_at !== null) return;
 
         const updateData: any = {
             updated_at: new Date().toISOString(),
@@ -207,7 +207,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
             const { error } = await supabase
                 .from('questionnaires')
                 .update({
-                    status: 'locked',
+                    status: 'completed',
                     submitted_at: new Date().toISOString(),
                     average_score: average,
                     additional_comments: additionalComments || null,
@@ -252,7 +252,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
         );
     }
 
-    const isLocked = questionnaire.status === 'locked';
+    const isLocked = questionnaire.submitted_at !== null;
     const evaluationQuestions = responses.filter(r => r.section === 'evaluation');
     const feedbackQuestions = responses.filter(r => r.section === 'feedback');
 

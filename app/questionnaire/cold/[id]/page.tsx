@@ -136,7 +136,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
     };
 
     const updateResponse = async (questionKey: string, value: number) => {
-        if (questionnaire?.status === 'locked' || !isAvailable) return;
+        if (questionnaire?.submitted_at !== null || !isAvailable) return;
 
         const evaluatorSignature = signatures.find(s => s.signer_type === 'evaluator');
         if (evaluatorSignature) {
@@ -293,7 +293,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
         );
     }
 
-    const isLocked = questionnaire.status === 'completed';
+    const isLocked = questionnaire.submitted_at !== null;
     const evaluatorSignature = signatures.find(s => s.signer_type === 'evaluator');
     const employeeSignature = signatures.find(s => s.signer_type === 'employee');
     const canEdit = isAvailable && !evaluatorSignature && !isLocked;

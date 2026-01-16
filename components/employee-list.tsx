@@ -43,7 +43,7 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
             };
         }
 
-        if (employee.hot_questionnaire.status === 'locked') {
+        if (employee.hot_questionnaire.submitted_at !== null) {
             return {
                 label: 'Completado',
                 color: 'bg-green-100 text-green-800',
@@ -113,7 +113,7 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
         const availableDate = new Date(employee.cold_questionnaire.available_from);
         const isAvailable = now >= availableDate;
 
-        if (employee.cold_questionnaire.status === 'locked') {
+        if (employee.cold_questionnaire.submitted_at !== null) {
             return {
                 label: 'Completado',
                 color: 'bg-green-100 text-green-800',
