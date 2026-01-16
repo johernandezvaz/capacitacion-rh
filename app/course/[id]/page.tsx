@@ -293,39 +293,40 @@ export default function CourseDetailPage() {
     };
 
     return (
-        <div className="min-h-screen p-8 bg-slate-50">
+        <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 bg-slate-50">
             <div className="max-w-7xl mx-auto">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-                    <Link href="/" className="hover:text-foreground transition-colors">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 overflow-x-auto pb-2">
+                    <Link href="/" className="hover:text-foreground transition-colors whitespace-nowrap">
                         Capacitaciones
                     </Link>
-                    <ChevronRight className="w-4 h-4" />
-                    <Link href={`/year/${year.id}`} className="hover:text-foreground transition-colors">
+                    <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <Link href={`/year/${year.id}`} className="hover:text-foreground transition-colors whitespace-nowrap">
                         {year.year}
                     </Link>
-                    <ChevronRight className="w-4 h-4" />
-                    <span className="text-foreground font-medium">{course.name}</span>
+                    <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span className="text-foreground font-medium truncate">{course.name}</span>
                 </div>
 
-                <Card className="mb-8 border-none shadow-lg">
+                <Card className="mb-6 sm:mb-8 border-none shadow-lg">
                     <CardHeader className="pb-4">
-                        <div className="flex items-start justify-between">
+                        <div className="flex flex-col gap-4">
                             <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <CardTitle className="text-3xl font-bold">{course.name}</CardTitle>
-                                    <Badge className={statusColors[course.status]}>
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                                    <CardTitle className="text-xl sm:text-2xl lg:text-3xl font-bold break-words">{course.name}</CardTitle>
+                                    <Badge className={`${statusColors[course.status]} w-fit`}>
                                         {statusLabels[course.status]}
                                     </Badge>
                                 </div>
-                                <CardDescription className="text-base">
+                                <CardDescription className="text-sm sm:text-base">
                                     Año {year.year}
                                 </CardDescription>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setIsEditModalOpen(true)}
+                                    className="w-full sm:w-auto"
                                 >
                                     <Pencil className="w-4 h-4 mr-2" />
                                     Editar
@@ -334,7 +335,7 @@ export default function CourseDetailPage() {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setDeleteDialog({ open: true, type: 'course' })}
-                                    className="text-red-600 hover:text-red-700"
+                                    className="text-red-600 hover:text-red-700 w-full sm:w-auto"
                                 >
                                     <Trash2 className="w-4 h-4 mr-2" />
                                     Eliminar
@@ -343,21 +344,20 @@ export default function CourseDetailPage() {
                         </div>
                     </CardHeader>
                     <CardHeader className="pt-0 pb-4">
-                        <div className="flex items-start justify-between">
-                            <div className="flex-1"></div>
+                        <div className="flex items-start justify-center sm:justify-end w-full">
                             {!validationResult?.isReady ? (
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <div>
+                                            <div className="w-full sm:w-auto">
                                                 <Button
                                                     onClick={handleExportPDF}
                                                     disabled={true}
                                                     variant="outline"
-                                                    className="flex items-center gap-2 cursor-not-allowed opacity-50"
+                                                    className="flex items-center justify-center gap-2 cursor-not-allowed opacity-50 w-full sm:w-auto"
                                                 >
                                                     <AlertCircle className="w-4 h-4" />
-                                                    Exportar PDF
+                                                    <span>Exportar PDF</span>
                                                 </Button>
                                             </div>
                                         </TooltipTrigger>
@@ -397,23 +397,23 @@ export default function CourseDetailPage() {
                                     onClick={handleExportPDF}
                                     disabled={isExporting}
                                     variant="outline"
-                                    className="flex items-center gap-2"
+                                    className="flex items-center justify-center gap-2 w-full sm:w-auto"
                                 >
                                     <FileText className="w-4 h-4" />
-                                    {isExporting ? 'Generando...' : 'Exportar PDF'}
+                                    <span>{isExporting ? 'Generando...' : 'Exportar PDF'}</span>
                                 </Button>
                             )}
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                             <div className="flex items-center gap-3">
-                                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-100">
-                                    <Calendar className="w-6 h-6 text-blue-600" />
+                                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-100 flex-shrink-0">
+                                    <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
                                 </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Fecha</p>
-                                    <p className="font-semibold">
+                                <div className="min-w-0">
+                                    <p className="text-xs sm:text-sm text-muted-foreground">Fecha</p>
+                                    <p className="font-semibold text-sm sm:text-base truncate">
                                         {new Date(course.date).toLocaleDateString('es-MX', {
                                             year: 'numeric',
                                             month: 'long',
@@ -423,21 +423,21 @@ export default function CourseDetailPage() {
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
-                                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-100">
-                                    <Clock className="w-6 h-6 text-amber-600" />
+                                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-amber-100 flex-shrink-0">
+                                    <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
                                 </div>
                                 <div>
-                                    <p className="text-sm text-muted-foreground">Duración</p>
-                                    <p className="font-semibold">{course.duration_hours} horas</p>
+                                    <p className="text-xs sm:text-sm text-muted-foreground">Duración</p>
+                                    <p className="font-semibold text-sm sm:text-base">{course.duration_hours} horas</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-green-100">
-                                    <Users className="w-6 h-6 text-green-600" />
+                            <div className="flex items-center gap-3 sm:col-span-2 lg:col-span-1">
+                                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-green-100 flex-shrink-0">
+                                    <Users className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                                 </div>
                                 <div>
-                                    <p className="text-sm text-muted-foreground">Participantes</p>
-                                    <p className="font-semibold">{employees.length}</p>
+                                    <p className="text-xs sm:text-sm text-muted-foreground">Participantes</p>
+                                    <p className="font-semibold text-sm sm:text-base">{employees.length}</p>
                                 </div>
                             </div>
                         </div>

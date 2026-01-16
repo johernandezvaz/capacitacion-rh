@@ -65,7 +65,7 @@ export function CreateCourseModal({
           name: name.trim(),
           date,
           duration_hours: durationNumber,
-          status: 'draft',
+          status: 'active',
         },
       ]);
 

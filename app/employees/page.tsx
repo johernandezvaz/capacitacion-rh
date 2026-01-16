@@ -141,20 +141,20 @@ export default function EmployeesPage() {
     }
 
     return (
-        <div className="min-h-screen p-8 bg-slate-50">
+        <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 bg-slate-50">
             <div className="max-w-7xl mx-auto">
-                <div className="flex items-start justify-between mb-8">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-6 sm:mb-8">
                     <div>
-                        <h1 className="text-4xl font-bold text-foreground mb-2">
+                        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">
                             Empleados
                         </h1>
-                        <p className="text-muted-foreground text-lg">
+                        <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">
                             Gestión de empleados del sistema
                         </p>
                     </div>
                     <Button
                         onClick={() => setIsCreateModalOpen(true)}
-                        className="bg-[#2166be] hover:bg-[#1a5299] text-white"
+                        className="bg-[#2166be] hover:bg-[#1a5299] text-white w-full sm:w-auto"
                         size="lg"
                     >
                         <Plus className="w-5 h-5 mr-2" />
@@ -184,86 +184,102 @@ export default function EmployeesPage() {
 
                 <Card className="border-none shadow-lg">
                     <CardHeader>
-                        <CardTitle>
-                            Listado de Empleados
-                            <Badge variant="secondary" className="ml-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <CardTitle className="text-lg sm:text-xl">Listado de Empleados</CardTitle>
+                            <Badge variant="secondary" className="w-fit">
                                 {filteredEmployees.length} empleados
                             </Badge>
-                        </CardTitle>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         {filteredEmployees.length === 0 ? (
                             <div className="text-center py-12">
-                                <p className="text-muted-foreground">
+                                <p className="text-muted-foreground text-sm sm:text-base">
                                     {searchQuery ? 'No se encontraron empleados' : 'No hay empleados registrados'}
                                 </p>
                             </div>
                         ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b">
-                                            <th className="text-left py-3 px-4 font-semibold text-sm">
-                                                Número
-                                            </th>
-                                            <th className="text-left py-3 px-4 font-semibold text-sm">
-                                                Nombre
-                                            </th>
-                                            <th className="text-left py-3 px-4 font-semibold text-sm">
-                                                Área
-                                            </th>
-                                            <th className="text-left py-3 px-4 font-semibold text-sm">
-                                                Puesto
-                                            </th>
-                                            <th className="text-left py-3 px-4 font-semibold text-sm">
-                                                Evaluador
-                                            </th>
-                                            <th className="text-right py-3 px-4 font-semibold text-sm">
-                                                Acciones
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredEmployees.map((employee) => (
-                                            <tr key={employee.id} className="border-b hover:bg-muted/50">
-                                                <td className="py-3 px-4 text-sm">
-                                                    {employee.employee_number}
-                                                </td>
-                                                <td className="py-3 px-4 text-sm font-medium">
-                                                    {employee.nombre}
-                                                </td>
-                                                <td className="py-3 px-4 text-sm">
-                                                    {employee.area}
-                                                </td>
-                                                <td className="py-3 px-4 text-sm">
-                                                    {employee.puesto}
-                                                </td>
-                                                <td className="py-3 px-4 text-sm">
-                                                    {employee.evaluador}
-                                                </td>
-                                                <td className="py-3 px-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => router.push(`/employees/${employee.id}`)}
-                                                        >
-                                                            <Pencil className="w-4 h-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => handleDeleteClick(employee)}
-                                                        >
-                                                            <Trash2 className="w-4 h-4 text-red-600" />
-                                                        </Button>
-                                                    </div>
-                                                </td>
+                            <>
+                                <div className="hidden lg:block overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="border-b">
+                                                <th className="text-left py-3 px-4 font-semibold text-sm">Número</th>
+                                                <th className="text-left py-3 px-4 font-semibold text-sm">Nombre</th>
+                                                <th className="text-left py-3 px-4 font-semibold text-sm">Área</th>
+                                                <th className="text-left py-3 px-4 font-semibold text-sm">Puesto</th>
+                                                <th className="text-left py-3 px-4 font-semibold text-sm">Evaluador</th>
+                                                <th className="text-right py-3 px-4 font-semibold text-sm">Acciones</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </thead>
+                                        <tbody>
+                                            {filteredEmployees.map((employee) => (
+                                                <tr key={employee.id} className="border-b hover:bg-muted/50">
+                                                    <td className="py-3 px-4 text-sm">{employee.employee_number}</td>
+                                                    <td className="py-3 px-4 text-sm font-medium">{employee.nombre}</td>
+                                                    <td className="py-3 px-4 text-sm">{employee.area}</td>
+                                                    <td className="py-3 px-4 text-sm">{employee.puesto}</td>
+                                                    <td className="py-3 px-4 text-sm">{employee.evaluador}</td>
+                                                    <td className="py-3 px-4 text-right">
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => router.push(`/employees/${employee.id}`)}
+                                                            >
+                                                                <Pencil className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => handleDeleteClick(employee)}
+                                                            >
+                                                                <Trash2 className="w-4 h-4 text-red-600" />
+                                                            </Button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="lg:hidden space-y-3">
+                                    {filteredEmployees.map((employee) => (
+                                        <div key={employee.id} className="border rounded-lg p-4 space-y-2">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs text-blue-600 font-semibold mb-1">
+                                                        {employee.employee_number}
+                                                    </p>
+                                                    <p className="font-medium text-sm mb-2 break-words">{employee.nombre}</p>
+                                                    <div className="text-xs text-muted-foreground space-y-1">
+                                                        <p><span className="font-medium">Área:</span> {employee.area}</p>
+                                                        <p><span className="font-medium">Puesto:</span> {employee.puesto}</p>
+                                                        <p><span className="font-medium">Evaluador:</span> {employee.evaluador}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-1 flex-shrink-0">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => router.push(`/employees/${employee.id}`)}
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleDeleteClick(employee)}
+                                                    >
+                                                        <Trash2 className="w-4 h-4 text-red-600" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
                         )}
                     </CardContent>
                 </Card>

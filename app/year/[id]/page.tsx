@@ -138,37 +138,37 @@ export default function YearDetailPage() {
   if (!year) return null;
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-          <Link href="/" className="hover:text-foreground transition-colors">
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 overflow-x-auto">
+          <Link href="/" className="hover:text-foreground transition-colors whitespace-nowrap">
             Capacitaciones
           </Link>
-          <ChevronRight className="w-4 h-4" />
-          <span className="text-foreground font-medium">{year.year}</span>
+          <ChevronRight className="w-4 h-4 flex-shrink-0" />
+          <span className="text-foreground font-medium whitespace-nowrap">{year.year}</span>
         </div>
 
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex flex-col gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">
               Capacitaciones {year.year}
             </h1>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">
               Gestión de cursos del año {year.year}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <Button
               variant="outline"
               onClick={handleDeleteClick}
-              className="text-red-600 hover:text-red-700"
+              className="text-red-600 hover:text-red-700 w-full sm:w-auto"
             >
               <Trash2 className="w-5 h-5 mr-2" />
-              Eliminar Año
+              <span className="sm:inline">Eliminar Año</span>
             </Button>
             <Button
               onClick={() => setIsCreateModalOpen(true)}
-              className="bg-[#2166be] hover:bg-[#1a5299] text-white"
+              className="bg-[#2166be] hover:bg-[#1a5299] text-white w-full sm:w-auto"
               size="lg"
             >
               <Plus className="w-5 h-5 mr-2" />

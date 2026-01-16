@@ -48,20 +48,20 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">
               Capacitaciones
             </h1>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">
               Gestión de años y cursos
             </p>
           </div>
           <Button
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-[#2166be] hover:bg-[#1a5299] text-white"
+            className="bg-[#2166be] hover:bg-[#1a5299] text-white w-full sm:w-auto"
             size="lg"
           >
             <Plus className="w-5 h-5 mr-2" />
