@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronRight, Calendar, Clock, Users, FileText, AlertCircle, Pencil, Trash2 } from 'lucide-react';
+import { ChevronRight, Calendar, Clock, Users, FileText, AlertCircle, Pencil, Trash2, Download, ListCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -109,15 +109,41 @@ export default function CourseDetailPage() {
                 .select('*')
                 .in('course_participant_id', participantIds);
 
+            const questionnaireIds = questionnaires?.map((q) => q.id) || [];
+
+            let signatures: any[] = [];
+            if (questionnaireIds.length > 0) {
+                const { data: signaturesData } = await supabase
+                    .from('questionnaire_signatures')
+                    .select('*')
+                    .in('questionnaire_id', questionnaireIds);
+
+                signatures = signaturesData || [];
+            }
+
             const employeesWithQuestionnaires: EmployeeWithQuestionnaires[] = participantsData?.map((p: any) => {
                 const hotQ = questionnaires?.find((q) => q.course_participant_id === p.id && q.type === 'hot') || null;
                 const coldQ = questionnaires?.find((q) => q.course_participant_id === p.id && q.type === 'cold') || null;
 
+                let coldQWithSignatures = coldQ;
+                if (coldQ) {
+                    const coldSignatures = signatures.filter((s) => s.questionnaire_id === coldQ.id);
+                    const evaluatorSig = coldSignatures.find((s) => s.signer_type === 'evaluator');
+                    const employeeSig = coldSignatures.find((s) => s.signer_type === 'employee');
+
+                    coldQWithSignatures = {
+                        ...coldQ,
+                        evaluator_signed_at: evaluatorSig?.signed_at || null,
+                        employee_signed_at: employeeSig?.signed_at || null,
+                    };
+                }
+
                 return {
                     ...p.employee,
                     participant_id: p.id,
+                    course_id: params.id as string,
                     hot_questionnaire: hotQ,
-                    cold_questionnaire: coldQ,
+                    cold_questionnaire: coldQWithSignatures,
                 };
             }) || [];
 
@@ -212,6 +238,52 @@ export default function CourseDetailPage() {
             });
         } finally {
             setDeleteDialog({ open: false, type: '' });
+        }
+    };
+
+    const handleDownloadAttendanceList = async () => {
+        if (!employees || employees.length === 0) {
+            toast({
+                title: 'Lista no disponible',
+                description: 'El curso no tiene participantes inscritos',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        setIsExporting(true);
+        try {
+            const response = await fetch(`/api/attendance-list/${params.id}`);
+
+            console.log('Response:', response.ok);
+
+            if (!response.ok) {
+                throw new Error('Error al generar la lista de asistencia');
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Lista_Asistencia_${course?.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            toast({
+                title: 'Éxito',
+                description: 'La lista de asistencia se ha descargado correctamente',
+            });
+        } catch (error) {
+            console.error('Error downloading attendance list:', error);
+            toast({
+                title: 'Error',
+                description: 'No se pudo generar la lista de asistencia',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -344,7 +416,16 @@ export default function CourseDetailPage() {
                         </div>
                     </CardHeader>
                     <CardHeader className="pt-0 pb-4">
-                        <div className="flex items-start justify-center sm:justify-end w-full">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center sm:justify-end gap-2 w-full">
+                            <Button
+                                onClick={handleDownloadAttendanceList}
+                                disabled={isExporting || !employees || employees.length === 0}
+                                variant="outline"
+                                className="flex items-center justify-center gap-2 w-full sm:w-auto"
+                            >
+                                <ListCheck className="w-4 h-4" />
+                                <span>Lista de Asistencia</span>
+                            </Button>
                             {!validationResult?.isReady ? (
                                 <TooltipProvider>
                                     <Tooltip>
@@ -357,14 +438,14 @@ export default function CourseDetailPage() {
                                                     className="flex items-center justify-center gap-2 cursor-not-allowed opacity-50 w-full sm:w-auto"
                                                 >
                                                     <AlertCircle className="w-4 h-4" />
-                                                    <span>Exportar PDF</span>
+                                                    <span>Reporte Completo</span>
                                                 </Button>
                                             </div>
                                         </TooltipTrigger>
                                         <TooltipContent className="max-w-sm p-4" side="bottom">
                                             <div className="space-y-2">
-                                                <p className="font-semibold text-sm">Exportación no disponible</p>
-                                                <p className="text-sm">{validationResult?.reason || 'El curso no está listo para exportar'}</p>
+                                                <p className="font-semibold text-sm">Reporte no disponible</p>
+                                                <p className="text-sm">{validationResult?.reason || 'Faltan cuestionarios por completar'}</p>
                                                 {validationResult?.details && validationResult.details.incompleteParticipants.length > 0 && (
                                                     <div className="mt-3 space-y-1">
                                                         <p className="font-semibold text-xs">Participantes pendientes:</p>
@@ -374,8 +455,8 @@ export default function CourseDetailPage() {
                                                                     <span>•</span>
                                                                     <span>
                                                                         <strong>{p.employeeName}</strong>
-                                                                        {p.missingHot && ' - Falta cuestionario caliente'}
-                                                                        {p.missingCold && ' - Falta cuestionario frío'}
+                                                                        {p.missingHot && ' - Falta cuestionario caliente firmado'}
+                                                                        {p.missingCold && ' - Falta cuestionario frío firmado'}
                                                                         {p.missingSignatures && ' - Faltan firmas'}
                                                                     </span>
                                                                 </li>
@@ -399,8 +480,8 @@ export default function CourseDetailPage() {
                                     variant="outline"
                                     className="flex items-center justify-center gap-2 w-full sm:w-auto"
                                 >
-                                    <FileText className="w-4 h-4" />
-                                    <span>{isExporting ? 'Generando...' : 'Exportar PDF'}</span>
+                                    <Download className="w-4 h-4" />
+                                    <span>{isExporting ? 'Generando...' : 'Reporte Completo'}</span>
                                 </Button>
                             )}
                         </div>

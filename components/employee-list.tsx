@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { CheckCircle2, Clock, Lock, FileText, Trash2 } from 'lucide-react';
+import { CheckCircle2, Clock, Lock, FileText, Trash2, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,6 +32,7 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
         open: false,
         employee: null,
     });
+    const [loadingReports, setLoadingReports] = useState<Record<string, boolean>>({});
 
     const getHotQuestionnaireStatus = (employee: EmployeeWithQuestionnaires) => {
         if (!employee.hot_questionnaire) {
@@ -60,6 +61,69 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
             canClick: true,
             url: `/questionnaire/hot/${employee.hot_questionnaire.id}`,
         };
+    };
+
+    const canGenerateHotReport = (employee: EmployeeWithQuestionnaires): boolean => {
+        return employee.hot_questionnaire?.submitted_at !== null;
+    };
+
+    const canGenerateColdReport = (employee: EmployeeWithQuestionnaires): boolean => {
+        const hasHot = employee.hot_questionnaire?.submitted_at !== null;
+        const coldQ = employee.cold_questionnaire;
+
+        if (!hasHot || !coldQ) return false;
+
+        const hasEvaluatorSignature = coldQ.evaluator_signed_at !== null;
+        const hasEmployeeSignature = coldQ.employee_signed_at !== null;
+
+        return hasEvaluatorSignature && hasEmployeeSignature;
+    };
+
+    const handleDownloadReport = async (employee: EmployeeWithQuestionnaires, type: 'hot' | 'cold') => {
+        const reportKey = `${employee.participant_id}-${type}`;
+        setLoadingReports(prev => ({ ...prev, [reportKey]: true }));
+
+        try {
+            const courseId = employee.course_id || (employee as any).course_participants?.[0]?.course_id;
+            if (!courseId) {
+                throw new Error('No se pudo determinar el ID del curso');
+            }
+
+            const response = await fetch(
+                `/api/course-report/${courseId}?type=${type}&participantId=${employee.participant_id}`
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Error al generar reporte');
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+
+            const reportType = type === 'hot' ? 'Caliente' : 'Frio';
+            a.download = `Reporte_${reportType}_${employee.nombre.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            toast({
+                title: 'Éxito',
+                description: `Reporte ${type === 'hot' ? 'caliente' : 'frío'} generado exitosamente`,
+            });
+        } catch (error: any) {
+            console.error('Error downloading report:', error);
+            toast({
+                title: 'Error',
+                description: error.message || 'No se pudo generar el reporte',
+                variant: 'destructive',
+            });
+        } finally {
+            setLoadingReports(prev => ({ ...prev, [reportKey]: false }));
+        }
     };
 
     const handleDeleteParticipant = async () => {
@@ -171,6 +235,7 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
                             <TableHead className="font-semibold">Puesto</TableHead>
                             <TableHead className="font-semibold text-center">Cuestionario Empleado</TableHead>
                             <TableHead className="font-semibold text-center">Cuestionario Evaluador</TableHead>
+                            <TableHead className="font-semibold text-center">Reportes</TableHead>
                             <TableHead className="font-semibold text-center">Acciones</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -234,6 +299,30 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
                                                     {coldStatus.description}
                                                 </span>
                                             )}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        <div className="flex flex-col gap-1.5 items-center">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleDownloadReport(employee, 'hot')}
+                                                disabled={!canGenerateHotReport(employee) || loadingReports[`${employee.participant_id}-hot`]}
+                                                className="w-full min-w-[120px] text-xs"
+                                            >
+                                                <Download className="w-3 h-3 mr-1" />
+                                                {loadingReports[`${employee.participant_id}-hot`] ? 'Generando...' : 'Caliente'}
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleDownloadReport(employee, 'cold')}
+                                                disabled={!canGenerateColdReport(employee) || loadingReports[`${employee.participant_id}-cold`]}
+                                                className="w-full min-w-[120px] text-xs"
+                                            >
+                                                <Download className="w-3 h-3 mr-1" />
+                                                {loadingReports[`${employee.participant_id}-cold`] ? 'Generando...' : 'Frío'}
+                                            </Button>
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-center">
@@ -344,6 +433,34 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
                                             {coldStatus.description}
                                         </p>
                                     )}
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                                        Reportes Individuales
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleDownloadReport(employee, 'hot')}
+                                            disabled={!canGenerateHotReport(employee) || loadingReports[`${employee.participant_id}-hot`]}
+                                            className="flex-1 text-xs"
+                                        >
+                                            <Download className="w-3 h-3 mr-1" />
+                                            {loadingReports[`${employee.participant_id}-hot`] ? 'Gen...' : 'Caliente'}
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleDownloadReport(employee, 'cold')}
+                                            disabled={!canGenerateColdReport(employee) || loadingReports[`${employee.participant_id}-cold`]}
+                                            className="flex-1 text-xs"
+                                        >
+                                            <Download className="w-3 h-3 mr-1" />
+                                            {loadingReports[`${employee.participant_id}-cold`] ? 'Gen...' : 'Frío'}
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

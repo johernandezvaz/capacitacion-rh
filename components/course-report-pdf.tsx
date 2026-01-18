@@ -1,3 +1,4 @@
+import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
 const styles = StyleSheet.create({
@@ -145,8 +146,8 @@ interface CourseReportData {
     courseDuration: number;
     totalParticipants: number;
     participants: Participant[];
-    averageHotScore: number | null;
-    averageColdScore: number | null;
+    averageScore: number | null;
+    reportType: 'hot' | 'cold';
     logoBase64: string;
 }
 
@@ -169,7 +170,9 @@ export const CourseReportPDF = ({ data }: { data: CourseReportData }) => {
         <Document>
             <Page size="A4" style={styles.page}>
                 <View style={styles.header}>
-                    <Text style={styles.title}>Reporte de Capacitación</Text>
+                    <Text style={styles.title}>
+                        Reporte {data.reportType === 'hot' ? 'Caliente' : 'Frío'} de Capacitación
+                    </Text>
                     <Text style={styles.subtitle}>{data.courseName}</Text>
                 </View>
 
@@ -203,39 +206,34 @@ export const CourseReportPDF = ({ data }: { data: CourseReportData }) => {
                             <Text style={[styles.tableHeaderCell, styles.col2]}>Nombre</Text>
                             <Text style={[styles.tableHeaderCell, styles.col3]}>Área</Text>
                             <Text style={[styles.tableHeaderCell, styles.col4]}>Puesto</Text>
-                            <Text style={[styles.tableHeaderCell, styles.col5]}>Caliente</Text>
-                            <Text style={[styles.tableHeaderCell, styles.col6]}>Frío</Text>
+                            <Text style={[styles.tableHeaderCell, styles.col5]}>Calificación</Text>
                         </View>
-                        {data.participants.map((participant, index) => (
-                            <View key={index} style={styles.tableRow}>
-                                <Text style={[styles.tableCell, styles.col1]}>
-                                    {participant.employee_number}
-                                </Text>
-                                <Text style={[styles.tableCell, styles.col2]}>
-                                    {participant.nombre}
-                                </Text>
-                                <Text style={[styles.tableCell, styles.col3]}>
-                                    {participant.area}
-                                </Text>
-                                <Text style={[styles.tableCell, styles.col4]}>
-                                    {participant.puesto}
-                                </Text>
-                                <Text style={[
-                                    styles.tableCell,
-                                    styles.col5,
-                                    participant.hot_score === null ? styles.pending : {}
-                                ]}>
-                                    {formatScore(participant.hot_score)}
-                                </Text>
-                                <Text style={[
-                                    styles.tableCell,
-                                    styles.col6,
-                                    participant.cold_score === null ? styles.pending : {}
-                                ]}>
-                                    {formatScore(participant.cold_score)}
-                                </Text>
-                            </View>
-                        ))}
+                        {data.participants.map((participant, index) => {
+                            const score = data.reportType === 'hot' ? participant.hot_score : participant.cold_score;
+                            return (
+                                <View key={index} style={styles.tableRow}>
+                                    <Text style={[styles.tableCell, styles.col1]}>
+                                        {participant.employee_number}
+                                    </Text>
+                                    <Text style={[styles.tableCell, styles.col2]}>
+                                        {participant.nombre}
+                                    </Text>
+                                    <Text style={[styles.tableCell, styles.col3]}>
+                                        {participant.area}
+                                    </Text>
+                                    <Text style={[styles.tableCell, styles.col4]}>
+                                        {participant.puesto}
+                                    </Text>
+                                    <Text style={[
+                                        styles.tableCell,
+                                        styles.col5,
+                                        score === null ? styles.pending : {}
+                                    ]}>
+                                        {formatScore(score)}
+                                    </Text>
+                                </View>
+                            );
+                        })}
                     </View>
                 </View>
 
@@ -243,12 +241,10 @@ export const CourseReportPDF = ({ data }: { data: CourseReportData }) => {
                     <Text style={styles.sectionTitle}>Resultados Generales del Curso</Text>
                     <View style={styles.averageBox}>
                         <View style={styles.averageRow}>
-                            <Text style={styles.averageLabel}>Promedio General - Cuestionario Caliente:</Text>
-                            <Text style={styles.averageValue}>{formatScore(data.averageHotScore)}</Text>
-                        </View>
-                        <View style={styles.averageRow}>
-                            <Text style={styles.averageLabel}>Promedio General - Cuestionario Frío:</Text>
-                            <Text style={styles.averageValue}>{formatScore(data.averageColdScore)}</Text>
+                            <Text style={styles.averageLabel}>
+                                Promedio General - Cuestionario {data.reportType === 'hot' ? 'Caliente' : 'Frío'}:
+                            </Text>
+                            <Text style={styles.averageValue}>{formatScore(data.averageScore)}</Text>
                         </View>
                     </View>
                 </View>

@@ -28,7 +28,6 @@ export function Sidebar() {
       href: '/reports',
       icon: BarChart3,
       active: pathname === '/reports',
-      disabled: true,
     },
   ];
 
@@ -78,16 +77,14 @@ export function Sidebar() {
               return (
                 <li key={item.name}>
                   <Link
-                    href={item.disabled ? '#' : item.href}
-                    onClick={item.disabled ? (e) => e.preventDefault() : handleLinkClick}
+                    href={item.href}
+                    onClick={handleLinkClick}
                     className={`
                       flex items-center gap-3 px-4 py-3 rounded-lg
                       transition-all duration-200
                       ${item.active
                         ? 'bg-[#2166be] text-white shadow-md'
-                        : item.disabled
-                          ? 'text-white/40 cursor-not-allowed'
-                          : 'text-white/80 hover:bg-white/5 hover:text-white'
+                        : 'text-white/80 hover:bg-white/5 hover:text-white'
                       }
                     `}
                   >

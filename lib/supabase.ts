@@ -59,6 +59,13 @@ export type ColdQuestionnaire = Questionnaire;
 
 export type EmployeeWithQuestionnaires = Employee & {
   participant_id: string;
-  hot_questionnaire: Questionnaire | null;
-  cold_questionnaire: Questionnaire | null;
+  course_id?: string;
+  hot_questionnaire: (Questionnaire & {
+    evaluator_signed_at?: string | null;
+    employee_signed_at?: string | null;
+  }) | null;
+  cold_questionnaire: (Questionnaire & {
+    evaluator_signed_at?: string | null;
+    employee_signed_at?: string | null;
+  }) | null;
 };
