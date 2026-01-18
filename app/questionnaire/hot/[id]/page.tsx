@@ -8,9 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, CheckCircle2, Lock } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Lock, PenTool } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
 
 interface QuestionnaireData {
     id: string;
@@ -47,6 +48,14 @@ interface Response {
     section: string;
 }
 
+interface Signature {
+    id: string;
+    questionnaire_id: string;
+    signer_type: 'employee' | 'evaluator';
+    signer_name: string;
+    signed_at: string;
+}
+
 const PERCENTAGE_OPTIONS = [
     { label: 'Bajo (40%)', value: 40 },
     { label: 'Suficiente (60%)', value: 60 },
@@ -59,7 +68,9 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
     const router = useRouter();
     const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null);
     const [responses, setResponses] = useState<Response[]>([]);
+    const [signatures, setSignatures] = useState<Signature[]>([]);
     const [additionalComments, setAdditionalComments] = useState('');
+    const [employeeName, setEmployeeName] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [showProblemsDetail, setShowProblemsDetail] = useState(false);
@@ -103,8 +114,17 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
 
             if (rError) throw rError;
 
+            const { data: sData, error: sError } = await supabase
+                .from('questionnaire_signatures')
+                .select('*')
+                .eq('questionnaire_id', resolvedParams.id)
+                .order('signed_at');
+
+            if (sError) throw sError;
+
             setQuestionnaire(qData as any);
             setResponses(rData as Response[]);
+            setSignatures(sData as Signature[]);
             setAdditionalComments(qData.additional_comments || '');
 
             const hasProblems = rData.find(r => r.question_key === 'has_problems');
@@ -194,8 +214,16 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
         return true;
     };
 
-    const handleSubmit = async () => {
-        if (!validateForm()) return;
+    const validateEmployeeForm = () => {
+        if (!employeeName.trim()) {
+            toast.error('Por favor ingrese su nombre para firmar');
+            return false;
+        }
+        return true;
+    };
+
+    const handleEmployeeSign = async () => {
+        if (!validateForm() || !validateEmployeeForm()) return;
 
         setSaving(true);
         try {
@@ -203,6 +231,16 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                 r => r.section === 'evaluation' && r.percentage_value !== null
             );
             const average = evaluationResponses.reduce((sum, r) => sum + (r.percentage_value || 0), 0) / evaluationResponses.length;
+
+            const { error: sigError } = await supabase
+                .from('questionnaire_signatures')
+                .insert({
+                    questionnaire_id: resolvedParams.id,
+                    signer_type: 'employee',
+                    signer_name: employeeName.trim(),
+                });
+
+            if (sigError) throw sigError;
 
             const { error } = await supabase
                 .from('questionnaires')
@@ -216,7 +254,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
 
             if (error) throw error;
 
-            toast.success('Cuestionario enviado exitosamente');
+            toast.success('Cuestionario firmado y enviado exitosamente');
 
             setTimeout(() => {
                 router.push(`/course/${questionnaire?.course_participant.course_id}`);
@@ -255,6 +293,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
     const isLocked = questionnaire.submitted_at !== null;
     const evaluationQuestions = responses.filter(r => r.section === 'evaluation');
     const feedbackQuestions = responses.filter(r => r.section === 'feedback');
+    const employeeSignature = signatures.find(s => s.signer_type === 'employee');
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
@@ -272,7 +311,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                     <CardHeader>
                         <div className="flex items-start justify-between">
                             <div>
-                                <CardTitle className="text-2xl mb-2">Cuestionario del Empleado (Caliente)</CardTitle>
+                                <CardTitle className="text-2xl mb-2">Cuestionario del Empleado</CardTitle>
                                 <CardDescription>
                                     {isLocked ? (
                                         <span className="flex items-center text-green-600">
@@ -318,10 +357,6 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                             <div>
                                 <p className="font-semibold text-gray-700">Duración del curso</p>
                                 <p className="text-gray-600">{questionnaire.course_participant.course.duration_hours} horas</p>
-                            </div>
-                            <div>
-                                <p className="font-semibold text-gray-700">Código del cuestionario</p>
-                                <p className="text-gray-600">04-S10 F 18 5</p>
                             </div>
                             {isLocked && questionnaire.average_score && (
                                 <div>
@@ -374,6 +409,9 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                     <CardContent className="space-y-6">
                         {feedbackQuestions.map((question) => {
                             if (question.response_type === 'yes_no') {
+                                const isProblemsQuestion = question.question_key === 'has_problems';
+                                const problemsDetailQuestion = feedbackQuestions.find(q => q.question_key === 'problems_detail');
+
                                 return (
                                     <div key={question.id} className="space-y-3">
                                         <Label className="text-base font-semibold">{question.question_text}</Label>
@@ -396,21 +434,19 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                                                 </Label>
                                             </div>
                                         </RadioGroup>
-                                    </div>
-                                );
-                            }
 
-                            if (question.question_key === 'problems_detail' && showProblemsDetail) {
-                                return (
-                                    <div key={question.id} className="space-y-3">
-                                        <Label className="text-base font-semibold">{question.question_text}</Label>
-                                        <Textarea
-                                            value={question.text_value || ''}
-                                            onChange={(e) => updateResponse(question.question_key, e.target.value, 'text')}
-                                            disabled={isLocked}
-                                            placeholder="Especifique el problema..."
-                                            rows={3}
-                                        />
+                                        {isProblemsQuestion && showProblemsDetail && problemsDetailQuestion && (
+                                            <div className="mt-4 ml-6 space-y-2">
+                                                <Label className="text-base font-semibold">{problemsDetailQuestion.question_text}</Label>
+                                                <Textarea
+                                                    value={problemsDetailQuestion.text_value || ''}
+                                                    onChange={(e) => updateResponse(problemsDetailQuestion.question_key, e.target.value, 'text')}
+                                                    disabled={isLocked}
+                                                    placeholder="Especifique el problema..."
+                                                    rows={3}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             }
@@ -432,18 +468,63 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                 </Card>
 
                 {!isLocked && (
-                    <div className="flex justify-end">
-                        <Button
-                            onClick={handleSubmit}
-                            disabled={saving}
-                            size="lg"
-                            className="min-w-[200px]"
-                        >
-                            {saving ? 'Enviando...' : 'Enviar Cuestionario'}
-                        </Button>
-                    </div>
+                    <Card className="mb-6">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <PenTool className="h-5 w-5" />
+                                Firma del Empleado
+                            </CardTitle>
+                            <CardDescription>
+                                Para completar el cuestionario, por favor ingrese su nombre como firma
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="employee-name">Nombre del empleado *</Label>
+                                <Input
+                                    id="employee-name"
+                                    value={employeeName}
+                                    onChange={(e) => setEmployeeName(e.target.value)}
+                                    placeholder="Escriba su nombre completo"
+                                />
+                            </div>
+                            <div className="flex justify-end">
+                                <Button
+                                    onClick={handleEmployeeSign}
+                                    disabled={saving}
+                                    size="lg"
+                                    className="min-w-[200px]"
+                                >
+                                    {saving ? 'Enviando...' : 'Firmar y Enviar'}
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {isLocked && employeeSignature && (
+                    <Card className="mb-6 border-green-200 bg-green-50">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-green-800">
+                                <CheckCircle2 className="h-5 w-5" />
+                                Cuestionario Completado
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="font-semibold text-green-800">Firmado por:</span>
+                                    <span className="text-green-700">{employeeSignature.signer_name}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-semibold text-green-800">Fecha de firma:</span>
+                                    <span className="text-green-700">{format(new Date(employeeSignature.signed_at), 'dd/MM/yyyy HH:mm')}</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 )}
             </div>
-        </div >
+        </div>
     );
 }

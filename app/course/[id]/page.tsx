@@ -456,8 +456,8 @@ export default function CourseDetailPage() {
                                                                     <span>•</span>
                                                                     <span>
                                                                         <strong>{p.employeeName}</strong>
-                                                                        {p.missingHot && ' - Falta cuestionario caliente firmado'}
-                                                                        {p.missingCold && ' - Falta cuestionario frío firmado'}
+                                                                        {p.missingHot && ' - Falta cuestionario empleado firmado'}
+                                                                        {p.missingCold && ' - Falta cuestionario evaluador firmado'}
                                                                         {p.missingSignatures && ' - Faltan firmas'}
                                                                     </span>
                                                                 </li>

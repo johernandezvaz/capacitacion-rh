@@ -97,12 +97,12 @@ export async function GET(
             }
 
             if (reportType === 'hot' && !hasHot) {
-                incompleteParticipants.push(`${employee.nombre} (cuestionario caliente pendiente)`);
+                incompleteParticipants.push(`${employee.nombre} (cuestionario empleado pendiente)`);
             } else if (reportType === 'cold' && (!hasHot || !hasCold || !hasColdSignatures)) {
                 const missing: string[] = [];
-                if (!hasHot) missing.push('cuestionario caliente');
-                if (!hasCold) missing.push('cuestionario frío');
-                if (hasCold && !hasColdSignatures) missing.push('firmas del cuestionario frío');
+                if (!hasHot) missing.push('cuestionario empleado');
+                if (!hasCold) missing.push('cuestionario evaluador');
+                if (hasCold && !hasColdSignatures) missing.push('firmas del cuestionario evaluador');
                 incompleteParticipants.push(`${employee.nombre} (falta: ${missing.join(', ')})`);
             }
         }
@@ -110,7 +110,7 @@ export async function GET(
         if (incompleteParticipants.length > 0) {
             return NextResponse.json(
                 {
-                    error: `No se puede generar el reporte ${reportType === 'hot' ? 'caliente' : 'frío'}`,
+                    error: `No se puede generar el reporte ${reportType === 'hot' ? 'empleado' : 'evaluador'}`,
                     reason: 'Hay participantes que no han completado todos los requisitos',
                     incompleteParticipants,
                 },
@@ -167,7 +167,7 @@ export async function GET(
         // Title
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        const title = `REPORTE DE EVALUACIÓN - ${reportType === 'hot' ? 'EMPLEADO' : 'EVALUADOR'}`;
+        const title = `REPORTE DE EVALUACIÓN - ${reportType === 'hot' ? 'CALIENTE' : 'FRÍO'}`;
         doc.text(title, doc.internal.pageSize.getWidth() / 2, 35, { align: 'center' });
 
         // Form code
@@ -238,7 +238,7 @@ export async function GET(
         // Generate buffer
         const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
 
-        const reportTypeName = reportType === 'hot' ? 'Caliente' : 'Frio';
+        const reportTypeName = reportType === 'hot' ? 'Empleado' : 'Evaluador';
         const participantSuffix = participantId ? `_${participants[0].nombre.replace(/\s+/g, '_')}` : '';
         const fileName = `Reporte_${reportTypeName}_${courseData.name.replace(/\s+/g, '_')}${participantSuffix}_${new Date().toISOString().split('T')[0]}.pdf`;
 

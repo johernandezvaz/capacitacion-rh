@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, CheckCircle2, Lock, AlertCircle } from 'lucide-react';
 import { format, isAfter } from 'date-fns';
 import { toast } from 'sonner';
@@ -19,6 +20,9 @@ interface QuestionnaireData {
     submitted_at: string | null;
     available_from: string;
     average_score: number | null;
+    observation_1: string | null;
+    observation_2: string | null;
+    observation_3: string | null;
     course_participant: {
         id: string;
         course_id: string;
@@ -67,6 +71,9 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
     const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null);
     const [responses, setResponses] = useState<Response[]>([]);
     const [signatures, setSignatures] = useState<Signature[]>([]);
+    const [observation1, setObservation1] = useState('');
+    const [observation2, setObservation2] = useState('');
+    const [observation3, setObservation3] = useState('');
     const [evaluatorName, setEvaluatorName] = useState('');
     const [employeeName, setEmployeeName] = useState('');
     const [loading, setLoading] = useState(true);
@@ -88,6 +95,9 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
           submitted_at,
           available_from,
           average_score,
+          observation_1,
+          observation_2,
+          observation_3,
           course_participant:course_participants(
             id,
             course_id,
@@ -123,6 +133,9 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             setQuestionnaire(qData as any);
             setResponses(rData as Response[]);
             setSignatures(sData as Signature[]);
+            setObservation1(qData.observation_1 || '');
+            setObservation2(qData.observation_2 || '');
+            setObservation3(qData.observation_3 || '');
 
             const now = new Date();
             const availableDate = new Date(qData.available_from);
@@ -168,11 +181,46 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
         );
     };
 
+    const updateObservations = async () => {
+        const evaluatorSignature = signatures.find(s => s.signer_type === 'evaluator');
+        if (evaluatorSignature) {
+            return;
+        }
+
+        const { error } = await supabase
+            .from('questionnaires')
+            .update({
+                observation_1: observation1,
+                observation_2: observation2,
+                observation_3: observation3,
+            })
+            .eq('id', resolvedParams.id);
+
+        if (error) {
+            console.error('Error updating observations:', error);
+        }
+    };
+
     const validateEvaluatorForm = () => {
         const allAnswered = responses.every(r => r.percentage_value !== null);
 
         if (!allAnswered) {
             toast.error('Por favor responda todas las preguntas de evaluación');
+            return false;
+        }
+
+        if (!observation1.trim()) {
+            toast.error('Por favor complete la Observación 1');
+            return false;
+        }
+
+        if (!observation2.trim()) {
+            toast.error('Por favor complete la Observación 2');
+            return false;
+        }
+
+        if (!observation3.trim()) {
+            toast.error('Por favor complete la Observación 3');
             return false;
         }
 
@@ -194,6 +242,18 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                 ? validResponses.reduce((sum, r) => sum + (r.percentage_value || 0), 0) / validResponses.length
                 : 0;
 
+            const { error: qError } = await supabase
+                .from('questionnaires')
+                .update({
+                    average_score: average,
+                    observation_1: observation1.trim(),
+                    observation_2: observation2.trim(),
+                    observation_3: observation3.trim(),
+                })
+                .eq('id', resolvedParams.id);
+
+            if (qError) throw qError;
+
             const { error: sigError } = await supabase
                 .from('questionnaire_signatures')
                 .insert({
@@ -203,15 +263,6 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                 });
 
             if (sigError) throw sigError;
-
-            const { error: qError } = await supabase
-                .from('questionnaires')
-                .update({
-                    average_score: average,
-                })
-                .eq('id', resolvedParams.id);
-
-            if (qError) throw qError;
 
             toast.success('Firma del evaluador registrada exitosamente');
             await fetchQuestionnaire();
@@ -315,7 +366,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                     <CardHeader>
                         <div className="flex items-start justify-between">
                             <div>
-                                <CardTitle className="text-2xl mb-2">Cuestionario del Evaluador (Frío)</CardTitle>
+                                <CardTitle className="text-2xl mb-2">Cuestionario del Evaluador</CardTitle>
                                 <CardDescription>
                                     {isLocked ? (
                                         <span className="flex items-center text-green-600">
@@ -367,10 +418,6 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                                 <p className="font-semibold text-gray-700">Duración del curso</p>
                                 <p className="text-gray-600">{questionnaire.course_participant.course.duration_hours} horas</p>
                             </div>
-                            <div>
-                                <p className="font-semibold text-gray-700">Código del cuestionario</p>
-                                <p className="text-gray-600">04-S10 F 18 6</p>
-                            </div>
                             {isLocked && questionnaire.average_score !== null && (
                                 <div>
                                     <p className="font-semibold text-gray-700">Promedio</p>
@@ -412,6 +459,53 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                                 </RadioGroup>
                             </div>
                         ))}
+                    </CardContent>
+                </Card>
+
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle>Observaciones del Evaluador</CardTitle>
+                        <CardDescription>
+                            Complete las 3 observaciones obligatorias
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="space-y-3">
+                            <Label htmlFor="obs1" className="text-base font-semibold">Observación 1 *</Label>
+                            <Textarea
+                                id="obs1"
+                                value={observation1}
+                                onChange={(e) => setObservation1(e.target.value)}
+                                onBlur={updateObservations}
+                                disabled={!canEdit}
+                                placeholder="Ingrese la primera observación..."
+                                rows={3}
+                            />
+                        </div>
+                        <div className="space-y-3">
+                            <Label htmlFor="obs2" className="text-base font-semibold">Observación 2 *</Label>
+                            <Textarea
+                                id="obs2"
+                                value={observation2}
+                                onChange={(e) => setObservation2(e.target.value)}
+                                onBlur={updateObservations}
+                                disabled={!canEdit}
+                                placeholder="Ingrese la segunda observación..."
+                                rows={3}
+                            />
+                        </div>
+                        <div className="space-y-3">
+                            <Label htmlFor="obs3" className="text-base font-semibold">Observación 3 *</Label>
+                            <Textarea
+                                id="obs3"
+                                value={observation3}
+                                onChange={(e) => setObservation3(e.target.value)}
+                                onBlur={updateObservations}
+                                disabled={!canEdit}
+                                placeholder="Ingrese la tercera observación..."
+                                rows={3}
+                            />
+                        </div>
                     </CardContent>
                 </Card>
 

@@ -103,7 +103,7 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
             const a = document.createElement('a');
             a.href = url;
 
-            const reportType = type === 'hot' ? 'Caliente' : 'Frio';
+            const reportType = type === 'hot' ? 'Empleado' : 'Evaluador';
             a.download = `Reporte_${reportType}_${employee.nombre.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
             document.body.appendChild(a);
             a.click();
@@ -112,7 +112,7 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
 
             toast({
                 title: 'Éxito',
-                description: `Reporte ${type === 'hot' ? 'caliente' : 'frío'} generado exitosamente`,
+                description: `Reporte ${type === 'hot' ? 'empleado' : 'evaluador'} generado exitosamente`,
             });
         } catch (error: any) {
             console.error('Error downloading report:', error);
@@ -311,7 +311,7 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
                                                 className="w-full min-w-[120px] text-xs"
                                             >
                                                 <Download className="w-3 h-3 mr-1" />
-                                                {loadingReports[`${employee.participant_id}-hot`] ? 'Generando...' : 'Caliente'}
+                                                {loadingReports[`${employee.participant_id}-hot`] ? 'Generando...' : 'Empleado'}
                                             </Button>
                                             <Button
                                                 variant="outline"
@@ -321,7 +321,7 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
                                                 className="w-full min-w-[120px] text-xs"
                                             >
                                                 <Download className="w-3 h-3 mr-1" />
-                                                {loadingReports[`${employee.participant_id}-cold`] ? 'Generando...' : 'Frío'}
+                                                {loadingReports[`${employee.participant_id}-cold`] ? 'Generando...' : 'Evaluador'}
                                             </Button>
                                         </div>
                                     </TableCell>
@@ -448,7 +448,7 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
                                             className="flex-1 text-xs"
                                         >
                                             <Download className="w-3 h-3 mr-1" />
-                                            {loadingReports[`${employee.participant_id}-hot`] ? 'Gen...' : 'Caliente'}
+                                            {loadingReports[`${employee.participant_id}-hot`] ? 'Gen...' : 'Empleado'}
                                         </Button>
                                         <Button
                                             variant="outline"
@@ -458,7 +458,7 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
                                             className="flex-1 text-xs"
                                         >
                                             <Download className="w-3 h-3 mr-1" />
-                                            {loadingReports[`${employee.participant_id}-cold`] ? 'Gen...' : 'Frío'}
+                                            {loadingReports[`${employee.participant_id}-cold`] ? 'Gen...' : 'Evaluador'}
                                         </Button>
                                     </div>
                                 </div>
