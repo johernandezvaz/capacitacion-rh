@@ -158,13 +158,22 @@ export const CourseReportPDF = ({ data }: { data: CourseReportData }) => {
     };
 
     const formatDate = (dateString: string): string => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('es-MX', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        });
+        try {
+            const [year, month, day] = dateString.split('-');
+            const monthNames = [
+                'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+            ];
+            const monthName = monthNames[parseInt(month, 10) - 1];
+            return `${parseInt(day, 10)} de ${monthName} de ${year}`;
+        } catch {
+            return dateString;
+        }
     };
+
+    const currentDate = new Date();
+    const currentDateStr = `${currentDate.getDate()}/${currentDate.getMonth() + 1}/${currentDate.getFullYear()}`;
+    const currentTimeStr = `${currentDate.getHours()}:${String(currentDate.getMinutes()).padStart(2, '0')}`;
 
     return (
         <Document>
@@ -259,7 +268,7 @@ export const CourseReportPDF = ({ data }: { data: CourseReportData }) => {
                 </View>
 
                 <Text style={styles.footer}>
-                    Generado el {new Date().toLocaleDateString('es-MX')} a las {new Date().toLocaleTimeString('es-MX')}
+                    Generado el {currentDateStr} a las {currentTimeStr}
                 </Text>
             </Page>
         </Document>

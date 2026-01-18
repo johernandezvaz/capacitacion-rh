@@ -254,11 +254,12 @@ export default function CourseDetailPage() {
         setIsExporting(true);
         try {
             const response = await fetch(`/api/attendance-list/${params.id}`);
-
-            console.log('Response:', response.ok);
+            console.log('Attendance list response:', response);
 
             if (!response.ok) {
-                throw new Error('Error al generar la lista de asistencia');
+                const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+                console.error('Error response data:', errorData);
+                throw new Error(errorData.error || 'Error al generar la lista de asistencia');
             }
 
             const blob = await response.blob();

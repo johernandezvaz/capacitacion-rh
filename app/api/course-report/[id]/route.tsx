@@ -1,8 +1,7 @@
-import React from 'react';
 import { NextRequest, NextResponse } from 'next/server';
-import { renderToBuffer } from '@react-pdf/renderer';
-import { CourseReportPDF } from '@/components/course-report-pdf';
 import { supabase } from '@/lib/supabase';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -23,15 +22,7 @@ export async function GET(
             .eq('id', courseId)
             .maybeSingle();
 
-        if (courseError) {
-            console.error('Error fetching course:', courseError);
-            return NextResponse.json(
-                { error: 'Error al obtener el curso', details: courseError.message },
-                { status: 500 }
-            );
-        }
-
-        if (!courseData) {
+        if (courseError || !courseData) {
             return NextResponse.json(
                 { error: 'Curso no encontrado' },
                 { status: 404 }
@@ -49,9 +40,7 @@ export async function GET(
                     area,
                     puesto,
                     evaluador
-                ),
-                hot_questionnaires(id, completed_at, average_score),
-                cold_questionnaires(id, evaluator_name, signature_employee_name, signature_date)
+                )
             `)
             .eq('course_id', courseId);
 
@@ -61,48 +50,64 @@ export async function GET(
 
         const { data: participantsData, error: participantsError } = await participantsQuery;
 
-        if (participantsError) {
-            return NextResponse.json(
-                { error: 'Error al obtener participantes', details: participantsError.message },
-                { status: 500 }
-            );
-        }
-
-        if (!participantsData || participantsData.length === 0) {
+        if (participantsError || !participantsData || participantsData.length === 0) {
             return NextResponse.json(
                 { error: participantId ? 'Participante no encontrado' : 'El curso no tiene participantes inscritos' },
                 { status: 400 }
             );
         }
 
+        const participantIds = participantsData.map((p: any) => p.id);
+
+        const { data: questionnaires } = await supabase
+            .from('questionnaires')
+            .select('*')
+            .in('course_participant_id', participantIds);
+
+        const questionnaireIds = questionnaires?.map((q) => q.id) || [];
+
+        let signatures: any[] = [];
+        if (questionnaireIds.length > 0) {
+            const { data: signaturesData } = await supabase
+                .from('questionnaire_signatures')
+                .select('*')
+                .in('questionnaire_id', questionnaireIds);
+
+            signatures = signaturesData || [];
+        }
+
         const incompleteParticipants: string[] = [];
 
         for (const participant of participantsData) {
             const employee = Array.isArray(participant.employee) ? participant.employee[0] : participant.employee;
-
             if (!employee) continue;
 
-            const hasHot = participant.hot_questionnaires?.length > 0 &&
-                participant.hot_questionnaires[0].completed_at;
-            const hasCold = participant.cold_questionnaires?.length > 0;
-            const coldData = hasCold ? participant.cold_questionnaires[0] : null;
-            const hasColdComplete = coldData &&
-                coldData.evaluator_name &&
-                coldData.signature_employee_name &&
-                coldData.signature_date;
+            const hotQ = questionnaires?.find((q) => q.course_participant_id === participant.id && q.type === 'hot') || null;
+            const coldQ = questionnaires?.find((q) => q.course_participant_id === participant.id && q.type === 'cold') || null;
+
+            const hasHot = hotQ && hotQ.submitted_at;
+            const hasCold = coldQ && coldQ.submitted_at;
+
+            let hasColdSignatures = false;
+            if (coldQ) {
+                const coldSignatures = signatures.filter((s) => s.questionnaire_id === coldQ.id);
+                const evaluatorSig = coldSignatures.find((s) => s.signer_type === 'evaluator');
+                const employeeSig = coldSignatures.find((s) => s.signer_type === 'employee');
+                hasColdSignatures = !!evaluatorSig && !!employeeSig;
+            }
 
             if (reportType === 'hot' && !hasHot) {
                 incompleteParticipants.push(`${employee.nombre} (cuestionario caliente pendiente)`);
-            } else if (reportType === 'cold' && (!hasHot || !hasColdComplete)) {
+            } else if (reportType === 'cold' && (!hasHot || !hasCold || !hasColdSignatures)) {
                 const missing: string[] = [];
                 if (!hasHot) missing.push('cuestionario caliente');
-                if (!hasColdComplete) missing.push('cuestionario frío con firmas');
+                if (!hasCold) missing.push('cuestionario frío');
+                if (hasCold && !hasColdSignatures) missing.push('firmas del cuestionario frío');
                 incompleteParticipants.push(`${employee.nombre} (falta: ${missing.join(', ')})`);
             }
         }
 
         if (incompleteParticipants.length > 0) {
-            console.log(`Cannot generate ${reportType} report. Incomplete participants:`, incompleteParticipants);
             return NextResponse.json(
                 {
                     error: `No se puede generar el reporte ${reportType === 'hot' ? 'caliente' : 'frío'}`,
@@ -115,14 +120,17 @@ export async function GET(
 
         const participants = participantsData.map((p: any) => {
             const employee = Array.isArray(p.employee) ? p.employee[0] : p.employee;
+            const hotQ = questionnaires?.find((q) => q.course_participant_id === p.id && q.type === 'hot') || null;
+            const coldQ = questionnaires?.find((q) => q.course_participant_id === p.id && q.type === 'cold') || null;
+
             return {
                 employee_number: employee?.employee_number || '',
                 nombre: employee?.nombre || '',
                 area: employee?.area || '',
                 puesto: employee?.puesto || '',
                 evaluador: employee?.evaluador || '',
-                hot_score: p.hot_questionnaires?.[0]?.average_score || null,
-                cold_score: reportType === 'cold' ? (p.hot_questionnaires?.[0]?.average_score || null) : null,
+                hot_score: hotQ?.average_score || null,
+                cold_score: reportType === 'cold' ? (coldQ?.average_score || hotQ?.average_score || null) : null,
             };
         }).filter(p => p.employee_number);
 
@@ -134,9 +142,9 @@ export async function GET(
             ? scores.reduce((sum, score) => sum + score, 0) / scores.length
             : null;
 
-        const logoPath = join(process.cwd(), 'public', 'safe-demo_logo-blc-photoroom.png');
+        // Load logo
+        const logoPath = join(process.cwd(), 'public', 'safe-demo_logo-blc-Photoroom.png');
         let logoBase64 = '';
-
         try {
             const logoBuffer = readFileSync(logoPath);
             logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
@@ -144,33 +152,109 @@ export async function GET(
             console.error('Error loading logo:', error);
         }
 
-        const reportData = {
-            courseName: courseData.name,
-            courseDate: courseData.date,
-            courseDuration: courseData.duration_hours,
-            totalParticipants: participants.length,
-            participants,
-            averageScore,
-            reportType: reportType as 'hot' | 'cold',
-            logoBase64,
-        };
+        // Generate PDF using jsPDF
+        const doc = new jsPDF();
 
-        const buffer = await renderToBuffer(<CourseReportPDF data={reportData} />);
+        // Add logo if available
+        if (logoBase64) {
+            try {
+                doc.addImage(logoBase64, 'PNG', 14, 10, 30, 15);
+            } catch (error) {
+                console.error('Error adding logo to PDF:', error);
+            }
+        }
+
+        // Title
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        const title = `REPORTE DE EVALUACIÓN - ${reportType === 'hot' ? 'EMPLEADO' : 'EVALUADOR'}`;
+        doc.text(title, doc.internal.pageSize.getWidth() / 2, 35, { align: 'center' });
+
+        // Form code
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        const formCode = reportType === 'hot' ? '04-S10 F 18 5' : '04-S10 F 18 6';
+        doc.text(`Código: ${formCode}`, doc.internal.pageSize.getWidth() / 2, 42, { align: 'center' });
+
+        // Course info
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Curso: ${courseData.name}`, 14, 52);
+        doc.text(`Fecha: ${courseData.date}`, 14, 58);
+        doc.text(`Duración: ${courseData.duration_hours} horas`, 14, 64);
+        doc.text(`Total de participantes: ${participants.length}`, 14, 70);
+
+        if (averageScore !== null) {
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Calificación promedio: ${averageScore.toFixed(2)}`, 14, 76);
+            doc.setFont('helvetica', 'normal');
+        }
+
+        // Participants table
+        const tableData = participants.map((p, index) => [
+            index + 1,
+            p.employee_number,
+            p.nombre,
+            p.area,
+            p.puesto,
+            reportType === 'hot' ? (p.hot_score?.toFixed(2) || 'N/A') : (p.cold_score?.toFixed(2) || 'N/A')
+        ]);
+
+        autoTable(doc, {
+            startY: 84,
+            head: [['#', 'No. Empleado', 'Nombre', 'Área', 'Puesto', 'Calificación']],
+            body: tableData,
+            theme: 'grid',
+            headStyles: {
+                fillColor: [52, 152, 219],
+                textColor: 255,
+                fontStyle: 'bold',
+                halign: 'center'
+            },
+            styles: {
+                fontSize: 8,
+                cellPadding: 2
+            },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 10 },
+                1: { halign: 'center', cellWidth: 25 },
+                2: { cellWidth: 45 },
+                3: { cellWidth: 30 },
+                4: { cellWidth: 35 },
+                5: { halign: 'center', cellWidth: 25 }
+            }
+        });
+
+        // Footer with date
+        const finalY = (doc as any).lastAutoTable?.finalY || 84;
+        doc.setFontSize(9);
+        doc.setTextColor(128, 128, 128);
+        doc.text(
+            `Generado el: ${new Date().toLocaleDateString('es-MX')}`,
+            14,
+            finalY + 10
+        );
+
+        // Generate buffer
+        const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
 
         const reportTypeName = reportType === 'hot' ? 'Caliente' : 'Frio';
         const participantSuffix = participantId ? `_${participants[0].nombre.replace(/\s+/g, '_')}` : '';
         const fileName = `Reporte_${reportTypeName}_${courseData.name.replace(/\s+/g, '_')}${participantSuffix}_${new Date().toISOString().split('T')[0]}.pdf`;
 
-        return new NextResponse(buffer, {
+        return new NextResponse(pdfBuffer, {
             headers: {
                 'Content-Type': 'application/pdf',
                 'Content-Disposition': `attachment; filename="${fileName}"`,
             },
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error generating PDF:', error);
         return NextResponse.json(
-            { error: 'Error al generar el PDF' },
+            {
+                error: 'Error al generar el PDF',
+                details: error?.message || String(error)
+            },
             { status: 500 }
         );
     }

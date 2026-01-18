@@ -108,13 +108,30 @@ interface AttendanceListPDFProps {
 
 export function AttendanceListPDF({ course, participants }: AttendanceListPDFProps) {
     const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('es-MX', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        });
+        if (!dateString || typeof dateString !== 'string') return String(dateString || '');
+        try {
+            // Handle potential Date object if it slipped through
+            const str = String(dateString);
+            const [year, month, day] = str.split('-');
+            const monthNames = [
+                'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+            ];
+            // Ensure we have valid parts
+            if (!year || !month || !day) return str;
+
+            const monthIndex = parseInt(month, 10) - 1;
+            const monthName = monthNames[monthIndex] || month;
+            return `${parseInt(day, 10)} de ${monthName} de ${year}`;
+        } catch (e) {
+            console.error('Error formatting date:', e);
+            return String(dateString);
+        }
     };
+
+    const currentDate = new Date();
+    const currentDateStr = `${currentDate.getDate()}/${currentDate.getMonth() + 1}/${currentDate.getFullYear()}`;
+    const currentTimeStr = `${currentDate.getHours()}:${String(currentDate.getMinutes()).padStart(2, '0')}`;
 
     return (
         <Document>
@@ -127,19 +144,19 @@ export function AttendanceListPDF({ course, participants }: AttendanceListPDFPro
                 <View style={styles.courseInfo}>
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Nombre del Curso:</Text>
-                        <Text style={styles.infoValue}>{course.name}</Text>
+                        <Text style={styles.infoValue}>{String(course?.name || '')}</Text>
                     </View>
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Fecha:</Text>
-                        <Text style={styles.infoValue}>{formatDate(course.date)}</Text>
+                        <Text style={styles.infoValue}>{formatDate(course?.date)}</Text>
                     </View>
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Duración:</Text>
-                        <Text style={styles.infoValue}>{course.duration_hours} horas</Text>
+                        <Text style={styles.infoValue}>{String(course?.duration_hours || '')} horas</Text>
                     </View>
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Total Participantes:</Text>
-                        <Text style={styles.infoValue}>{participants.length}</Text>
+                        <Text style={styles.infoValue}>{String(participants?.length || 0)}</Text>
                     </View>
                 </View>
 
@@ -153,20 +170,20 @@ export function AttendanceListPDF({ course, participants }: AttendanceListPDFPro
                         <Text style={[styles.tableHeaderCell, styles.col6]}>Firma</Text>
                     </View>
 
-                    {participants.map((participant, index) => (
+                    {participants?.map((participant, index) => (
                         <View key={index} style={styles.tableRow}>
                             <Text style={[styles.tableCell, styles.col1]}>{index + 1}</Text>
-                            <Text style={[styles.tableCell, styles.col2]}>{participant.employee_number}</Text>
-                            <Text style={[styles.tableCell, styles.col3]}>{participant.nombre}</Text>
-                            <Text style={[styles.tableCell, styles.col4]}>{participant.area}</Text>
-                            <Text style={[styles.tableCell, styles.col5]}>{participant.puesto}</Text>
+                            <Text style={[styles.tableCell, styles.col2]}>{String(participant.employee_number || '')}</Text>
+                            <Text style={[styles.tableCell, styles.col3]}>{String(participant.nombre || '')}</Text>
+                            <Text style={[styles.tableCell, styles.col4]}>{String(participant.area || '')}</Text>
+                            <Text style={[styles.tableCell, styles.col5]}>{String(participant.puesto || '')}</Text>
                             <Text style={[styles.tableCell, styles.col6]}></Text>
                         </View>
                     ))}
                 </View>
 
                 <Text style={styles.footer}>
-                    Documento generado el {new Date().toLocaleDateString('es-MX')} a las {new Date().toLocaleTimeString('es-MX')}
+                    Documento generado el {currentDateStr} a las {currentTimeStr}
                 </Text>
             </Page>
         </Document>
