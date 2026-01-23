@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, CheckCircle2, Lock, PenTool } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Lock, PenTool, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
@@ -74,6 +74,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [showProblemsDetail, setShowProblemsDetail] = useState(false);
+    const [downloadingPDF, setDownloadingPDF] = useState(false);
 
     useEffect(() => {
         fetchQuestionnaire();
@@ -267,6 +268,40 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
         }
     };
 
+    const handleDownloadPDF = async () => {
+        if (!questionnaire?.submitted_at) {
+            toast.error('El cuestionario debe estar completado para descargar el PDF');
+            return;
+        }
+
+        setDownloadingPDF(true);
+        try {
+            const response = await fetch(`/api/questionnaire-pdf/${resolvedParams.id}`);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Error al generar el PDF');
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Cuestionario_${questionnaire.course_participant.employee.nombre.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            toast.success('PDF descargado exitosamente');
+        } catch (error: any) {
+            console.error('Error downloading PDF:', error);
+            toast.error(error.message || 'Error al descargar el PDF');
+        } finally {
+            setDownloadingPDF(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
@@ -323,9 +358,22 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                                     )}
                                 </CardDescription>
                             </div>
-                            {isLocked && (
-                                <Lock className="h-6 w-6 text-gray-400" />
-                            )}
+                            <div className="flex items-center gap-2">
+                                {isLocked && (
+                                    <>
+                                        <Button
+                                            onClick={handleDownloadPDF}
+                                            disabled={downloadingPDF}
+                                            variant="outline"
+                                            size="sm"
+                                        >
+                                            <Download className="h-4 w-4 mr-2" />
+                                            {downloadingPDF ? 'Generando...' : 'Descargar PDF'}
+                                        </Button>
+                                        <Lock className="h-6 w-6 text-gray-400" />
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
