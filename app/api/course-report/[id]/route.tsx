@@ -173,8 +173,7 @@ export async function GET(
         // Form code
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        const formCode = reportType === 'hot' ? '04-S10 F 18 5' : '04-S10 F 18 6';
-        doc.text(`Código: ${formCode}`, doc.internal.pageSize.getWidth() / 2, 42, { align: 'center' });
+        // Code removed as per requirement
 
         // Course info
         doc.setFontSize(11);

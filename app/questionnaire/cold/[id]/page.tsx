@@ -523,7 +523,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                                     </div>
                                     <div className="text-right">
                                         <p className="text-sm text-green-600">
-                                            {format(new Date(evaluatorSignature.signed_at), 'dd/MM/yyyy HH:mm')}
+
                                         </p>
                                     </div>
                                 </div>
@@ -536,7 +536,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                                     </div>
                                     <div className="text-right">
                                         <p className="text-sm text-blue-600">
-                                            {format(new Date(employeeSignature.signed_at), 'dd/MM/yyyy HH:mm')}
+
                                         </p>
                                     </div>
                                 </div>

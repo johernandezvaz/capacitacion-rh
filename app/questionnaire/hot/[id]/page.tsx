@@ -516,10 +516,6 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                                     <span className="font-semibold text-green-800">Firmado por:</span>
                                     <span className="text-green-700">{employeeSignature.signer_name}</span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="font-semibold text-green-800">Fecha de firma:</span>
-                                    <span className="text-green-700">{format(new Date(employeeSignature.signed_at), 'dd/MM/yyyy HH:mm')}</span>
-                                </div>
                             </div>
                         </CardContent>
                     </Card>
