@@ -16,6 +16,8 @@ export type Course = {
   year_id: string;
   name: string;
   date: string;
+  start_date?: string | null;
+  end_date?: string | null;
   duration_hours: number;
   status: 'draft' | 'active' | 'closed';
   created_at: string;
@@ -59,13 +61,6 @@ export type ColdQuestionnaire = Questionnaire;
 
 export type EmployeeWithQuestionnaires = Employee & {
   participant_id: string;
-  course_id?: string;
-  hot_questionnaire: (Questionnaire & {
-    evaluator_signed_at?: string | null;
-    employee_signed_at?: string | null;
-  }) | null;
-  cold_questionnaire: (Questionnaire & {
-    evaluator_signed_at?: string | null;
-    employee_signed_at?: string | null;
-  }) | null;
+  hot_questionnaire: Questionnaire | null;
+  cold_questionnaire: Questionnaire | null;
 };

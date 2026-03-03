@@ -30,6 +30,8 @@ export function CreateCourseModal({
 }: CreateCourseModalProps) {
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [duration, setDuration] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -56,6 +58,15 @@ export function CreateCourseModal({
       return;
     }
 
+    if (startDate && endDate && endDate < startDate) {
+      toast({
+        title: 'Error',
+        description: 'La fecha de fin debe ser posterior o igual a la fecha de inicio',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -64,8 +75,10 @@ export function CreateCourseModal({
           year_id: yearId,
           name: name.trim(),
           date,
+          start_date: startDate || null,
+          end_date: endDate || null,
           duration_hours: durationNumber,
-          status: 'active',
+          status: 'draft',
         },
       ]);
 
@@ -73,6 +86,8 @@ export function CreateCourseModal({
 
       setName('');
       setDate('');
+      setStartDate('');
+      setEndDate('');
       setDuration('');
       onSuccess();
     } catch (error) {
@@ -89,6 +104,8 @@ export function CreateCourseModal({
   const handleClose = () => {
     setName('');
     setDate('');
+    setStartDate('');
+    setEndDate('');
     setDuration('');
     onOpenChange(false);
   };
@@ -126,6 +143,28 @@ export function CreateCourseModal({
                 onChange={(e) => setDate(e.target.value)}
                 required
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="start-date">Fecha de Inicio (Opcional)</Label>
+                <Input
+                  id="start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="end-date">Fecha de Fin (Opcional)</Label>
+                <Input
+                  id="end-date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
