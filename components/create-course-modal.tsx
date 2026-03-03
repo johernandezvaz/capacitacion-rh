@@ -147,7 +147,7 @@ export function CreateCourseModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="start-date">Fecha de Inicio (Opcional)</Label>
+                <Label htmlFor="start-date">Fecha de Inicio</Label>
                 <Input
                   id="start-date"
                   type="date"
@@ -157,7 +157,7 @@ export function CreateCourseModal({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="end-date">Fecha de Fin (Opcional)</Label>
+                <Label htmlFor="end-date">Fecha de Fin</Label>
                 <Input
                   id="end-date"
                   type="date"

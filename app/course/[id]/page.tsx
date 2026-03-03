@@ -9,8 +9,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmployeeSearcher } from '@/components/employee-searcher';
 import { EmployeeList } from '@/components/employee-list';
-import { supabase, Course, TrainingYear, EmployeeWithQuestionnaires } from '@/lib/supabase';
+import { Course, TrainingYear, EmployeeWithQuestionnaires, supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Edit2 } from 'lucide-react';
 
 export default function CourseDetailPage() {
     const params = useParams();
@@ -22,6 +33,10 @@ export default function CourseDetailPage() {
     const [employees, setEmployees] = useState<EmployeeWithQuestionnaires[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isExporting, setIsExporting] = useState(false);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isSavingDates, setIsSavingDates] = useState(false);
+    const [editStartDate, setEditStartDate] = useState('');
+    const [editEndDate, setEditEndDate] = useState('');
 
     const fetchCourseData = async () => {
         try {
@@ -143,6 +158,57 @@ export default function CourseDetailPage() {
         }
     };
 
+    const handleOpenEditDates = () => {
+        setEditStartDate(course?.start_date || '');
+        setEditEndDate(course?.end_date || '');
+        setIsEditDialogOpen(true);
+    };
+
+    const handleSaveDates = async () => {
+        if (editStartDate && editEndDate && editEndDate < editStartDate) {
+            toast({
+                title: 'Error',
+                description: 'La fecha de fin debe ser posterior o igual a la fecha de inicio',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        setIsSavingDates(true);
+        try {
+            const { error } = await supabase
+                .from('courses')
+                .update({
+                    start_date: editStartDate || null,
+                    end_date: editEndDate || null,
+                })
+                .eq('id', params.id);
+
+            if (error) throw error;
+
+            setCourse(prev => prev ? {
+                ...prev,
+                start_date: editStartDate || null,
+                end_date: editEndDate || null,
+            } : null);
+
+            setIsEditDialogOpen(false);
+            toast({
+                title: 'Éxito',
+                description: 'Fechas actualizadas correctamente',
+            });
+        } catch (error) {
+            console.error('Error updating dates:', error);
+            toast({
+                title: 'Error',
+                description: 'No se pudieron actualizar las fechas',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsSavingDates(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="min-h-screen p-8">
@@ -247,8 +313,8 @@ export default function CourseDetailPage() {
                             </div>
                         </div>
 
-                        {(course.start_date || course.end_date) && (
-                            <div className="mt-6 pt-6 border-t">
+                        <div className="mt-6 pt-6 border-t">
+                            <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="flex items-center justify-center w-12 h-12 rounded-full bg-purple-100">
                                         <Calendar className="w-6 h-6 text-purple-600" />
@@ -256,34 +322,37 @@ export default function CourseDetailPage() {
                                     <div>
                                         <p className="text-sm text-muted-foreground">Duración del Curso</p>
                                         <p className="font-semibold">
-                                            {course.start_date && course.end_date ? (
+                                            {course.start_date || course.end_date ? (
                                                 <>
-                                                    {new Date(course.start_date).toLocaleDateString('es-MX', {
+                                                    {course.start_date ? new Date(course.start_date).toLocaleDateString('es-MX', {
                                                         year: 'numeric',
                                                         month: 'long',
                                                         day: 'numeric',
-                                                    })}
+                                                    }) : 'Sin fecha de inicio'}
                                                     {' – '}
-                                                    {new Date(course.end_date).toLocaleDateString('es-MX', {
+                                                    {course.end_date ? new Date(course.end_date).toLocaleDateString('es-MX', {
                                                         year: 'numeric',
                                                         month: 'long',
                                                         day: 'numeric',
-                                                    })}
+                                                    }) : 'Sin fecha de fin'}
                                                 </>
-                                            ) : course.start_date ? (
-                                                <>
-                                                    Inicia el {new Date(course.start_date).toLocaleDateString('es-MX', {
-                                                        year: 'numeric',
-                                                        month: 'long',
-                                                        day: 'numeric',
-                                                    })}
-                                                </>
-                                            ) : null}
+                                            ) : (
+                                                <span className="text-muted-foreground italic font-normal">Fechas no definidas</span>
+                                            )}
                                         </p>
                                     </div>
                                 </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleOpenEditDates}
+                                    className="flex items-center gap-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                >
+                                    <Edit2 className="w-4 h-4" />
+                                    Editar Fechas
+                                </Button>
                             </div>
-                        )}
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -320,6 +389,53 @@ export default function CourseDetailPage() {
                     </Card>
                 </div>
             </div>
+
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Editar Fechas del Curso</DialogTitle>
+                        <DialogDescription>
+                            Modifica el rango de fechas para la duración de este curso.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-start-date">Fecha de Inicio</Label>
+                            <Input
+                                id="edit-start-date"
+                                type="date"
+                                value={editStartDate}
+                                onChange={(e) => setEditStartDate(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-end-date">Fecha de Fin</Label>
+                            <Input
+                                id="edit-end-date"
+                                type="date"
+                                value={editEndDate}
+                                onChange={(e) => setEditEndDate(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsEditDialogOpen(false)}
+                            disabled={isSavingDates}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            onClick={handleSaveDates}
+                            disabled={isSavingDates}
+                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                        >
+                            {isSavingDates ? 'Guardando...' : 'Guardar Cambios'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
