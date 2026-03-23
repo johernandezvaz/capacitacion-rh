@@ -240,7 +240,7 @@ export async function GET(
             });
         }
 
-        const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+        const pdfBuffer = new Uint8Array(doc.output('arraybuffer'));
 
         const fileName = `Cuestionario_${questionnaireType}_${employee.nombre.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
 

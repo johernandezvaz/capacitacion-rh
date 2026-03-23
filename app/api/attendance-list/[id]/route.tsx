@@ -132,7 +132,7 @@ export async function GET(
         doc.text('Total de participantes: ' + participants.length, 14, finalY + 10);
 
         // Generate buffer
-        const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+        const pdfBuffer = new Uint8Array(doc.output('arraybuffer'));
 
         return new NextResponse(pdfBuffer, {
             headers: {

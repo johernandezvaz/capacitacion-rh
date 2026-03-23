@@ -235,7 +235,7 @@ export async function GET(
         );
 
         // Generate buffer
-        const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+        const pdfBuffer = new Uint8Array(doc.output('arraybuffer'));
 
         const reportTypeName = reportType === 'hot' ? 'Empleado' : 'Evaluador';
         const participantSuffix = participantId ? `_${participants[0].nombre.replace(/\s+/g, '_')}` : '';

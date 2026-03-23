@@ -300,10 +300,11 @@ export default function CourseDetailPage() {
                                 <div>
                                     <p className="text-sm text-muted-foreground">Fecha</p>
                                     <p className="font-semibold">
-                                        {new Date(course.date + 'T12:00:00').toLocaleDateString('es-MX', {
+                                        {new Date(course.date).toLocaleDateString('es-MX', {
                                             year: 'numeric',
                                             month: 'long',
                                             day: 'numeric',
+                                            timeZone: 'UTC',
                                         })}
                                     </p>
                                 </div>
