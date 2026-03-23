@@ -47,7 +47,23 @@ export default function YearDetailPage() {
         .order('date', { ascending: true });
 
       if (coursesError) throw coursesError;
-      setCourses(coursesData || []);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const modifiedCourses = await Promise.all((coursesData || []).map(async (course: Course) => {
+        if (course.status === 'active' && course.end_date) {
+            const endDate = new Date(course.end_date + 'T12:00:00');
+            endDate.setHours(0, 0, 0, 0);
+            if (endDate < today) {
+                await supabase.from('courses').update({ status: 'closed' }).eq('id', course.id);
+                return { ...course, status: 'closed' as const };
+            }
+        }
+        return course;
+      }));
+
+      setCourses(modifiedCourses);
     } catch (error) {
       toast({
         title: 'Error',

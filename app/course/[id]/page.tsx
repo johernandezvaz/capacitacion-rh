@@ -52,6 +52,17 @@ export default function CourseDetailPage() {
                 return;
             }
 
+            if (courseData.status === 'active' && courseData.end_date) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const endDate = new Date(courseData.end_date + 'T12:00:00');
+                endDate.setHours(0, 0, 0, 0);
+                if (endDate < today) {
+                    courseData.status = 'closed';
+                    supabase.from('courses').update({ status: 'closed' }).eq('id', courseData.id).then();
+                }
+            }
+
             setCourse(courseData);
 
             const { data: yearData, error: yearError } = await supabase
@@ -129,6 +140,10 @@ export default function CourseDetailPage() {
             const response = await fetch(`/api/course-report/${params.id}`);
 
             if (!response.ok) {
+                const errorData = await response.json().catch(() => null);
+                if (errorData && errorData.error) {
+                    throw new Error(`${errorData.error}: ${errorData.reason || ''}. ${errorData.incompleteParticipants ? '\\nParticipantes incompletos: ' + errorData.incompleteParticipants.join(', ') : ''}`);
+                }
                 throw new Error('Error al generar el PDF');
             }
 
@@ -285,7 +300,7 @@ export default function CourseDetailPage() {
                                 <div>
                                     <p className="text-sm text-muted-foreground">Fecha</p>
                                     <p className="font-semibold">
-                                        {new Date(course.date).toLocaleDateString('es-MX', {
+                                        {new Date(course.date + 'T12:00:00').toLocaleDateString('es-MX', {
                                             year: 'numeric',
                                             month: 'long',
                                             day: 'numeric',
@@ -324,13 +339,13 @@ export default function CourseDetailPage() {
                                         <p className="font-semibold">
                                             {course.start_date || course.end_date ? (
                                                 <>
-                                                    {course.start_date ? new Date(course.start_date).toLocaleDateString('es-MX', {
+                                                    {course.start_date ? new Date(course.start_date + 'T12:00:00').toLocaleDateString('es-MX', {
                                                         year: 'numeric',
                                                         month: 'long',
                                                         day: 'numeric',
                                                     }) : 'Sin fecha de inicio'}
                                                     {' – '}
-                                                    {course.end_date ? new Date(course.end_date).toLocaleDateString('es-MX', {
+                                                    {course.end_date ? new Date(course.end_date + 'T12:00:00').toLocaleDateString('es-MX', {
                                                         year: 'numeric',
                                                         month: 'long',
                                                         day: 'numeric',

@@ -293,7 +293,7 @@ export default function ReportsPage() {
                                                 <div>
                                                     <CardTitle className="text-xl">{course.name}</CardTitle>
                                                     <CardDescription>
-                                                        Año: {course.year?.year || 'N/A'} | Fecha: {new Date(course.date).toLocaleDateString('es-MX')}
+                                                        Año: {course.year?.year || 'N/A'} | Fecha: {new Date(course.date + 'T12:00:00').toLocaleDateString('es-MX')}
                                                     </CardDescription>
                                                 </div>
                                                 {status && (

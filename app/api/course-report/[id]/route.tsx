@@ -179,7 +179,7 @@ export async function GET(
         doc.setFontSize(11);
         doc.setFont('helvetica', 'normal');
         doc.text(`Curso: ${courseData.name}`, 14, 52);
-        doc.text(`Fecha: ${courseData.date}`, 14, 58);
+        doc.text(`Fecha: ${new Date(courseData.date + 'T12:00:00').toLocaleDateString('es-MX')}`, 14, 58);
         doc.text(`Duración: ${courseData.duration_hours} horas`, 14, 64);
         doc.text(`Total de participantes: ${participants.length}`, 14, 70);
 

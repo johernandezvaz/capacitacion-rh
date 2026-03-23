@@ -78,7 +78,7 @@ export function CreateCourseModal({
           start_date: startDate || null,
           end_date: endDate || null,
           duration_hours: durationNumber,
-          status: 'draft',
+          status: 'active',
         },
       ]);
 

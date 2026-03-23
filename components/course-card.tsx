@@ -56,7 +56,7 @@ export function CourseCard({ course }: CourseCardProps) {
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
                 <span>
-                  {format(new Date(course.date), "d 'de' MMMM, yyyy", {
+                  {format(new Date(course.date + 'T12:00:00'), "d 'de' MMMM, yyyy", {
                     locale: es,
                   })}
                 </span>
