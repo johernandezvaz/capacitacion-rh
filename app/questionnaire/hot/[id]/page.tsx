@@ -396,7 +396,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                             </div>
                             <div>
                                 <p className="font-semibold text-gray-700">Fecha del curso</p>
-                                <p className="text-gray-600">{format(new Date(questionnaire.course_participant.course.date), 'dd/MM/yyyy')}</p>
+                                <p className="text-gray-600">{format(new Date(questionnaire.course_participant.course.date + 'T12:00:00'), 'dd/MM/yyyy')}</p>
                             </div>
                             <div>
                                 <p className="font-semibold text-gray-700">Número de empleado</p>

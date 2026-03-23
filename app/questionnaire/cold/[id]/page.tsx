@@ -139,7 +139,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             setObservation3(qData.observation_3 || '');
 
             const now = new Date();
-            const availableDate = new Date(qData.available_from);
+            const availableDate = new Date(qData.available_from + 'T12:00:00');
             setIsAvailable(isAfter(now, availableDate));
         } catch (error: any) {
             console.error('Error fetching questionnaire:', error);
@@ -411,7 +411,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                                     ) : !isAvailable ? (
                                         <span className="flex items-center text-amber-600">
                                             <AlertCircle className="mr-2 h-4 w-4" />
-                                            Este cuestionario estará disponible hasta el {format(new Date(questionnaire.available_from), 'dd/MM/yyyy')}
+                                            Este cuestionario estará disponible hasta el {format(new Date(questionnaire.available_from + 'T12:00:00'), 'dd/MM/yyyy')}
                                         </span>
                                     ) : (
                                         'Complete la evaluación y firme para enviar'
@@ -459,7 +459,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                             </div>
                             <div>
                                 <p className="font-semibold text-gray-700">Fecha del curso</p>
-                                <p className="text-gray-600">{format(new Date(questionnaire.course_participant.course.date), 'dd/MM/yyyy')}</p>
+                                <p className="text-gray-600">{format(new Date(questionnaire.course_participant.course.date + 'T12:00:00'), 'dd/MM/yyyy')}</p>
                             </div>
                             <div>
                                 <p className="font-semibold text-gray-700">Número de empleado</p>
