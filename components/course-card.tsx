@@ -44,10 +44,10 @@ export function CourseCard({ course }: CourseCardProps) {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-4 mb-3">
-              <h3 className="text-xl font-semibold text-foreground">
+              <h3 className="text-xl font-semibold text-foreground min-w-0 break-words">
                 {course.name}
               </h3>
-              <Badge className={status.className}>
+              <Badge className={`${status.className} flex-shrink-0 self-start`}>
                 {status.label}
               </Badge>
             </div>
@@ -56,9 +56,9 @@ export function CourseCard({ course }: CourseCardProps) {
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
                 <span>
-                  {format(new Date(course.date + 'T12:00:00'), "d 'de' MMMM, yyyy", {
-                    locale: es,
-                  })}
+                  {course.start_date
+                    ? format(new Date(course.start_date + 'T12:00:00'), "d 'de' MMMM, yyyy", { locale: es })
+                    : format(new Date(), "d 'de' MMMM, yyyy", { locale: es })}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -71,7 +71,7 @@ export function CourseCard({ course }: CourseCardProps) {
             </div>
           </div>
         </div>
-        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0 self-start mt-1" />
       </div>
     </Card>
   );
