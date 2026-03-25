@@ -19,11 +19,11 @@ const statusConfig = {
   },
   active: {
     label: 'Activo',
-    className: 'bg-[#2f9e44] text-white',
+    className: 'bg-[#379777] text-white',
   },
   closed: {
     label: 'Finalizado',
-    className: 'bg-[#d94848] text-white',
+    className: 'bg-[#B43F3F] text-white',
   },
 };
 
