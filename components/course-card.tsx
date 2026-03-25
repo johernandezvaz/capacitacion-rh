@@ -18,7 +18,7 @@ const statusConfig = {
     className: 'bg-muted text-muted-foreground',
   },
   active: {
-    label: 'Activo',
+    label: 'En Curso',
     className: 'bg-[#379777] text-white',
   },
   closed: {
