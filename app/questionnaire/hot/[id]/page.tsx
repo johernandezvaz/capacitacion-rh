@@ -25,7 +25,7 @@ interface QuestionnaireData {
         course_id: string;
         course: {
             name: string;
-            date: string;
+            start_date: string | null;
             duration_hours: number;
         };
         employee: {
@@ -94,7 +94,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
           course_participant:course_participants(
             id,
             course_id,
-            course:courses(name, date, duration_hours),
+            course:courses(name, start_date, duration_hours),
             employee:employees(nombre, employee_number, puesto, area)
           )
         `)
@@ -396,7 +396,11 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                             </div>
                             <div>
                                 <p className="font-semibold text-gray-700">Fecha del curso</p>
-                                <p className="text-gray-600">{format(new Date(questionnaire.course_participant.course.date + 'T12:00:00'), 'dd/MM/yyyy')}</p>
+                                <p className="text-gray-600">
+                                    {questionnaire.course_participant.course.start_date
+                                        ? format(new Date(questionnaire.course_participant.course.start_date + 'T12:00:00'), 'dd/MM/yyyy')
+                                        : format(new Date(), 'dd/MM/yyyy')}
+                                </p>
                             </div>
                             <div>
                                 <p className="font-semibold text-gray-700">Número de empleado</p>

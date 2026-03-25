@@ -123,7 +123,7 @@ export async function GET(
 
         doc.text(`Curso: ${course.name}`, margin, currentY);
         currentY += 6;
-        doc.text(`Fecha del curso: ${new Date(course.date + 'T12:00:00').toLocaleDateString('es-MX')}`, margin, currentY);
+        doc.text(`Fecha del curso: ${new Date(course.start_date + 'T12:00:00').toLocaleDateString('es-MX')}`, margin, currentY);
         currentY += 6;
         doc.text(`Duración: ${course.duration_hours} horas`, margin, currentY);
         currentY += 6;
