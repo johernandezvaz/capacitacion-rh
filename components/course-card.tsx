@@ -22,7 +22,7 @@ const statusConfig = {
     className: 'bg-[#2f9e44] text-white',
   },
   closed: {
-    label: 'Cerrado',
+    label: 'Finalizado',
     className: 'bg-[#d94848] text-white',
   },
 };

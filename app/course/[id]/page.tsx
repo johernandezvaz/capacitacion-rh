@@ -248,7 +248,7 @@ export default function CourseDetailPage() {
     const statusLabels = {
         draft: 'Borrador',
         active: 'Activo',
-        closed: 'Cerrado',
+        closed: 'Finalizado',
     };
 
     return (
