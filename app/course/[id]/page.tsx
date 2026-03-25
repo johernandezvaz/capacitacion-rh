@@ -292,23 +292,7 @@ export default function CourseDetailPage() {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-100">
-                                    <Calendar className="w-6 h-6 text-blue-600" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Fecha</p>
-                                    <p className="font-semibold">
-                                        {new Date(course.date).toLocaleDateString('es-MX', {
-                                            year: 'numeric',
-                                            month: 'long',
-                                            day: 'numeric',
-                                            timeZone: 'UTC',
-                                        })}
-                                    </p>
-                                </div>
-                            </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="flex items-center gap-3">
                                 <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-100">
                                     <Clock className="w-6 h-6 text-amber-600" />

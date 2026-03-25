@@ -18,7 +18,7 @@ export async function GET(
 
         const { data: courseData, error: courseError } = await supabase
             .from('courses')
-            .select('name, date, duration_hours')
+            .select('name, start_date, duration_hours')
             .eq('id', courseId)
             .maybeSingle();
 
@@ -179,7 +179,10 @@ export async function GET(
         doc.setFontSize(11);
         doc.setFont('helvetica', 'normal');
         doc.text(`Curso: ${courseData.name}`, 14, 52);
-        doc.text(`Fecha: ${new Date(courseData.date + 'T12:00:00').toLocaleDateString('es-MX')}`, 14, 58);
+        const courseDisplayDate = courseData.start_date
+            ? new Date(courseData.start_date + 'T12:00:00').toLocaleDateString('es-MX')
+            : new Date().toLocaleDateString('es-MX');
+        doc.text(`Fecha: ${courseDisplayDate}`, 14, 58);
         doc.text(`Duración: ${courseData.duration_hours} horas`, 14, 64);
         doc.text(`Total de participantes: ${participants.length}`, 14, 70);
 

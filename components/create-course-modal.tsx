@@ -29,7 +29,6 @@ export function CreateCourseModal({
   yearId,
 }: CreateCourseModalProps) {
   const [name, setName] = useState('');
-  const [date, setDate] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [duration, setDuration] = useState('');
@@ -39,7 +38,7 @@ export function CreateCourseModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim() || !date || !duration) {
+    if (!name.trim() || !duration) {
       toast({
         title: 'Error',
         description: 'Por favor completa todos los campos',
@@ -74,7 +73,6 @@ export function CreateCourseModal({
         {
           year_id: yearId,
           name: name.trim(),
-          date,
           start_date: startDate || null,
           end_date: endDate || null,
           duration_hours: durationNumber,
@@ -85,7 +83,6 @@ export function CreateCourseModal({
       if (insertError) throw insertError;
 
       setName('');
-      setDate('');
       setStartDate('');
       setEndDate('');
       setDuration('');
@@ -103,7 +100,6 @@ export function CreateCourseModal({
 
   const handleClose = () => {
     setName('');
-    setDate('');
     setStartDate('');
     setEndDate('');
     setDuration('');
@@ -134,16 +130,7 @@ export function CreateCourseModal({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="date">Fecha</Label>
-              <Input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-              />
-            </div>
+
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
