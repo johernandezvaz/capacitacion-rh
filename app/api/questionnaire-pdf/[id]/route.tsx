@@ -121,25 +121,25 @@ export async function GET(
         currentY += 8;
         doc.setFont('helvetica', 'normal');
 
-        doc.text(`Curso: ${course.name}`, margin, currentY);
-        currentY += 6;
+        const addInfoRow = (label: string, value: string) => {
+            const fullText = `${label}: ${value}`;
+            addWrappedText(fullText, margin, contentWidth, 10);
+            currentY += 2;
+        };
+
         const courseDate = course.start_date
             ? new Date(course.start_date + 'T12:00:00')
             : new Date();
-        doc.text(`Fecha del curso: ${courseDate.toLocaleDateString('es-MX')}`, margin, currentY);
-        currentY += 6;
-        doc.text(`Duración: ${course.duration_hours} horas`, margin, currentY);
-        currentY += 6;
-        doc.text(`Empleado: ${employee.nombre}`, margin, currentY);
-        currentY += 6;
-        doc.text(`No. Empleado: ${employee.employee_number}`, margin, currentY);
-        currentY += 6;
-        doc.text(`Puesto: ${employee.puesto}`, margin, currentY);
-        currentY += 6;
-        doc.text(`Área: ${employee.area}`, margin, currentY);
-        currentY += 6;
-        doc.text(`Fecha de completado: ${new Date(questionnaireData.submitted_at).toLocaleDateString('es-MX')}`, margin, currentY);
-        currentY += 10;
+
+        addInfoRow('Curso', course.name);
+        addInfoRow('Fecha del curso', courseDate.toLocaleDateString('es-MX'));
+        addInfoRow('Duración', `${course.duration_hours} horas`);
+        addInfoRow('Empleado', employee.nombre);
+        addInfoRow('No. Empleado', employee.employee_number);
+        addInfoRow('Puesto', employee.puesto);
+        addInfoRow('Área', employee.area);
+        addInfoRow('Fecha de completado', new Date(questionnaireData.submitted_at).toLocaleDateString('es-MX'));
+        currentY += 4;
 
         doc.setDrawColor(200, 200, 200);
         doc.line(margin, currentY, pageWidth - margin, currentY);
