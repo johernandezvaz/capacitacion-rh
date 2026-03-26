@@ -24,7 +24,7 @@ export async function GET(
                 course_participant:course_participants(
                     id,
                     course_id,
-                    course:courses(name, date, duration_hours),
+                    course:courses(name, start_date, duration_hours),
                     employee:employees(nombre, employee_number, puesto, area)
                 )
             `)
@@ -123,7 +123,10 @@ export async function GET(
 
         doc.text(`Curso: ${course.name}`, margin, currentY);
         currentY += 6;
-        doc.text(`Fecha del curso: ${new Date(course.start_date + 'T12:00:00').toLocaleDateString('es-MX')}`, margin, currentY);
+        const courseDate = course.start_date
+            ? new Date(course.start_date + 'T12:00:00')
+            : new Date();
+        doc.text(`Fecha del curso: ${courseDate.toLocaleDateString('es-MX')}`, margin, currentY);
         currentY += 6;
         doc.text(`Duración: ${course.duration_hours} horas`, margin, currentY);
         currentY += 6;
