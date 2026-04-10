@@ -69,10 +69,13 @@ export function CreateCourseModal({
     setIsLoading(true);
 
     try {
+      const dateValue = startDate || new Date().toISOString().split('T')[0];
+
       const { error: insertError } = await supabase.from('courses').insert([
         {
           year_id: yearId,
           name: name.trim(),
+          date: dateValue,
           start_date: startDate || null,
           end_date: endDate || null,
           duration_hours: durationNumber,
