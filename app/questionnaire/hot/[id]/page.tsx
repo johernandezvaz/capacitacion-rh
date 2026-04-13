@@ -348,7 +348,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                             <div>
                                 <CardTitle className="text-2xl mb-2">Cuestionario del Empleado</CardTitle>
                                 <CardDescription>
-                                    {'Complete todas las secciones para enviar el cuestionario'}
+                                    {'Cuestionario completado'}
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2">

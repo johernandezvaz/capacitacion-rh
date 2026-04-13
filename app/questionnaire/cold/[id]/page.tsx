@@ -409,7 +409,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                                             Este cuestionario estará disponible hasta el {format(new Date(questionnaire.available_from + 'T12:00:00'), 'dd/MM/yyyy')}
                                         </span>
                                     ) : (
-                                        'Complete la evaluación y firme para enviar'
+                                        'Cuestionario completado'
                                     )}
                                 </CardDescription>
                             </div>
