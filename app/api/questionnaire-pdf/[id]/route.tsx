@@ -138,7 +138,6 @@ export async function GET(
         addInfoRow('No. Empleado', employee.employee_number);
         addInfoRow('Puesto', employee.puesto);
         addInfoRow('Área', employee.area);
-        addInfoRow('Fecha de completado', new Date(questionnaireData.submitted_at).toLocaleDateString('es-MX'));
         currentY += 4;
 
         doc.setDrawColor(200, 200, 200);

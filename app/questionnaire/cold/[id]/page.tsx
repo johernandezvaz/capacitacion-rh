@@ -403,12 +403,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                             <div>
                                 <CardTitle className="text-2xl mb-2">Cuestionario del Evaluador</CardTitle>
                                 <CardDescription>
-                                    {isLocked ? (
-                                        <span className="flex items-center text-green-600">
-                                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                                            Completado el {questionnaire.submitted_at && format(new Date(questionnaire.submitted_at), 'dd/MM/yyyy')}
-                                        </span>
-                                    ) : !isAvailable ? (
+                                    {!isAvailable ? (
                                         <span className="flex items-center text-amber-600">
                                             <AlertCircle className="mr-2 h-4 w-4" />
                                             Este cuestionario estará disponible hasta el {format(new Date(questionnaire.available_from + 'T12:00:00'), 'dd/MM/yyyy')}
