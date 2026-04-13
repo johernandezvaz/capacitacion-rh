@@ -348,14 +348,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                             <div>
                                 <CardTitle className="text-2xl mb-2">Cuestionario del Empleado</CardTitle>
                                 <CardDescription>
-                                    {isLocked ? (
-                                        <span className="flex items-center text-green-600">
-                                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                                            Completado el {questionnaire.submitted_at && format(new Date(questionnaire.submitted_at), 'dd/MM/yyyy')}
-                                        </span>
-                                    ) : (
-                                        'Complete todas las secciones para enviar el cuestionario'
-                                    )}
+                                    {'Complete todas las secciones para enviar el cuestionario'}
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
