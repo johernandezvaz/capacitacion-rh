@@ -307,7 +307,7 @@ export default function YearDetailPage() {
                 <CourseCard course={course} />
                 {/* Action buttons overlaid on the card */}
                 <div
-                  className="absolute top-1/2 right-10 -translate-y-1/2 flex items-center gap-1
+                  className="absolute bottom-3 right-8 flex items-center gap-1
                              opacity-0 group-hover/row:opacity-100 transition-opacity z-10"
                   onClick={(e) => e.stopPropagation()}
                 >
