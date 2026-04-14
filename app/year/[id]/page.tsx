@@ -2,12 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Plus, ChevronRight, Trash2 } from 'lucide-react';
+import { Plus, ChevronRight, Trash2, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { CourseCard } from '@/components/course-card';
 import { CreateCourseModal } from '@/components/create-course-modal';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { supabase, TrainingYear, Course } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,6 +33,20 @@ export default function YearDetailPage() {
     open: false,
     hasCourses: false,
   });
+
+  // --- Delete course ---
+  const [deleteCourseDialog, setDeleteCourseDialog] = useState<{ open: boolean; course: Course | null }>({
+    open: false,
+    course: null,
+  });
+
+  // --- Rename course ---
+  const [renameCourseDialog, setRenameCourseDialog] = useState<{ open: boolean; course: Course | null }>({
+    open: false,
+    course: null,
+  });
+  const [renameValue, setRenameValue] = useState('');
+  const [isRenameSaving, setIsRenameSaving] = useState(false);
 
   const fetchYearAndCourses = async () => {
     try {
@@ -138,6 +162,70 @@ export default function YearDetailPage() {
     }
   };
 
+  // ---- Course-level actions ----
+
+  const handleDeleteCourseClick = (e: React.MouseEvent, course: Course) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDeleteCourseDialog({ open: true, course });
+  };
+
+  const handleDeleteCourse = async () => {
+    const course = deleteCourseDialog.course;
+    if (!course) return;
+    try {
+      // Remove FK dependencies first
+      await supabase.from('course_participants').delete().eq('course_id', course.id);
+      const { error } = await supabase.from('courses').delete().eq('id', course.id);
+      if (error) throw error;
+      setCourses((prev) => prev.filter((c) => c.id !== course.id));
+      toast({ title: 'Éxito', description: `Curso "${course.name}" eliminado correctamente` });
+    } catch (error: any) {
+      console.error('Error deleting course:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo eliminar el curso',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleteCourseDialog({ open: false, course: null });
+    }
+  };
+
+  const handleRenameCourseClick = (e: React.MouseEvent, course: Course) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRenameValue(course.name);
+    setRenameCourseDialog({ open: true, course });
+  };
+
+  const handleRenameCourse = async () => {
+    const course = renameCourseDialog.course;
+    if (!course) return;
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      toast({ title: 'Error', description: 'El nombre no puede estar vacío', variant: 'destructive' });
+      return;
+    }
+    setIsRenameSaving(true);
+    try {
+      const { error } = await supabase.from('courses').update({ name: trimmed }).eq('id', course.id);
+      if (error) throw error;
+      setCourses((prev) => prev.map((c) => (c.id === course.id ? { ...c, name: trimmed } : c)));
+      toast({ title: 'Éxito', description: 'Nombre del curso actualizado' });
+      setRenameCourseDialog({ open: false, course: null });
+    } catch (error: any) {
+      console.error('Error renaming course:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo actualizar el nombre',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRenameSaving(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen p-8">
@@ -215,7 +303,34 @@ export default function YearDetailPage() {
         ) : (
           <div className="space-y-4">
             {courses.map((course) => (
-              <CourseCard key={course.id} course={course} />
+              <div key={course.id} className="relative group/row">
+                <CourseCard course={course} />
+                {/* Action buttons overlaid on the card */}
+                <div
+                  className="absolute top-1/2 right-10 -translate-y-1/2 flex items-center gap-1
+                             opacity-0 group-hover/row:opacity-100 transition-opacity z-10"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Renombrar curso"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-background/80"
+                    onClick={(e) => handleRenameCourseClick(e, course)}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Eliminar curso"
+                    className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                    onClick={(e) => handleDeleteCourseClick(e, course)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -243,6 +358,58 @@ export default function YearDetailPage() {
         onConfirm={handleDeleteYear}
         variant="destructive"
       />
+
+      {/* Delete course confirm dialog */}
+      <ConfirmDialog
+        open={deleteCourseDialog.open}
+        onOpenChange={(open) => setDeleteCourseDialog({ open, course: deleteCourseDialog.course })}
+        title="¿Eliminar curso?"
+        description={`¿Estás seguro de que deseas eliminar el curso "${deleteCourseDialog.course?.name}"? Se eliminarán todos sus participantes y registros asociados. Esta acción no se puede deshacer.`}
+        confirmText="Eliminar Curso"
+        onConfirm={handleDeleteCourse}
+        variant="destructive"
+      />
+
+      {/* Rename course dialog */}
+      <Dialog
+        open={renameCourseDialog.open}
+        onOpenChange={(open) => setRenameCourseDialog({ open, course: renameCourseDialog.course })}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Renombrar Curso</DialogTitle>
+            <DialogDescription>
+              Ingresa el nuevo nombre para el curso.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <Label htmlFor="rename-course-input">Nombre del Curso</Label>
+            <Input
+              id="rename-course-input"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleRenameCourse()}
+              placeholder="Nombre del curso"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRenameCourseDialog({ open: false, course: null })}
+              disabled={isRenameSaving}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleRenameCourse}
+              disabled={isRenameSaving || !renameValue.trim()}
+              className="bg-[#2166be] hover:bg-[#1a5299] text-white"
+            >
+              {isRenameSaving ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
