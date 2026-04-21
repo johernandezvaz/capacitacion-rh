@@ -71,3 +71,67 @@ export type EmployeeWithQuestionnaires = Employee & {
     employee_signed_at?: string | null;
   }) | null;
 };
+
+export type OjtRecord = {
+  id: string;
+  titulo: string | null;
+  employee_id: string | null;
+  puesto: string | null;
+  nombre: string | null;
+  fecha_inicio: string | null;
+  fecha_termino: string | null;
+  piloto_proceso: string | null;
+  periodo_entrenamiento: string | null;
+  jefe_directo_id: string | null;
+  integrante_brigada_id: string | null;
+  status: 'draft' | 'in_progress' | 'completed' | 'locked';
+  created_at: string;
+  updated_at: string;
+  // Joined fields
+  empleado_nombre?: string | null;
+  empleado_puesto?: string | null;
+  jefe_directo_nombre?: string | null;
+  integrante_brigada_nombre?: string | null;
+};
+
+export type OjtEntry = {
+  id: string;
+  section_id: string;
+  orden: number;
+  conocimiento_requerido: string | null;
+  habilidades: string | null;
+  fuentes_informacion: string | null;
+  procedimientos_internos: string | null;
+  metodo_entrenamiento: string | null;
+  duracion: string | null;
+  fecha_planeada_terminacion: string | null;
+  fecha_real_inicio: string | null;
+  fecha_real_termino: string | null;
+  responsable_entrenamiento: string | null;
+  firma_empleado: string | null;
+  firma_empleado_at: string | null;
+  comentarios: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OjtSection = {
+  id: string;
+  record_id: string;
+  tipo: 'conocimientos_generales' | 'actividad';
+  nombre: string;
+  orden: number;
+};
+
+export type OjtSectionWithEntries = OjtSection & {
+  entries: OjtEntry[];
+};
+
+export type OjtSignature = {
+  id: string;
+  record_id: string;
+  signer_type: 'empleado' | 'jefe_directo' | 'recursos_humanos';
+  signer_name: string | null;
+  signed_at: string | null;
+  created_at: string;
+};

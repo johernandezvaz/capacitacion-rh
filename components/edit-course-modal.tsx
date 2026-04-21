@@ -156,12 +156,13 @@ export function EditCourseModal({
                         <Input
                             id="duration"
                             type="number"
-                            min="1"
+                            min="0.1"
+                            step="any"
                             value={formData.duration_hours}
                             onChange={(e) =>
                                 setFormData({
                                     ...formData,
-                                    duration_hours: parseInt(e.target.value) || 0,
+                                    duration_hours: parseFloat(e.target.value) || 0,
                                 })
                             }
                             placeholder="Ej: 8"

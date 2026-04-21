@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Calendar, BarChart3, Users, Menu, X } from 'lucide-react';
+import { Calendar, BarChart3, Users, Menu, X, ClipboardList } from 'lucide-react';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -28,6 +28,12 @@ export function Sidebar() {
       href: '/reports',
       icon: BarChart3,
       active: pathname === '/reports',
+    },
+    {
+      name: 'Entrenamiento',
+      href: '/ojt',
+      icon: ClipboardList,
+      active: pathname.startsWith('/ojt'),
     },
   ];
 

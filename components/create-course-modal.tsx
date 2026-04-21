@@ -47,8 +47,8 @@ export function CreateCourseModal({
       return;
     }
 
-    const durationNumber = parseInt(duration);
-    if (durationNumber <= 0) {
+    const durationNumber = parseFloat(duration);
+    if (isNaN(durationNumber) || durationNumber <= 0) {
       toast({
         title: 'Error',
         description: 'La duración debe ser mayor a 0',
@@ -165,7 +165,8 @@ export function CreateCourseModal({
                 placeholder="8"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
-                min="1"
+                min="0.1"
+                step="any"
                 required
               />
             </div>
