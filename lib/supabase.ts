@@ -75,23 +75,26 @@ export type EmployeeWithQuestionnaires = Employee & {
 export type OjtRecord = {
   id: string;
   titulo: string | null;
-  employee_id: string | null;
   puesto: string | null;
-  nombre: string | null;
-  fecha_inicio: string | null;
-  fecha_termino: string | null;
-  piloto_proceso: string | null;
   periodo_entrenamiento: string | null;
   jefe_directo_id: string | null;
-  integrante_brigada_id: string | null;
+  es_piloto_proceso: boolean;
+  piloto_proceso_codigo: string | null;
+  es_integrante_brigada: boolean;
+  is_template: boolean;
   status: 'draft' | 'in_progress' | 'completed' | 'locked';
   created_at: string;
   updated_at: string;
-  // Joined fields
-  empleado_nombre?: string | null;
-  empleado_puesto?: string | null;
   jefe_directo_nombre?: string | null;
-  integrante_brigada_nombre?: string | null;
+};
+
+export type OjtSection = {
+  id: string;
+  record_id: string;
+  tipo: 'conocimientos_generales' | 'actividad';
+  nombre: string;
+  orden: number;
+  created_at: string;
 };
 
 export type OjtEntry = {
@@ -105,33 +108,49 @@ export type OjtEntry = {
   metodo_entrenamiento: string | null;
   duracion: string | null;
   fecha_planeada_terminacion: string | null;
-  fecha_real_inicio: string | null;
-  fecha_real_termino: string | null;
-  responsable_entrenamiento: string | null;
-  firma_empleado: string | null;
-  firma_empleado_at: string | null;
-  comentarios: string | null;
   created_at: string;
   updated_at: string;
-};
-
-export type OjtSection = {
-  id: string;
-  record_id: string;
-  tipo: 'conocimientos_generales' | 'actividad';
-  nombre: string;
-  orden: number;
 };
 
 export type OjtSectionWithEntries = OjtSection & {
   entries: OjtEntry[];
 };
 
-export type OjtSignature = {
+export type OjtInstance = {
   id: string;
-  record_id: string;
+  template_id: string;
+  employee_id: string | null;
+  nombre: string | null;
+  fecha_inicio: string | null;
+  fecha_termino: string | null;
+  status: 'draft' | 'in_progress' | 'completed' | 'locked';
+  average_efectividad: number | null;
+  created_at: string;
+  updated_at: string;
+  empleado_nombre?: string | null;
+  empleado_puesto?: string | null;
+};
+
+export type OjtInstanceEntry = {
+  id: string;
+  instance_id: string;
+  entry_id: string;
+  efectividad: number | null;
+  responsable_nombre: string | null;
+  responsable_firma_url: string | null;
+  fecha_real_inicio: string | null;
+  fecha_real_termino: string | null;
+  comentarios: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OjtInstanceSignature = {
+  id: string;
+  instance_id: string;
   signer_type: 'empleado' | 'jefe_directo' | 'recursos_humanos';
   signer_name: string | null;
   signed_at: string | null;
+  firma_url: string | null;
   created_at: string;
 };

@@ -13,15 +13,15 @@ export default function OjtNewPage() {
             Entrenamiento
           </Link>
           <ChevronRight className="w-4 h-4 flex-shrink-0" />
-          <span className="text-foreground font-medium">Nuevo Registro</span>
+          <span className="text-foreground font-medium">Nueva Plantilla</span>
         </div>
 
         <div className="mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">
-            Nuevo Registro de Entrenamiento
+            Nueva Plantilla de Entrenamiento
           </h1>
           <p className="text-muted-foreground text-sm">
-            Completa los datos y guarda para inicializar el registro
+            Completa los datos generales y guarda para crear la plantilla
           </p>
         </div>
 

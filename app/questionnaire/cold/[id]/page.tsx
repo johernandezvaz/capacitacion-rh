@@ -139,8 +139,8 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             setObservation3(qData.observation_3 || '');
 
             const now = new Date();
-            const availableDate = new Date(qData.available_from + 'T12:00:00');
-            setIsAvailable(isAfter(now, availableDate));
+            const availableDate = qData.available_from ? new Date(qData.available_from) : null;
+            setIsAvailable(availableDate ? isAfter(now, availableDate) : false);
         } catch (error: any) {
             console.error('Error fetching questionnaire:', error);
             toast.error('Error al cargar el cuestionario');
@@ -406,7 +406,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                                     {!isAvailable ? (
                                         <span className="flex items-center text-amber-600">
                                             <AlertCircle className="mr-2 h-4 w-4" />
-                                            Este cuestionario estará disponible hasta el {format(new Date(questionnaire.available_from + 'T12:00:00'), 'dd/MM/yyyy')}
+                                            Este cuestionario estará disponible hasta el {questionnaire.available_from ? format(new Date(questionnaire.available_from), 'dd/MM/yyyy') : '—'}
                                         </span>
                                     ) : (
                                         'Cuestionario completado'

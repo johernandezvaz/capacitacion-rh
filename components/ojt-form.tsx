@@ -2,44 +2,34 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, FileDown } from 'lucide-react';
+import { Plus, Trash2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { OjtEmployeeSelect } from '@/components/ojt-employee-select';
 import {
-  supabase,
-  Employee,
-  OjtRecord,
-  OjtEntry,
-  OjtSection,
-  OjtSectionWithEntries,
-  OjtSignature,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
+  supabase, Employee, OjtEntry, OjtSectionWithEntries,
 } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
-import { generateOjtPdf } from '@/lib/ojt-pdf';
 
-interface OjtFormProps {
-  recordId: string | null;
-}
+const PILOTO_OPTIONS = [
+  { code: 'P01', label: 'P01 — Define and Deploy the strategy' },
+  { code: 'P02', label: 'P02 — Manage the safety and environment' },
+  { code: 'C02', label: 'C02 — Fulfill Market Expectation' },
+  { code: 'C03', label: 'C03 — Manage the development of product and process' },
+  { code: 'C04', label: 'C04 — Manufacture ship, invoice and be paid in mass production' },
+  { code: 'S01', label: 'S01 — Manage the suppliers for product and services' },
+  { code: 'S05', label: 'S05 — Perform Physical test and Metrological Measurements' },
+  { code: 'S06', label: 'S06 — Manage Information Technology' },
+  { code: 'S09', label: "S09 — Provide the means and infrastructure and ensure it's reliability" },
+  { code: 'S10', label: 'S10 — Recruit, involve, Motivate and manage the human ressources and their health' },
+];
 
-// ─── Status badge helper ───────────────────────────────────────────────────
-const STATUS_LABEL: Record<string, string> = {
-  draft: 'Borrador',
-  in_progress: 'En Progreso',
-  completed: 'Completado',
-  locked: 'Bloqueado',
-};
-const STATUS_CLASS: Record<string, string> = {
-  draft: 'bg-muted text-muted-foreground border',
-  in_progress: 'bg-blue-100 text-blue-800 border-blue-200',
-  completed: 'bg-green-100 text-green-800 border-green-200',
-  locked: 'bg-red-100 text-red-800 border-red-200',
-};
-
-// ─── Column definitions ────────────────────────────────────────────────────
-const ENTRY_COLUMNS: Array<{ key: keyof OjtEntry; label: string; type: string; minW: string }> = [
+const ENTRY_COLS: Array<{ key: keyof OjtEntry; label: string; type: string; minW: string }> = [
   { key: 'conocimiento_requerido', label: 'Conocimiento Requerido', type: 'text', minW: '160px' },
   { key: 'habilidades', label: 'Habilidades', type: 'text', minW: '140px' },
   { key: 'fuentes_informacion', label: 'Fuentes de Información', type: 'text', minW: '160px' },
@@ -47,36 +37,9 @@ const ENTRY_COLUMNS: Array<{ key: keyof OjtEntry; label: string; type: string; m
   { key: 'metodo_entrenamiento', label: 'Método de Entrenamiento', type: 'text', minW: '170px' },
   { key: 'duracion', label: 'Duración', type: 'text', minW: '100px' },
   { key: 'fecha_planeada_terminacion', label: 'F. Planeada Terminación', type: 'date', minW: '160px' },
-  { key: 'fecha_real_inicio', label: 'F. Real Inicio', type: 'date', minW: '140px' },
-  { key: 'fecha_real_termino', label: 'F. Real Término', type: 'date', minW: '140px' },
-  { key: 'responsable_entrenamiento', label: 'Responsable Entrenamiento', type: 'text', minW: '170px' },
-  { key: 'firma_empleado', label: 'Firma Empleado', type: 'text', minW: '140px' },
-  { key: 'comentarios', label: 'Comentarios', type: 'text', minW: '160px' },
 ];
 
-// ─── Empty entry factory ────────────────────────────────────────────────────
-function emptyEntry(sectionId: string, orden: number): OjtEntry {
-  return {
-    id: '',
-    section_id: sectionId,
-    orden,
-    conocimiento_requerido: null,
-    habilidades: null,
-    fuentes_informacion: null,
-    procedimientos_internos: null,
-    metodo_entrenamiento: null,
-    duracion: null,
-    fecha_planeada_terminacion: null,
-    fecha_real_inicio: null,
-    fecha_real_termino: null,
-    responsable_entrenamiento: null,
-    firma_empleado: null,
-    firma_empleado_at: null,
-    comentarios: null,
-    created_at: '',
-    updated_at: '',
-  };
-}
+interface OjtFormProps { recordId: string | null; }
 
 export function OjtForm({ recordId }: OjtFormProps) {
   const router = useRouter();
@@ -84,39 +47,18 @@ export function OjtForm({ recordId }: OjtFormProps) {
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
   const [isLoading, setIsLoading] = useState(!!recordId);
-
   const [currentRecordId, setCurrentRecordId] = useState<string | null>(recordId);
-  const [status, setStatus] = useState<OjtRecord['status']>('draft');
+
   const [titulo, setTitulo] = useState('');
-  const [employeeId, setEmployeeId] = useState<string | null>(null);
-  const [employeeLabel, setEmployeeLabel] = useState('');
-  const [nombre, setNombre] = useState('');
   const [puesto, setPuesto] = useState('');
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaTermino, setFechaTermino] = useState('');
-  const [pilotoProceso, setPilotoProceso] = useState('');
-  const [pilotoProcesoLabel, setPilotoProcesoLabel] = useState('');
-  const [periodoEntrenamiento, setPeriodoEntrenamiento] = useState('');
-  const [jefeDirectoId, setJefeDirectoId] = useState<string | null>(null);
-  const [jefeDirectoLabel, setJefeDirectoLabel] = useState('');
-  const [integranteBrigadaId, setIntegranteBrigadaId] = useState<string | null>(null);
-  const [integranteBrigadaLabel, setIntegranteBrigadaLabel] = useState('');
-
+  const [periodo, setPeriodo] = useState('');
+  const [jefeId, setJefeId] = useState<string | null>(null);
+  const [jefeLabel, setJefeLabel] = useState('');
+  const [esPiloto, setEsPiloto] = useState(false);
+  const [pilotoCodigo, setPilotoCodigo] = useState('');
+  const [esBrigada, setEsBrigada] = useState(false);
   const [sections, setSections] = useState<OjtSectionWithEntries[]>([]);
-
-  const [signatures, setSignatures] = useState<Record<string, OjtSignature>>({});
-  const [sigNames, setSigNames] = useState<Record<string, string>>({
-    empleado: '',
-    jefe_directo: '',
-    recursos_humanos: '',
-  });
-  const [sigDates, setSigDates] = useState<Record<string, string>>({
-    empleado: '',
-    jefe_directo: '',
-    recursos_humanos: '',
-  });
 
   useEffect(() => {
     supabase
@@ -128,486 +70,233 @@ export function OjtForm({ recordId }: OjtFormProps) {
 
   useEffect(() => {
     if (!recordId) return;
-
-    const loadRecord = async () => {
+    (async () => {
       setIsLoading(true);
       try {
-        const { data: rec, error: recErr } = await supabase
+        const { data: rec } = await supabase
           .from('ojt_records')
-          .select(`
-            *,
-            employee:employees!ojt_records_employee_id_fkey(nombre, puesto),
-            jefe_directo:employees!ojt_records_jefe_directo_id_fkey(nombre),
-            integrante_brigada:employees!ojt_records_integrante_brigada_id_fkey(nombre)
-          `)
+          .select('*, jefe_directo:employees!ojt_records_jefe_directo_id_fkey(nombre)')
           .eq('id', recordId)
           .maybeSingle();
-
-        if (recErr) throw recErr;
         if (!rec) return;
-
         setCurrentRecordId(rec.id);
-        setStatus(rec.status);
         setTitulo(rec.titulo ?? '');
-        setEmployeeId(rec.employee_id);
-        setEmployeeLabel((rec as any).employee?.nombre ?? '');
-        setNombre(rec.nombre ?? '');
         setPuesto(rec.puesto ?? '');
-        setFechaInicio(rec.fecha_inicio ?? '');
-        setFechaTermino(rec.fecha_termino ?? '');
-        setPilotoProceso(rec.piloto_proceso ?? '');
-        setPilotoProcesoLabel(rec.piloto_proceso ?? '');
-        setPeriodoEntrenamiento(rec.periodo_entrenamiento ?? '');
-        setJefeDirectoId(rec.jefe_directo_id);
-        setJefeDirectoLabel((rec as any).jefe_directo?.nombre ?? '');
-        setIntegranteBrigadaId(rec.integrante_brigada_id);
-        setIntegranteBrigadaLabel((rec as any).integrante_brigada?.nombre ?? '');
+        setPeriodo(rec.periodo_entrenamiento ?? '');
+        setJefeId(rec.jefe_directo_id);
+        setJefeLabel((rec as any).jefe_directo?.nombre ?? '');
+        setEsPiloto(rec.es_piloto_proceso ?? false);
+        setPilotoCodigo(rec.piloto_proceso_codigo ?? '');
+        setEsBrigada(rec.es_integrante_brigada ?? false);
 
-        const { data: secs, error: secsErr } = await supabase
+        const { data: secs } = await supabase
           .from('ojt_sections')
           .select('*, entries:ojt_entries(*)')
           .eq('record_id', recordId)
           .order('orden');
 
-        if (secsErr) throw secsErr;
-
-        const normalized: OjtSectionWithEntries[] = (secs || []).map((s: any) => ({
-          ...s,
-          entries: [...(s.entries || [])].sort((a: OjtEntry, b: OjtEntry) => a.orden - b.orden),
-        }));
-        setSections(normalized);
-
-        const { data: sigs } = await supabase
-          .from('ojt_signatures')
-          .select('*')
-          .eq('record_id', recordId);
-
-        const sigMap: Record<string, OjtSignature> = {};
-        const names: Record<string, string> = { empleado: '', jefe_directo: '', recursos_humanos: '' };
-        const dates: Record<string, string> = { empleado: '', jefe_directo: '', recursos_humanos: '' };
-        (sigs || []).forEach((s: OjtSignature) => {
-          sigMap[s.signer_type] = s;
-          names[s.signer_type] = s.signer_name ?? '';
-          dates[s.signer_type] = s.signed_at ?? '';
-        });
-        setSignatures(sigMap);
-        setSigNames(names);
-        setSigDates(dates);
-      } catch (err) {
-        toast({ title: 'Error', description: 'No se pudo cargar el registro', variant: 'destructive' });
+        setSections(
+          (secs || []).map((s: any) => ({
+            ...s,
+            entries: [...(s.entries || [])].sort((a: OjtEntry, b: OjtEntry) => a.orden - b.orden),
+          }))
+        );
       } finally {
         setIsLoading(false);
       }
-    };
-
-    loadRecord();
+    })();
   }, [recordId]);
-
-  const hasAnyData = () => {
-    return !!(
-      titulo || employeeId || nombre || puesto || fechaInicio || fechaTermino ||
-      pilotoProceso || periodoEntrenamiento || jefeDirectoId || integranteBrigadaId
-    );
-  };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const newStatus: OjtRecord['status'] = status === 'draft' && hasAnyData() ? 'in_progress' : status;
       const payload = {
         titulo: titulo || null,
-        employee_id: employeeId,
-        nombre: nombre || null,
         puesto: puesto || null,
-        fecha_inicio: fechaInicio || null,
-        fecha_termino: fechaTermino || null,
-        piloto_proceso: pilotoProceso || null,
-        periodo_entrenamiento: periodoEntrenamiento || null,
-        jefe_directo_id: jefeDirectoId,
-        integrante_brigada_id: integranteBrigadaId,
-        status: newStatus,
+        periodo_entrenamiento: periodo || null,
+        jefe_directo_id: jefeId,
+        es_piloto_proceso: esPiloto,
+        piloto_proceso_codigo: esPiloto ? (pilotoCodigo || null) : null,
+        es_integrante_brigada: esBrigada,
+        is_template: true,
         updated_at: new Date().toISOString(),
       };
-
       if (currentRecordId) {
-        const { error } = await supabase
-          .from('ojt_records')
-          .update(payload)
-          .eq('id', currentRecordId);
+        const { error } = await supabase.from('ojt_records').update(payload).eq('id', currentRecordId);
         if (error) throw error;
-        setStatus(newStatus);
+        toast({ title: 'Guardado', description: 'Plantilla actualizada correctamente' });
       } else {
-        const { data: inserted, error } = await supabase
+        const { data: ins, error } = await supabase
           .from('ojt_records')
-          .insert([payload])
+          .insert([{ ...payload, status: 'draft' }])
           .select()
           .single();
         if (error) throw error;
-
-        const newId = inserted.id;
+        const newId = ins.id;
         setCurrentRecordId(newId);
-        setStatus(newStatus);
-
-        const { data: sec, error: secErr } = await supabase
+        const { data: sec } = await supabase
           .from('ojt_sections')
           .insert([{ record_id: newId, tipo: 'conocimientos_generales', nombre: 'Conocimientos Generales', orden: 0 }])
-          .select()
-          .single();
-        if (secErr) throw secErr;
-
-        await supabase.from('ojt_entries').insert([{ section_id: sec.id, orden: 0 }]);
-
+          .select().single();
+        if (sec) {
+          const { data: ent } = await supabase.from('ojt_entries').insert([{ section_id: sec.id, orden: 0 }]).select().single();
+          setSections([{ ...sec, entries: ent ? [ent] : [] }]);
+        }
         router.push(`/ojt/${newId}`);
         return;
       }
-
-      toast({ title: 'Guardado', description: 'Registro actualizado correctamente' });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'No se pudo guardar', variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
   };
-  const saveEntryField = useCallback(
-    async (entry: OjtEntry, field: keyof OjtEntry, value: string) => {
-      if (!entry.id) {
-        const { data: inserted, error } = await supabase
-          .from('ojt_entries')
-          .insert([{ section_id: entry.section_id, orden: entry.orden, [field]: value || null }])
-          .select()
-          .single();
-        if (error) { console.error(error); return; }
-        setSections((prev) =>
-          prev.map((s) => ({
-            ...s,
-            entries: s.entries.map((e) =>
-              e === entry ? { ...e, id: inserted.id, [field]: value } : e
-            ),
-          }))
-        );
-      } else {
-        await supabase
-          .from('ojt_entries')
-          .update({ [field]: value || null, updated_at: new Date().toISOString() })
-          .eq('id', entry.id);
+
+  const saveEntryField = useCallback(async (entry: OjtEntry, field: keyof OjtEntry, value: string) => {
+    if (!entry.id) {
+      const { data: ins } = await supabase
+        .from('ojt_entries')
+        .insert([{ section_id: entry.section_id, orden: entry.orden, [field]: value || null }])
+        .select().single();
+      if (ins) {
+        setSections(prev => prev.map(s => ({
+          ...s,
+          entries: s.entries.map(e => e === entry ? { ...e, id: ins.id, [field]: value } : e),
+        })));
       }
-    },
-    []
-  );
+    } else {
+      await supabase.from('ojt_entries')
+        .update({ [field]: value || null, updated_at: new Date().toISOString() })
+        .eq('id', entry.id);
+    }
+  }, []);
 
-  const updateEntryLocal = (sectionId: string, entryIdx: number, field: keyof OjtEntry, value: string) => {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id !== sectionId
-          ? s
-          : { ...s, entries: s.entries.map((e, i) => (i === entryIdx ? { ...e, [field]: value } : e)) }
-      )
-    );
-  };
+  const updateEntryLocal = (sId: string, idx: number, field: keyof OjtEntry, value: string) =>
+    setSections(prev => prev.map(s => s.id !== sId ? s : {
+      ...s, entries: s.entries.map((e, i) => i === idx ? { ...e, [field]: value } : e),
+    }));
 
-  const addEntry = async (sectionId: string) => {
-    const section = sections.find((s) => s.id === sectionId);
-    if (!section) return;
-    const orden = section.entries.length;
-    const { data, error } = await supabase
-      .from('ojt_entries')
-      .insert([{ section_id: sectionId, orden }])
-      .select()
-      .single();
+  const addEntry = async (sId: string) => {
+    const sec = sections.find(s => s.id === sId);
+    if (!sec) return;
+    const { data, error } = await supabase.from('ojt_entries').insert([{ section_id: sId, orden: sec.entries.length }]).select().single();
     if (error) { toast({ title: 'Error', description: 'No se pudo agregar la fila', variant: 'destructive' }); return; }
-    setSections((prev) =>
-      prev.map((s) => (s.id === sectionId ? { ...s, entries: [...s.entries, data] } : s))
-    );
+    setSections(prev => prev.map(s => s.id === sId ? { ...s, entries: [...s.entries, data] } : s));
   };
 
-  const deleteEntry = async (sectionId: string, entry: OjtEntry) => {
+  const deleteEntry = async (sId: string, entry: OjtEntry) => {
     if (entry.id) {
       const { error } = await supabase.from('ojt_entries').delete().eq('id', entry.id);
       if (error) { toast({ title: 'Error', description: 'No se pudo eliminar la fila', variant: 'destructive' }); return; }
     }
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id !== sectionId ? s : { ...s, entries: s.entries.filter((e) => e !== entry) }
-      )
-    );
+    setSections(prev => prev.map(s => s.id !== sId ? s : { ...s, entries: s.entries.filter(e => e !== entry) }));
   };
+
   const addActivity = async () => {
     if (!currentRecordId) {
-      toast({ title: 'Guarda primero el registro', description: 'Guarda los datos generales antes de agregar actividades', variant: 'destructive' });
+      toast({ title: 'Guarda primero', description: 'Guarda los datos generales antes de agregar actividades', variant: 'destructive' });
       return;
     }
-    const activityCount = sections.filter((s) => s.tipo === 'actividad').length;
-    const orden = sections.length;
-    const nombre = `Actividad ${activityCount + 1}`;
-
-    const { data: sec, error: secErr } = await supabase
+    const actCount = sections.filter(s => s.tipo === 'actividad').length;
+    const { data: sec, error } = await supabase
       .from('ojt_sections')
-      .insert([{ record_id: currentRecordId, tipo: 'actividad', nombre, orden }])
-      .select()
-      .single();
-    if (secErr) { toast({ title: 'Error', description: 'No se pudo agregar la actividad', variant: 'destructive' }); return; }
-
-    const { data: entry } = await supabase
-      .from('ojt_entries')
-      .insert([{ section_id: sec.id, orden: 0 }])
-      .select()
-      .single();
-
-    setSections((prev) => [...prev, { ...sec, entries: entry ? [entry] : [] }]);
+      .insert([{ record_id: currentRecordId, tipo: 'actividad', nombre: `Actividad ${actCount + 1}`, orden: sections.length }])
+      .select().single();
+    if (error) { toast({ title: 'Error', description: 'No se pudo agregar actividad', variant: 'destructive' }); return; }
+    const { data: ent } = await supabase.from('ojt_entries').insert([{ section_id: sec.id, orden: 0 }]).select().single();
+    setSections(prev => [...prev, { ...sec, entries: ent ? [ent] : [] }]);
   };
 
-  const deleteSection = async (sectionId: string) => {
-    const { error } = await supabase.from('ojt_sections').delete().eq('id', sectionId);
+  const deleteSection = async (sId: string) => {
+    const { error } = await supabase.from('ojt_sections').delete().eq('id', sId);
     if (error) { toast({ title: 'Error', description: 'No se pudo eliminar la actividad', variant: 'destructive' }); return; }
-    setSections((prev) => prev.filter((s) => s.id !== sectionId));
+    setSections(prev => prev.filter(s => s.id !== sId));
   };
 
-  const updateSectionName = async (sectionId: string, nombre: string) => {
-    setSections((prev) =>
-      prev.map((s) => (s.id === sectionId ? { ...s, nombre } : s))
-    );
-    await supabase.from('ojt_sections').update({ nombre }).eq('id', sectionId);
+  const updateSectionName = async (sId: string, nombre: string) => {
+    setSections(prev => prev.map(s => s.id === sId ? { ...s, nombre } : s));
+    await supabase.from('ojt_sections').update({ nombre }).eq('id', sId);
   };
 
-  const saveSignature = async (signerType: 'empleado' | 'jefe_directo' | 'recursos_humanos') => {
-    if (!currentRecordId) return;
-    const existing = signatures[signerType];
-    const payload = {
-      record_id: currentRecordId,
-      signer_type: signerType,
-      signer_name: sigNames[signerType] || null,
-      signed_at: sigDates[signerType] || null,
-    };
-    if (existing?.id) {
-      await supabase.from('ojt_signatures').update(payload).eq('id', existing.id);
-    } else {
-      const { data } = await supabase.from('ojt_signatures').insert([payload]).select().single();
-      if (data) setSignatures((prev) => ({ ...prev, [signerType]: data }));
-    }
-  };
-
-  const handleExportPdf = async () => {
-    if (!currentRecordId) return;
-    setIsExporting(true);
-    try {
-      await generateOjtPdf({
-        titulo,
-        nombre,
-        puesto,
-        fechaInicio,
-        fechaTermino,
-        pilotoProceso,
-        periodoEntrenamiento,
-        jefeDirectoLabel,
-        integranteBrigadaLabel,
-        sections,
-        sigNames,
-        sigDates,
-      });
-    } catch (err: any) {
-      toast({ title: 'Error', description: 'No se pudo generar el PDF', variant: 'destructive' });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4 animate-pulse">
-        <div className="h-8 bg-muted rounded w-48" />
-        <div className="h-32 bg-muted rounded" />
-        <div className="h-64 bg-muted rounded" />
-      </div>
-    );
-  }
-
-  const isLocked = status === 'locked';
+  if (isLoading) return (
+    <div className="space-y-4 animate-pulse">
+      <div className="h-8 bg-muted rounded w-48" /><div className="h-32 bg-muted rounded" /><div className="h-64 bg-muted rounded" />
+    </div>
+  );
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${STATUS_CLASS[status]}`}>
-            {STATUS_LABEL[status]}
-          </span>
-          {titulo && (
-            <span className="text-sm font-medium text-foreground truncate max-w-xs">{titulo}</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {currentRecordId && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleExportPdf}
-              disabled={isExporting}
-              className="gap-2"
-            >
-              <FileDown className="w-4 h-4" />
-              {isExporting ? 'Generando...' : 'Exportar PDF'}
-            </Button>
-          )}
-          <Button
-            onClick={handleSave}
-            disabled={isSaving || isLocked}
-            className="bg-[#2166be] hover:bg-[#1a5299] text-white"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            {isSaving ? 'Guardando...' : 'Guardar'}
-          </Button>
-        </div>
+      <div className="flex items-center justify-end">
+        <Button onClick={handleSave} disabled={isSaving} className="bg-[#2166be] hover:bg-[#1a5299] text-white">
+          <Save className="w-4 h-4 mr-2" />
+          {isSaving ? 'Guardando...' : 'Guardar plantilla'}
+        </Button>
       </div>
 
+      {/* Datos Generales */}
       <div className="bg-card border border-border rounded-lg p-6">
         <h2 className="text-base font-semibold text-foreground mb-4 pb-2 border-b border-border">
-          Datos Generales
+          Datos Generales de la Plantilla
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Titulo */}
           <div className="space-y-1 sm:col-span-2 lg:col-span-3">
             <Label className="text-xs text-muted-foreground">Nombre del Entrenamiento</Label>
-            <Input
-              value={titulo}
-              onChange={(e) => setTitulo(e.target.value)}
-              placeholder="Nombre del entrenamiento"
-              disabled={isLocked}
-              className="h-9 text-sm"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Empleado</Label>
-            <OjtEmployeeSelect
-              value={employeeLabel}
-              placeholder="Buscar empleado..."
-              employees={employees}
-              onSelect={(emp) => {
-                if (emp) {
-                  setEmployeeId(emp.id);
-                  setEmployeeLabel(emp.nombre);
-                  if (!nombre) setNombre(emp.nombre);
-                  if (!puesto) setPuesto(emp.puesto);
-                } else {
-                  setEmployeeId(null);
-                  setEmployeeLabel('');
-                }
-              }}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Nombre</Label>
-            <Input
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              placeholder="Nombre del empleado"
-              disabled={isLocked}
-              className="h-9 text-sm"
-            />
+            <Input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Nombre del entrenamiento" className="h-9 text-sm" />
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Puesto</Label>
-            <Input
-              value={puesto}
-              onChange={(e) => setPuesto(e.target.value)}
-              placeholder="Puesto"
-              disabled={isLocked}
-              className="h-9 text-sm"
-            />
+            <Input value={puesto} onChange={e => setPuesto(e.target.value)} placeholder="Puesto de trabajo" className="h-9 text-sm" />
           </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Fecha de Inicio</Label>
-            <Input
-              type="date"
-              value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
-              disabled={isLocked}
-              className="h-9 text-sm"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Fecha de Término</Label>
-            <Input
-              type="date"
-              value={fechaTermino}
-              onChange={(e) => setFechaTermino(e.target.value)}
-              disabled={isLocked}
-              className="h-9 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Piloto de Proceso</Label>
-            <OjtEmployeeSelect
-              value={pilotoProcesoLabel}
-              placeholder="Buscar piloto de proceso..."
-              employees={employees}
-              onSelect={(emp) => {
-                if (emp) {
-                  setPilotoProceso(emp.nombre);
-                  setPilotoProcesoLabel(emp.nombre);
-                } else {
-                  setPilotoProceso('');
-                  setPilotoProcesoLabel('');
-                }
-              }}
-            />
-          </div>
-
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Período de Entrenamiento</Label>
-            <Input
-              value={periodoEntrenamiento}
-              onChange={(e) => setPeriodoEntrenamiento(e.target.value)}
-              placeholder="Ej: Semana 1-4"
-              disabled={isLocked}
-              className="h-9 text-sm"
-            />
+            <Input value={periodo} onChange={e => setPeriodo(e.target.value)} placeholder="Ej: Semana 1–4" className="h-9 text-sm" />
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Jefe Directo</Label>
             <OjtEmployeeSelect
-              value={jefeDirectoLabel}
+              value={jefeLabel}
               placeholder="Buscar jefe directo..."
               employees={employees}
-              onSelect={(emp) => {
-                if (emp) { setJefeDirectoId(emp.id); setJefeDirectoLabel(emp.nombre); }
-                else { setJefeDirectoId(null); setJefeDirectoLabel(''); }
-              }}
+              onSelect={emp => { if (emp) { setJefeId(emp.id); setJefeLabel(emp.nombre); } else { setJefeId(null); setJefeLabel(''); } }}
             />
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Integrante de Brigada</Label>
-            <OjtEmployeeSelect
-              value={integranteBrigadaLabel}
-              placeholder="Buscar integrante..."
-              employees={employees}
-              onSelect={(emp) => {
-                if (emp) { setIntegranteBrigadaId(emp.id); setIntegranteBrigadaLabel(emp.nombre); }
-                else { setIntegranteBrigadaId(null); setIntegranteBrigadaLabel(''); }
-              }}
-            />
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 pt-5">
+              <Checkbox id="piloto" checked={esPiloto} onCheckedChange={v => { setEsPiloto(!!v); if (!v) setPilotoCodigo(''); }} />
+              <Label htmlFor="piloto" className="text-sm cursor-pointer">¿Es Piloto de Proceso?</Label>
+            </div>
+            {esPiloto && (
+              <Select value={pilotoCodigo} onValueChange={setPilotoCodigo}>
+                <SelectTrigger className="h-9 text-xs bg-background">
+                  <SelectValue placeholder="Seleccionar proceso..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {PILOTO_OPTIONS.map(o => (
+                    <SelectItem key={o.code} value={o.code} className="text-xs">{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 pt-5">
+            <Checkbox id="brigada" checked={esBrigada} onCheckedChange={v => setEsBrigada(!!v)} />
+            <Label htmlFor="brigada" className="text-sm cursor-pointer">¿Es Integrante de Brigada?</Label>
           </div>
         </div>
       </div>
-
       <div className="bg-card border border-border rounded-lg p-6">
         <h2 className="text-base font-semibold text-foreground mb-4 pb-2 border-b border-border">
-          Plan de Entrenamiento
+          Conocimientos y Actividades
         </h2>
-
         {currentRecordId ? (
           <div className="overflow-x-auto -mx-2 px-2">
-            <table className="w-full border-collapse text-xs" style={{ minWidth: '1600px' }}>
+            <table className="w-full border-collapse text-xs" style={{ minWidth: '1100px' }}>
               <thead>
                 <tr className="bg-muted">
-                  {ENTRY_COLUMNS.map((col) => (
-                    <th
-                      key={col.key}
-                      className="border border-border px-2 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap"
-                      style={{ minWidth: col.minW }}
-                    >
+                  {ENTRY_COLS.map(col => (
+                    <th key={col.key} className="border border-border px-2 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap" style={{ minWidth: col.minW }}>
                       {col.label}
                     </th>
                   ))}
@@ -615,48 +304,27 @@ export function OjtForm({ recordId }: OjtFormProps) {
                 </tr>
               </thead>
               <tbody>
-                {sections.map((section) => (
+                {sections.map(section => (
                   <React.Fragment key={section.id}>
                     <tr className="bg-[#192b52]/5">
-                      <td
-                        colSpan={ENTRY_COLUMNS.length + 1}
-                        className="border border-border px-3 py-1.5"
-                      >
+                      <td colSpan={ENTRY_COLS.length + 1} className="border border-border px-3 py-1.5">
                         <div className="flex items-center justify-between gap-2">
                           {section.tipo === 'actividad' ? (
                             <input
                               className="font-semibold text-foreground bg-transparent border-none outline-none w-full text-xs"
                               value={section.nombre}
-                              onChange={(e) =>
-                                setSections((prev) =>
-                                  prev.map((s) => s.id === section.id ? { ...s, nombre: e.target.value } : s)
-                                )
-                              }
-                              onBlur={(e) => updateSectionName(section.id, e.target.value)}
-                              disabled={isLocked}
+                              onChange={e => setSections(prev => prev.map(s => s.id === section.id ? { ...s, nombre: e.target.value } : s))}
+                              onBlur={e => updateSectionName(section.id, e.target.value)}
                             />
                           ) : (
-                            <span className="font-semibold text-foreground text-xs uppercase tracking-wide">
-                              {section.nombre}
-                            </span>
+                            <span className="font-semibold text-foreground text-xs uppercase tracking-wide">{section.nombre}</span>
                           )}
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => addEntry(section.id)}
-                              disabled={isLocked}
-                              className="text-[#2166be] hover:text-[#1a5299] text-xs font-medium flex items-center gap-1 disabled:opacity-40"
-                            >
-                              <Plus className="w-3 h-3" />
-                              Agregar fila
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button type="button" onClick={() => addEntry(section.id)} className="text-[#2166be] hover:text-[#1a5299] text-xs font-medium flex items-center gap-1">
+                              <Plus className="w-3 h-3" /> Agregar fila
                             </button>
-                            {section.tipo === 'actividad' && !isLocked && (
-                              <button
-                                type="button"
-                                onClick={() => deleteSection(section.id)}
-                                className="text-red-500 hover:text-red-700 ml-2"
-                                title="Eliminar actividad"
-                              >
+                            {section.tipo === 'actividad' && (
+                              <button type="button" onClick={() => deleteSection(section.id)} className="text-red-500 hover:text-red-700 ml-1" title="Eliminar actividad">
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             )}
@@ -666,30 +334,22 @@ export function OjtForm({ recordId }: OjtFormProps) {
                     </tr>
                     {section.entries.map((entry, idx) => (
                       <tr key={entry.id || `new-${idx}`} className="hover:bg-muted/30">
-                        {ENTRY_COLUMNS.map((col) => (
+                        {ENTRY_COLS.map(col => (
                           <td key={col.key} className="border border-border px-1 py-0.5">
                             <input
                               type={col.type}
                               value={(entry[col.key] as string) ?? ''}
-                              disabled={isLocked}
-                              onChange={(e) => updateEntryLocal(section.id, idx, col.key, e.target.value)}
-                              onBlur={(e) => saveEntryField(entry, col.key, e.target.value)}
-                              className="w-full h-7 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded disabled:opacity-50"
+                              onChange={e => updateEntryLocal(section.id, idx, col.key, e.target.value)}
+                              onBlur={e => saveEntryField(entry, col.key, e.target.value)}
+                              className="w-full h-7 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded"
                               style={{ minWidth: col.minW }}
                             />
                           </td>
                         ))}
                         <td className="border border-border px-1 py-0.5 text-center">
-                          {!isLocked && (
-                            <button
-                              type="button"
-                              onClick={() => deleteEntry(section.id, entry)}
-                              className="text-red-400 hover:text-red-600"
-                              title="Eliminar fila"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button type="button" onClick={() => deleteEntry(section.id, entry)} className="text-red-400 hover:text-red-600" title="Eliminar fila">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -699,69 +359,15 @@ export function OjtForm({ recordId }: OjtFormProps) {
             </table>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            Guarda los datos generales primero para habilitar la tabla de entrenamiento.
-          </p>
+          <p className="text-sm text-muted-foreground">Guarda los datos generales primero para habilitar la tabla de entrenamiento.</p>
         )}
-
-        {currentRecordId && !isLocked && (
+        {currentRecordId && (
           <div className="mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addActivity}
-              className="text-[#2166be] border-[#2166be] hover:bg-[#2166be]/5"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Agregar Actividad
+            <Button type="button" variant="outline" size="sm" onClick={addActivity} className="text-[#2166be] border-[#2166be] hover:bg-[#2166be]/5">
+              <Plus className="w-4 h-4 mr-1" /> Agregar Actividad
             </Button>
           </div>
         )}
-      </div>
-
-      <div className="bg-card border border-border rounded-lg p-6">
-        <h2 className="text-base font-semibold text-foreground mb-4 pb-2 border-b border-border">
-          Firmas de Liberación
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          {(['empleado', 'jefe_directo', 'recursos_humanos'] as const).map((sigType) => {
-            const labels: Record<string, string> = {
-              empleado: 'Empleado',
-              jefe_directo: 'Jefe Directo',
-              recursos_humanos: 'Recursos Humanos',
-            };
-            return (
-              <div key={sigType} className="space-y-3 border border-border rounded-md p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  {labels[sigType]}
-                </p>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Nombre</Label>
-                  <Input
-                    value={sigNames[sigType]}
-                    onChange={(e) => setSigNames((prev) => ({ ...prev, [sigType]: e.target.value }))}
-                    onBlur={() => saveSignature(sigType)}
-                    placeholder="Nombre completo"
-                    disabled={isLocked || !currentRecordId}
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Fecha de Firma</Label>
-                  <Input
-                    type="date"
-                    value={sigDates[sigType]}
-                    onChange={(e) => setSigDates((prev) => ({ ...prev, [sigType]: e.target.value }))}
-                    onBlur={() => saveSignature(sigType)}
-                    disabled={isLocked || !currentRecordId}
-                    className="h-9 text-sm"
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
       </div>
     </div>
   );

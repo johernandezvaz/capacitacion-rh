@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, ChevronRight, FileText, Search } from 'lucide-react';
+import { Plus, Search, FileText, Users, ChevronRight, Edit3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
@@ -22,6 +22,7 @@ type OjtListItem = {
   puesto: string | null;
   periodo_entrenamiento: string | null;
   created_at: string;
+  total_instancias: number;
 };
 
 export default function OjtPage() {
@@ -36,7 +37,11 @@ export default function OjtPage() {
     try {
       const { data, error } = await supabase
         .from('ojt_records')
-        .select('id, titulo, puesto, periodo_entrenamiento, created_at')
+        .select(`
+          id, titulo, puesto, periodo_entrenamiento, created_at,
+          ojt_instances(id)
+        `)
+        .eq('is_template', true)
         .order('puesto', { ascending: true })
         .order('titulo', { ascending: true });
 
@@ -48,41 +53,39 @@ export default function OjtPage() {
         puesto: r.puesto,
         periodo_entrenamiento: r.periodo_entrenamiento,
         created_at: r.created_at,
+        total_instancias: Array.isArray(r.ojt_instances) ? r.ojt_instances.length : 0,
       }));
 
       setRecords(mapped);
 
-      // 2. Fetch distinct puestos for dropdown
       const { data: puestosData, error: puestosError } = await supabase
         .from('ojt_records')
         .select('puesto')
+        .eq('is_template', true)
         .not('puesto', 'is', null)
         .neq('puesto', '');
 
       if (puestosError) throw puestosError;
 
-      // Extract unique puestos and sort
-      const uniquePuestos = Array.from(new Set(puestosData?.map((p: any) => p.puesto) || [])).sort() as string[];
+      const uniquePuestos = Array.from(
+        new Set(puestosData?.map((p: any) => p.puesto) || [])
+      ).sort() as string[];
       setPuestos(uniquePuestos);
 
     } catch (err) {
-      toast({ title: 'Error', description: 'No se pudieron cargar los registros OJT', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudieron cargar las plantillas OJT', variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
       const matchSearch = !searchQuery.trim() ||
         (r.titulo && r.titulo.toLowerCase().includes(searchQuery.toLowerCase()));
-
       const matchPuesto = selectedPuesto === 'all' || r.puesto === selectedPuesto;
-
       return matchSearch && matchPuesto;
     });
   }, [records, searchQuery, selectedPuesto]);
@@ -90,39 +93,37 @@ export default function OjtPage() {
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">
-              Entrenamiento
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-1">
+              Entrenamiento en el Puesto
             </h1>
             <p className="text-muted-foreground text-sm sm:text-base">
-              Registro de Entrenamiento en el Puesto
+              Registro de Entrenamiento en el Puesto (OJT) — Plantillas
             </p>
           </div>
           <Link href="/ojt/new">
             <Button className="bg-[#2166be] hover:bg-[#1a5299] text-white w-full sm:w-auto" size="lg">
               <Plus className="w-5 h-5 mr-2" />
-              Nuevo Registro
+              Nueva Plantilla
             </Button>
           </Link>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por nombre del entrenamiento..."
+              placeholder="Buscar por nombre de entrenamiento..."
               className="pl-9 h-10 w-full"
             />
           </div>
           <div className="w-full sm:w-64">
             <Select value={selectedPuesto} onValueChange={setSelectedPuesto}>
               <SelectTrigger className="h-10 w-full bg-background border border-input text-sm">
-                <SelectValue placeholder="Seleccionar puesto" />
+                <SelectValue placeholder="Todos los puestos" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los puestos</SelectItem>
@@ -134,7 +135,6 @@ export default function OjtPage() {
           </div>
         </div>
 
-        {/* Content */}
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
@@ -147,48 +147,67 @@ export default function OjtPage() {
               <FileText className="w-8 h-8 text-muted-foreground" />
             </div>
             <h3 className="text-xl font-semibold text-foreground mb-2">
-              No hay registros de Entrenamiento
+              No hay plantillas de Entrenamiento
             </h3>
             <p className="text-muted-foreground mb-6">
-              Crea el primer registro de entrenamiento en el puesto
+              Crea la primera plantilla de entrenamiento en el puesto
             </p>
             <Link href="/ojt/new">
               <Button className="bg-[#2166be] hover:bg-[#1a5299] text-white">
                 <Plus className="w-5 h-5 mr-2" />
-                Nuevo Registro
+                Nueva Plantilla
               </Button>
             </Link>
           </div>
         ) : filteredRecords.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            No se encontraron registros que coincidan con la búsqueda.
+            No se encontraron plantillas con los filtros actuales.
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {filteredRecords.map((r) => (
               <Card
                 key={r.id}
-                className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 hover:shadow-md transition-shadow group border-border"
+                className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-border"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-[#2166be] bg-[#2166be]/10 px-2 py-1 rounded-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#2166be] bg-[#2166be]/10 px-2 py-0.5 rounded-sm">
                       {r.puesto || 'Sin puesto'}
                     </span>
+                    <span className="text-xs text-muted-foreground border border-border rounded-sm px-2 py-0.5 flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {r.total_instancias} {r.total_instancias === 1 ? 'instancia' : 'instancias'}
+                    </span>
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground truncate mb-1.5">
+                  <h3 className="text-base font-semibold text-foreground truncate mb-0.5">
                     {r.titulo || 'Sin nombre'}
                   </h3>
-                  <p className="text-sm text-muted-foreground truncate flex items-center gap-2">
-                    <span className="font-medium text-foreground/70">Período:</span>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <span className="font-medium text-foreground/60">Período:</span>
                     {r.periodo_entrenamiento || '—'}
                   </p>
                 </div>
-                <div className="shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
-                  <Link href={`/ojt/${r.id}`} className="w-full sm:w-auto block">
-                    <Button variant="outline" className="w-full sm:w-auto gap-2 text-muted-foreground group-hover:text-foreground transition-colors group-hover:border-[#2166be] group-hover:bg-[#2166be]/5">
-                      Abrir Registro
-                      <ChevronRight className="w-4 h-4" />
+
+                <div className="shrink-0 flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <Link href={`/ojt/${r.id}`} className="w-full sm:w-auto">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full sm:w-auto gap-2 text-muted-foreground hover:text-foreground hover:border-border"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      Editar plantilla
+                    </Button>
+                  </Link>
+                  <Link href={`/ojt/${r.id}/instancias`} className="w-full sm:w-auto">
+                    <Button
+                      size="sm"
+                      className="w-full sm:w-auto gap-2 bg-[#2166be] hover:bg-[#1a5299] text-white"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      Ver instancias
+                      <ChevronRight className="w-3.5 h-3.5" />
                     </Button>
                   </Link>
                 </div>

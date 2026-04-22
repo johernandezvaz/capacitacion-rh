@@ -174,8 +174,9 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
         }
 
         const now = new Date();
-        const availableDate = new Date(employee.cold_questionnaire.available_from);
-        const isAvailable = now >= availableDate;
+        const rawAvailable = employee.cold_questionnaire.available_from;
+        const availableDate = rawAvailable ? new Date(rawAvailable) : null;
+        const isAvailable = availableDate ? now >= availableDate : true;
 
         if (employee.cold_questionnaire.submitted_at !== null) {
             return {
@@ -187,7 +188,7 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
             };
         }
 
-        if (!isAvailable) {
+        if (!isAvailable && availableDate) {
             return {
                 label: 'Bloqueado',
                 color: 'bg-slate-100 text-slate-600',
