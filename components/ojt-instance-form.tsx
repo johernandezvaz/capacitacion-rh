@@ -28,6 +28,7 @@ type InstanceEntryRow = {
   efectividad: string;
   responsable_nombre: string;
   responsable_firma_url: string | null;
+  empleado_firma_url: string | null;
   comentarios: string;
 };
 
@@ -120,7 +121,7 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
               procedimientos_internos, metodo_entrenamiento, duracion, fecha_planeada_terminacion,
               ojt_instance_entries!ojt_instance_entries_entry_id_fkey (
                 id, efectividad, responsable_nombre, responsable_firma_url,
-                fecha_real_inicio, fecha_real_termino, comentarios
+                empleado_firma_url, fecha_real_inicio, fecha_real_termino, comentarios
               )
             )
           `)
@@ -149,6 +150,7 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
               efectividad: ie?.efectividad != null ? String(ie.efectividad) : '',
               responsable_nombre: ie?.responsable_nombre ?? '',
               responsable_firma_url: ie?.responsable_firma_url ?? null,
+              empleado_firma_url: ie?.empleado_firma_url ?? null,
               comentarios: ie?.comentarios ?? '',
             } as InstanceEntryRow;
           }),
@@ -219,6 +221,17 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
     const row = groups[gIdx].rows[rIdx];
     if (row.instance_entry_id) {
       supabase.from('ojt_instance_entries').update({ responsable_firma_url: url }).eq('id', row.instance_entry_id);
+    }
+  };
+
+  const updateRowEmpleadoFirmaUrl = (gIdx: number, rIdx: number, url: string) => {
+    setGroups(prev => prev.map((g, gi) => gi !== gIdx ? g : {
+      ...g,
+      rows: g.rows.map((r, ri) => ri !== rIdx ? r : { ...r, empleado_firma_url: url }),
+    }));
+    const row = groups[gIdx].rows[rIdx];
+    if (row.instance_entry_id) {
+      supabase.from('ojt_instance_entries').update({ empleado_firma_url: url }).eq('id', row.instance_entry_id);
     }
   };
 
@@ -396,10 +409,10 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
                 {[
                   'Conocimiento Requerido', 'Habilidades', 'Fuentes de Información', 'Procedimientos Internos',
                   'Método de Entrenamiento', 'Duración', 'F. Planeada Terminación',
-                  'F. Real Inicio', 'F. Real Término', 'Efectividad %', 'Responsable', 'Comentarios',
+                  'F. Real Inicio', 'F. Real Término', 'Efectividad %', 'Responsable', 'Firma Empleado', 'Comentarios',
                 ].map((h, i) => (
                   <th key={i} className="border border-border px-2 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap"
-                    style={{ minWidth: i < 7 ? '140px' : i === 10 ? '150px' : '120px' }}>
+                    style={{ minWidth: i < 7 ? '140px' : i === 10 || i === 11 ? '150px' : '120px' }}>
                     {h}
                   </th>
                 ))}
@@ -409,7 +422,7 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
               {groups.map((group, gIdx) => (
                 <React.Fragment key={group.section_id}>
                   <tr className="bg-[#192b52]/5">
-                    <td colSpan={12} className="border border-border px-3 py-1.5">
+                    <td colSpan={13} className="border border-border px-3 py-1.5">
                       <span className="font-semibold text-foreground text-xs uppercase tracking-wide">
                         {group.section_nombre}
                       </span>
@@ -465,6 +478,17 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
                             onBlur={e => saveInstanceEntryField(gIdx, rIdx, 'responsable_nombre', e.target.value)}
                             className="w-full h-6 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded border border-border"
                           />
+                        </div>
+                      </td>
+                      <td className="border border-border px-1 py-0.5" style={{ minWidth: '150px' }}>
+                        <div className="space-y-1">
+                          <OjtSignatureCanvas
+                            currentUrl={row.empleado_firma_url}
+                            instanceId={instanceId}
+                            fieldKey={`empleado_entry_${row.entry_id}`}
+                            onSave={url => updateRowEmpleadoFirmaUrl(gIdx, rIdx, url)}
+                          />
+                          <p className="text-[10px] text-center text-muted-foreground">Firma Empleado</p>
                         </div>
                       </td>
                       <td className="border border-border px-1 py-0.5">
