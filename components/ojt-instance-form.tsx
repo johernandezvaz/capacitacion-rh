@@ -453,13 +453,23 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
                           className="w-full h-7 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded"
                         />
                       </td>
-                      <td className="border border-border px-1 py-0.5">
+                      <td
+                        className="border border-border px-1 py-0.5"
+                        style={row.efectividad !== '' && parseFloat(row.efectividad) < 80
+                          ? { backgroundColor: '#A91D3A' }
+                          : undefined}
+                      >
                         <input type="number" min="0" max="100" value={row.efectividad}
                           onChange={e => updateRowLocal(gIdx, rIdx, 'efectividad', e.target.value)}
                           onBlur={e => saveInstanceEntryField(gIdx, rIdx, 'efectividad', e.target.value)}
                           placeholder="0-100"
-                          className="w-full h-7 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded"
-                          style={{ minWidth: '70px' }}
+                          className="w-full h-7 px-1.5 text-xs border-none outline-none focus:border focus:border-ring rounded"
+                          style={{
+                            minWidth: '70px',
+                            ...(row.efectividad !== '' && parseFloat(row.efectividad) < 80
+                              ? { backgroundColor: '#A91D3A', color: '#EEEEEE', fontWeight: '700' }
+                              : { backgroundColor: 'transparent' }),
+                          }}
                         />
                       </td>
                       <td className="border border-border px-1 py-0.5" style={{ minWidth: '150px' }}>
