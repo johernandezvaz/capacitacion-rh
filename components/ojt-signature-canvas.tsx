@@ -96,11 +96,11 @@ export function OjtSignatureCanvas({ currentUrl, instanceId, fieldKey, onSave, d
       const path = `${instanceId}/${fieldKey}_${timestamp}.png`;
 
       const { error: upErr } = await supabase.storage
-        .from('ojt-firmas')
+        .from('signatures')
         .upload(path, blob, { contentType: 'image/png', upsert: true });
       if (upErr) throw upErr;
 
-      const { data: urlData } = supabase.storage.from('ojt-firmas').getPublicUrl(path);
+      const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(path);
       onSave(urlData.publicUrl);
       setOpen(false);
     } catch (err: any) {

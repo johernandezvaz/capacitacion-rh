@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Plus, ChevronRight, Trash2, Pencil } from 'lucide-react';
+import { Plus, ChevronRight, Trash2, Pencil, Search } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,9 @@ export default function YearDetailPage() {
     open: false,
     hasCourses: false,
   });
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   // --- Delete course ---
   const [deleteCourseDialog, setDeleteCourseDialog] = useState<{ open: boolean; course: Course | null }>({
@@ -241,6 +244,55 @@ export default function YearDetailPage() {
 
   if (!year) return null;
 
+  const groupedCourses = (() => {
+    const groups: Record<string, { label: string; sortKey: string; courses: Course[] }> = {};
+    const noDateCourses: Course[] = [];
+
+    const filteredCourses = courses.filter(course =>
+      course.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    filteredCourses.forEach(course => {
+      if (!course.date) {
+        noDateCourses.push(course);
+      } else {
+        const d = new Date(course.date + 'T12:00:00');
+        const month = d.toLocaleString('es-ES', { month: 'long' });
+        const yearVal = d.getFullYear();
+        const monthCap = month.charAt(0).toUpperCase() + month.slice(1);
+        const label = `${monthCap} ${yearVal}`;
+        const sortKey = `${yearVal}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!groups[sortKey]) {
+          groups[sortKey] = { label, sortKey, courses: [] };
+        }
+        groups[sortKey].courses.push(course);
+      }
+    });
+
+    const sortedGroups = Object.values(groups).sort((a, b) => {
+      return sortOrder === 'desc' 
+        ? b.sortKey.localeCompare(a.sortKey) 
+        : a.sortKey.localeCompare(b.sortKey);
+    });
+
+    sortedGroups.forEach(group => {
+      group.courses.sort((a, b) => {
+        const dateA = a.date || '';
+        const dateB = b.date || '';
+        return sortOrder === 'desc'
+          ? dateB.localeCompare(dateA)
+          : dateA.localeCompare(dateB);
+      });
+    });
+    
+    if (noDateCourses.length > 0) {
+      sortedGroups.push({ label: 'Sin fecha', sortKey: sortOrder === 'desc' ? '0000-00' : '9999-99', courses: noDateCourses });
+    }
+
+    return sortedGroups;
+  })();
+
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
       <div className="max-w-7xl mx-auto">
@@ -281,6 +333,30 @@ export default function YearDetailPage() {
           </div>
         </div>
 
+        {courses.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar curso..."
+                className="pl-9 w-full bg-white h-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="w-full sm:w-64 shrink-0">
+              <select
+                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')}
+              >
+                <option value="desc">Más reciente primero</option>
+                <option value="asc">Más antiguo primero</option>
+              </select>
+            </div>
+          </div>
+        )}
+
         {courses.length === 0 ? (
           <div className="text-center py-16">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
@@ -301,34 +377,40 @@ export default function YearDetailPage() {
             </Button>
           </div>
         ) : (
-          <div className="space-y-4">
-            {courses.map((course) => (
-              <div key={course.id} className="relative group/row">
-                <CourseCard course={course} />
-                {/* Action buttons overlaid on the card */}
-                <div
-                  className="absolute bottom-3 right-8 flex items-center gap-1
-                             opacity-0 group-hover/row:opacity-100 transition-opacity z-10"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    title="Renombrar curso"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-background/80"
-                    onClick={(e) => handleRenameCourseClick(e, course)}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    title="Eliminar curso"
-                    className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50"
-                    onClick={(e) => handleDeleteCourseClick(e, course)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+          <div className="space-y-8">
+            {groupedCourses.map((group) => (
+              <div key={group.sortKey} className="space-y-4">
+                <h2 className="text-xl font-semibold text-foreground border-b pb-2">{group.label}</h2>
+                <div className="space-y-4">
+                  {group.courses.map((course) => (
+                    <div key={course.id} className="relative group/row">
+                      <CourseCard course={course} />
+                      <div
+                        className="absolute bottom-3 right-8 flex items-center gap-1
+                                   opacity-0 group-hover/row:opacity-100 transition-opacity z-10"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Renombrar curso"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-background/80"
+                          onClick={(e) => handleRenameCourseClick(e, course)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Eliminar curso"
+                          className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                          onClick={(e) => handleDeleteCourseClick(e, course)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

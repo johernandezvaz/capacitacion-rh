@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Plus, ChevronLeft, ChevronRight, User } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, User, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -126,6 +126,18 @@ export default function OjtInstanciasPage() {
     }
   };
 
+  const handleDeleteInstance = async (instanceId: string) => {
+    if (!window.confirm("¿Estás seguro? Esta acción no se puede deshacer")) return;
+    try {
+      const { error } = await supabase.from('ojt_instances').delete().eq('id', instanceId);
+      if (error) throw error;
+      toast({ title: 'Instancia eliminada', description: 'La instancia se ha eliminado correctamente.' });
+      fetchData();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'No se pudo eliminar la instancia', variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
       <div className="max-w-5xl mx-auto">
@@ -204,12 +216,23 @@ export default function OjtInstanciasPage() {
                     {inst.fecha_termino ? ` · Término: ${fmtDate(inst.fecha_termino)}` : ''}
                   </p>
                 </div>
-                <Link href={`/ojt/${templateId}/instancias/${inst.id}`} className="shrink-0 w-full sm:w-auto">
-                  <Button size="sm" className="w-full sm:w-auto gap-2 bg-[#2166be] hover:bg-[#1a5299] text-white">
-                    Abrir
-                    <ChevronRight className="w-3.5 h-3.5" />
+                <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0 w-full sm:w-auto">
+                  <Link href={`/ojt/${templateId}/instancias/${inst.id}`} className="w-full sm:w-auto">
+                    <Button size="sm" className="w-full sm:w-auto gap-2 bg-[#2166be] hover:bg-[#1a5299] text-white">
+                      Abrir
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </Link>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="w-full sm:w-auto gap-2"
+                    onClick={() => handleDeleteInstance(inst.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Eliminar
                   </Button>
-                </Link>
+                </div>
               </Card>
             ))}
           </div>
