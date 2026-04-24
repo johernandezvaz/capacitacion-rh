@@ -110,14 +110,14 @@ export function AttendanceListPDF({ course, participants }: AttendanceListPDFPro
     const formatDate = (dateString: string) => {
         if (!dateString || typeof dateString !== 'string') return String(dateString || '');
         try {
-            // Handle potential Date object if it slipped through
+            
             const str = String(dateString);
             const [year, month, day] = str.split('-');
             const monthNames = [
                 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
                 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
             ];
-            // Ensure we have valid parts
+            
             if (!year || !month || !day) return str;
 
             const monthIndex = parseInt(month, 10) - 1;

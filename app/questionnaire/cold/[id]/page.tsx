@@ -210,18 +210,14 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             return false;
         }
 
-        if (!observation1.trim()) {
-            toast.error('Por favor complete la Observación 1');
-            return false;
-        }
+        const hasAtLeastOneObservation =
+            observation1.trim() || observation2.trim() || observation3.trim();
 
-        if (!observation2.trim()) {
-            toast.error('Por favor complete la Observación 2');
-            return false;
-        }
-
-        if (!observation3.trim()) {
-            toast.error('Por favor complete la Observación 3');
+        if (!hasAtLeastOneObservation) {
+            toast.error(
+                'Se requiere al menos una observación para poder firmar. Por favor llene al menos el campo de Observación 1.',
+                { duration: 5000 }
+            );
             return false;
         }
 
@@ -516,7 +512,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                     <CardHeader>
                         <CardTitle>Observaciones del Evaluador</CardTitle>
                         <CardDescription>
-                            Complete las 3 observaciones obligatorias
+                            Complete al menos una observación (obligatoria). Las demás son opcionales.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -533,26 +529,26 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                             />
                         </div>
                         <div className="space-y-3">
-                            <Label htmlFor="obs2" className="text-base font-semibold">Observación 2 *</Label>
+                            <Label htmlFor="obs2" className="text-base font-semibold">Observación 2 <span className="text-gray-400 font-normal text-sm">(opcional)</span></Label>
                             <Textarea
                                 id="obs2"
                                 value={observation2}
                                 onChange={(e) => setObservation2(e.target.value)}
                                 onBlur={updateObservations}
                                 disabled={!canEdit}
-                                placeholder="Ingrese la segunda observación..."
+                                placeholder="Ingrese la segunda observación (opcional)..."
                                 rows={3}
                             />
                         </div>
                         <div className="space-y-3">
-                            <Label htmlFor="obs3" className="text-base font-semibold">Observación 3 *</Label>
+                            <Label htmlFor="obs3" className="text-base font-semibold">Observación 3 <span className="text-gray-400 font-normal text-sm">(opcional)</span></Label>
                             <Textarea
                                 id="obs3"
                                 value={observation3}
                                 onChange={(e) => setObservation3(e.target.value)}
                                 onBlur={updateObservations}
                                 disabled={!canEdit}
-                                placeholder="Ingrese la tercera observación..."
+                                placeholder="Ingrese la tercera observación (opcional)..."
                                 rows={3}
                             />
                         </div>

@@ -409,7 +409,7 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
                 {[
                   'Conocimiento Requerido', 'Habilidades', 'Fuentes de Información', 'Procedimientos Internos',
                   'Método de Entrenamiento', 'Duración', 'F. Planeada Terminación',
-                  'F. Real Inicio', 'F. Real Término', 'Efectividad %', 'Responsable', 'Firma Empleado', 'Comentarios',
+                  'F. Real Inicio', 'F. Real Término', 'Efectividad %', 'Firma Empleado', 'Responsable', 'Comentarios',
                 ].map((h, i) => (
                   <th key={i} className="border border-border px-2 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap"
                     style={{ minWidth: i < 7 ? '140px' : i === 10 || i === 11 ? '150px' : '120px' }}>
@@ -453,24 +453,25 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
                           className="w-full h-7 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded"
                         />
                       </td>
-                      <td
-                        className="border border-border px-1 py-0.5"
-                        style={row.efectividad !== '' && parseFloat(row.efectividad) < 80
-                          ? { backgroundColor: '#A91D3A' }
-                          : undefined}
-                      >
+                      <td className="border border-border px-1 py-0.5">
                         <input type="number" min="0" max="100" value={row.efectividad}
                           onChange={e => updateRowLocal(gIdx, rIdx, 'efectividad', e.target.value)}
                           onBlur={e => saveInstanceEntryField(gIdx, rIdx, 'efectividad', e.target.value)}
                           placeholder="0-100"
-                          className="w-full h-7 px-1.5 text-xs border-none outline-none focus:border focus:border-ring rounded"
-                          style={{
-                            minWidth: '70px',
-                            ...(row.efectividad !== '' && parseFloat(row.efectividad) < 80
-                              ? { backgroundColor: '#A91D3A', color: '#EEEEEE', fontWeight: '700' }
-                              : { backgroundColor: 'transparent' }),
-                          }}
+                          className="w-full h-7 px-1.5 text-xs bg-transparent border-none outline-none focus:border focus:border-ring rounded"
+                          style={{ minWidth: '70px' }}
                         />
+                      </td>
+                      <td className="border border-border px-1 py-0.5" style={{ minWidth: '150px' }}>
+                        <div className="space-y-1">
+                          <OjtSignatureCanvas
+                            currentUrl={row.empleado_firma_url}
+                            instanceId={instanceId}
+                            fieldKey={`empleado_entry_${row.entry_id}`}
+                            onSave={url => updateRowEmpleadoFirmaUrl(gIdx, rIdx, url)}
+                          />
+                          <p className="text-[10px] text-center text-muted-foreground">Firma Empleado</p>
+                        </div>
                       </td>
                       <td className="border border-border px-1 py-0.5" style={{ minWidth: '150px' }}>
                         <div className="space-y-1">
@@ -488,17 +489,6 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
                             onBlur={e => saveInstanceEntryField(gIdx, rIdx, 'responsable_nombre', e.target.value)}
                             className="w-full h-6 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded border border-border"
                           />
-                        </div>
-                      </td>
-                      <td className="border border-border px-1 py-0.5" style={{ minWidth: '150px' }}>
-                        <div className="space-y-1">
-                          <OjtSignatureCanvas
-                            currentUrl={row.empleado_firma_url}
-                            instanceId={instanceId}
-                            fieldKey={`empleado_entry_${row.entry_id}`}
-                            onSave={url => updateRowEmpleadoFirmaUrl(gIdx, rIdx, url)}
-                          />
-                          <p className="text-[10px] text-center text-muted-foreground">Firma Empleado</p>
                         </div>
                       </td>
                       <td className="border border-border px-1 py-0.5">

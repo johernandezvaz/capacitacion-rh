@@ -67,7 +67,6 @@ export async function GET(
             console.error('Error loading logo:', error);
         }
 
-        // Generate PDF using jsPDF
         const doc = new jsPDF();
 
         // Add logo if available
@@ -79,26 +78,23 @@ export async function GET(
             }
         }
 
-        // Title
         doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
         doc.text('LISTA DE ASISTENCIA', doc.internal.pageSize.getWidth() / 2, 35, { align: 'center' });
 
-        // Course info
         doc.setFontSize(12);
         doc.setFont('helvetica', 'normal');
         doc.text(`Curso: ${courseData.name}`, 14, 48);
         doc.text(`Fecha: ${new Date(courseData.date + 'T12:00:00').toLocaleDateString('es-MX')}`, 14, 55);
         doc.text(`Duración: ${courseData.duration_hours} horas`, 14, 62);
 
-        // Participants table
         const tableData = participants.map((p, index) => [
             index + 1,
             p.employee_number,
             p.nombre,
             p.area,
             p.puesto,
-            '' // Firma column
+            ''
         ]);
 
         autoTable(doc, {
@@ -126,12 +122,10 @@ export async function GET(
             }
         });
 
-        // Footer
         const finalY = (doc as any).lastAutoTable?.finalY || 60;
         doc.setFontSize(10);
         doc.text('Total de participantes: ' + participants.length, 14, finalY + 10);
 
-        // Generate buffer
         const pdfBuffer = new Uint8Array(doc.output('arraybuffer'));
 
         return new NextResponse(pdfBuffer, {

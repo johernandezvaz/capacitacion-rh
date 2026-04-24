@@ -120,7 +120,7 @@ export function OjtSignatureCanvas({ currentUrl, instanceId, fieldKey, onSave, d
         title={currentUrl ? 'Cambiar firma' : 'Agregar firma'}
       >
         {currentUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+          
           <img src={currentUrl} alt="Firma" className="max-h-[44px] max-w-[110px] object-contain" />
         ) : (
           <span className="flex items-center gap-1 text-xs text-muted-foreground py-2">

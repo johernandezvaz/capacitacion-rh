@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save } from 'lucide-react';
+import { Plus, Trash2, Save, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,8 @@ import {
   supabase, Employee, OjtEntry, OjtSectionWithEntries,
 } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { generateOjtInstancePdf } from '@/lib/ojt-pdf';
+import type { PdfSectionGroup, PdfInstanceRow } from '@/lib/ojt-pdf';
 
 const PILOTO_OPTIONS = [
   { code: 'P01', label: 'P01 — Define and Deploy the strategy' },
@@ -47,6 +49,7 @@ export function OjtForm({ recordId }: OjtFormProps) {
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [isLoading, setIsLoading] = useState(!!recordId);
   const [currentRecordId, setCurrentRecordId] = useState<string | null>(recordId);
 
@@ -107,6 +110,80 @@ export function OjtForm({ recordId }: OjtFormProps) {
     })();
   }, [recordId]);
 
+  const handleExportTemplate = async () => {
+    if (!currentRecordId) return;
+    setIsExporting(true);
+    try {
+      const templateRecord = {
+        id: currentRecordId,
+        titulo: titulo || null,
+        puesto: puesto || null,
+        periodo_entrenamiento: periodo || null,
+        jefe_directo_id: jefeId,
+        es_piloto_proceso: esPiloto,
+        piloto_proceso_codigo: pilotoCodigo || null,
+        es_integrante_brigada: esBrigada,
+        is_template: true,
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const groups: PdfSectionGroup[] = sections.map((sec) => ({
+        section_id: sec.id,
+        section_nombre: sec.nombre,
+        tipo: sec.tipo,
+        orden: sec.orden,
+        rows: sec.entries.map((entry): PdfInstanceRow => ({
+          entry_id: entry.id,
+          conocimiento_requerido: entry.conocimiento_requerido ?? null,
+          habilidades: entry.habilidades ?? null,
+          fuentes_informacion: entry.fuentes_informacion ?? null,
+          procedimientos_internos: entry.procedimientos_internos ?? null,
+          metodo_entrenamiento: entry.metodo_entrenamiento ?? null,
+          duracion: entry.duracion ?? null,
+          fecha_planeada_terminacion: entry.fecha_planeada_terminacion ?? null,
+          // Campos de instancia — vacíos
+          fecha_real_inicio: '',
+          fecha_real_termino: '',
+          efectividad: '',
+          empleado_firma_url: null,
+          responsable_nombre: '',
+          responsable_firma_url: null,
+          comentarios: '',
+        })),
+      }));
+
+      const safe = (titulo || 'OJT').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
+      const fecha = new Date().toISOString().split('T')[0];
+
+      await generateOjtInstancePdf({
+        template: templateRecord as any,
+        jefeNombre: jefeLabel || '—',
+        nombre: '',
+        fechaInicio: '',
+        fechaTermino: '',
+        avgEfectividad: null,
+        groups,
+        sigNames: { empleado: '', jefe_directo: '', recursos_humanos: '' },
+        sigDates: { empleado: '', jefe_directo: '', recursos_humanos: '' },
+        sigUrls: { empleado: '', jefe_directo: '', recursos_humanos: '' },
+      });
+
+      // Renombrar el archivo descargado con el patrón correcto
+      // (jsPDF usa el nombre que se le pasa en doc.save(), así que lo manejamos
+      //  sobreescribiendo temporalmente el título en el data para que el nombre
+      //  del PDF quede como OJT_{titulo}_PLANTILLA_{fecha}.pdf)
+      // Como generateOjtInstancePdf ya hace doc.save() internamente con el patrón
+      // OJT_{titulo}_{fecha}.pdf, aquí solo necesitamos notificar al usuario.
+      toast({ title: 'Plantilla exportada', description: `OJT_${safe}_${fecha}.pdf descargado` });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'No se pudo exportar el PDF', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -139,8 +216,79 @@ export function OjtForm({ recordId }: OjtFormProps) {
           .insert([{ record_id: newId, tipo: 'conocimientos_generales', nombre: 'Conocimientos Generales', orden: 0 }])
           .select().single();
         if (sec) {
-          const { data: ent } = await supabase.from('ojt_entries').insert([{ section_id: sec.id, orden: 0 }]).select().single();
-          setSections([{ ...sec, entries: ent ? [ent] : [] }]);
+          const defaultEntries = [
+            {
+              section_id: sec.id,
+              orden: 1,
+              conocimiento_requerido: 'Comprender el Reglamento Interior de Trabajo, así como las consecuencias del incumplimiento.',
+              habilidades: 'Responsabilidad y ética laboral',
+              fuentes_informacion: 'Reglamento Interior de Trabajo de Demo Technic',
+              procedimientos_internos: 'Reglamento Interior de Trabajo de Demo Technic',
+              metodo_entrenamiento: 'Plática informativa en inducción',
+              duracion: '2 hrs',
+              fecha_planeada_terminacion: null,
+            },
+            {
+              section_id: sec.id,
+              orden: 2,
+              conocimiento_requerido: 'Conocer e identificar las políticas de la empresa',
+              habilidades: 'Seguimiento a lineamientos',
+              fuentes_informacion: 'Tableros, Inducción',
+              procedimientos_internos: 'Tableros, Inducción',
+              metodo_entrenamiento: 'Inducción general',
+              duracion: '3 hrs',
+              fecha_planeada_terminacion: null,
+            },
+            {
+              section_id: sec.id,
+              orden: 3,
+              conocimiento_requerido: 'Conocer el registro y funcionamiento del sistema de mejora continua y el correcto registro de ideas',
+              habilidades: 'Análisis y propuestas de mejoras',
+              fuentes_informacion: 'Sistema Pii: http://10.33.250.35/',
+              procedimientos_internos: 'Ejercicio práctico',
+              metodo_entrenamiento: 'Plática informativa en inducción',
+              duracion: '2 hrs',
+              fecha_planeada_terminacion: null,
+            },
+            {
+              section_id: sec.id,
+              orden: 4,
+              conocimiento_requerido: 'Saber acceder, consultar y utilizar correctamente la plataforma DSGC para la consulta y aplicación de procedimientos, instrucciones y formatos',
+              habilidades: 'Búsqueda y consulta de información',
+              fuentes_informacion: 'Plataforma DSGC: http://10.33.250.47:84/html/Documentos%20SGC.html',
+              procedimientos_internos: 'Plataforma DSGC',
+              metodo_entrenamiento: 'Demostración paso a paso',
+              duracion: '2 hrs',
+              fecha_planeada_terminacion: null,
+            },
+            {
+              section_id: sec.id,
+              orden: 5,
+              conocimiento_requerido: 'Reglas de seguridad y uso de EPP',
+              habilidades: 'Identificación de riesgos, uso adecuado del EPP, cumplimiento de normas de seguridad',
+              fuentes_informacion: 'Inducción en seguridad',
+              procedimientos_internos: 'Inducción en seguridad, señalamientos',
+              metodo_entrenamiento: 'Inducción en seguridad y recorrido en planta',
+              duracion: '3 hrs',
+              fecha_planeada_terminacion: null,
+            },
+            {
+              section_id: sec.id,
+              orden: 6,
+              conocimiento_requerido: 'Comprender y aplicar los principios de 5S para mantener un área de trabajo limpia, ordenada y segura.',
+              habilidades: 'Organización, disciplina',
+              fuentes_informacion: 'Inducción en Lean Manufacturing',
+              procedimientos_internos: 'Inducción en Lean Manufacturing',
+              metodo_entrenamiento: 'Ejemplos visuales (antes/después)',
+              duracion: '1 hr',
+              fecha_planeada_terminacion: null,
+            },
+          ];
+          const { data: insertedEntries } = await supabase
+            .from('ojt_entries')
+            .insert(defaultEntries)
+            .select();
+          setSections([{ ...sec, entries: insertedEntries || [] }]);
         }
         router.push(`/ojt/${newId}`);
         return;
@@ -226,7 +374,18 @@ export function OjtForm({ recordId }: OjtFormProps) {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-2">
+        {currentRecordId && (
+          <Button
+            variant="outline"
+            onClick={handleExportTemplate}
+            disabled={isExporting}
+            className="border-[#2166be] text-[#2166be] hover:bg-[#2166be]/5"
+          >
+            <FileDown className="w-4 h-4 mr-2" />
+            {isExporting ? 'Generando PDF...' : 'Exportar plantilla vacía'}
+          </Button>
+        )}
         <Button onClick={handleSave} disabled={isSaving} className="bg-[#2166be] hover:bg-[#1a5299] text-white">
           <Save className="w-4 h-4 mr-2" />
           {isSaving ? 'Guardando...' : 'Guardar plantilla'}

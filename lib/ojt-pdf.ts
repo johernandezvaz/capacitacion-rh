@@ -14,6 +14,7 @@ export interface PdfInstanceRow {
   fecha_real_inicio: string;
   fecha_real_termino: string;
   efectividad: string;
+  empleado_firma_url: string | null;
   responsable_nombre: string;
   responsable_firma_url: string | null;
   comentarios: string;
@@ -81,9 +82,12 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
 
   jobs.push(loadB64('/safe-demo_logo-blc-Photoroom.png').then(b => { if (b) imgs['logo'] = b; }));
   for (const g of data.groups)
-    for (const r of g.rows)
+    for (const r of g.rows) {
       if (r.responsable_firma_url)
         jobs.push(loadB64(r.responsable_firma_url).then(b => { if (b) imgs[r.entry_id] = b; }));
+      if (r.empleado_firma_url)
+        jobs.push(loadB64(r.empleado_firma_url).then(b => { if (b) imgs[`emp_${r.entry_id}`] = b; }));
+    }
   for (const t of ['empleado', 'jefe_directo', 'recursos_humanos'])
     if (data.sigUrls[t])
       jobs.push(loadB64(data.sigUrls[t]).then(b => { if (b) imgs[`sig_${t}`] = b; }));
@@ -140,20 +144,22 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
 
   type Row = (string | { content: string; colSpan?: number; styles?: object })[];
   const body: Row[] = [];
-  const meta: Array<{ isHeader: boolean; entryId?: string }> = [];
+  const meta: Array<{ isHeader: boolean; entryId?: string; efectividadVal?: number | null }> = [];
 
   for (const g of data.groups) {
-    body.push([{ content: g.section_nombre.toUpperCase(), colSpan: 12, styles: { fillColor: SEC, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left', fontSize: 8 } }]);
+    body.push([{ content: g.section_nombre.toUpperCase(), colSpan: 13, styles: { fillColor: SEC, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left', fontSize: 8 } }]);
     meta.push({ isHeader: true });
     for (const r of g.rows) {
+      const efVal = r.efectividad ? parseFloat(r.efectividad) : null;
       body.push([
         d(r.conocimiento_requerido), d(r.habilidades), d(r.fuentes_informacion),
         d(r.procedimientos_internos), d(r.metodo_entrenamiento), d(r.duracion),
         fmtDate(r.fecha_planeada_terminacion), fmtDate(r.fecha_real_inicio || null),
         fmtDate(r.fecha_real_termino || null), r.efectividad ? `${r.efectividad}%` : '—',
+        '', // firma empleado — imagen dibujada en didDrawCell
         d(r.responsable_nombre), d(r.comentarios),
       ]);
-      meta.push({ isHeader: false, entryId: r.entry_id });
+      meta.push({ isHeader: false, entryId: r.entry_id, efectividadVal: efVal });
     }
   }
 
@@ -161,7 +167,7 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
     startY: Y,
     head: [['Conocimiento\nRequerido', 'Habilidades', 'Fuentes de\nInformación', 'Procedimientos\nInternos',
       'Método de\nEntrenamiento', 'Duración', 'F. Planeada\nTerminación',
-      'F. Real\nInicio', 'F. Real\nTérmino', 'Efect.\n%', 'Responsable', 'Comentarios']],
+      'F. Real\nInicio', 'F. Real\nTérmino', 'Efect.\n%', 'Firma\nEmpleado', 'Responsable', 'Comentarios']],
     body: body as any,
     theme: 'grid',
     headStyles: { fillColor: HDR, textColor: 255, fontStyle: 'bold', fontSize: 7, halign: 'center', valign: 'middle', minCellHeight: 10 },
@@ -170,23 +176,59 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
     margin: { left: M, right: M },
     tableWidth: W - M * 2,
     columnStyles: {
-      0: { cellWidth: 24 }, 1: { cellWidth: 20 }, 2: { cellWidth: 22 }, 3: { cellWidth: 22 },
-      4: { cellWidth: 22 }, 5: { cellWidth: 14 }, 6: { cellWidth: 17 },
-      7: { cellWidth: 17 }, 8: { cellWidth: 17 }, 9: { cellWidth: 12 },
-      10: { cellWidth: 26 }, 11: { cellWidth: 'auto' },
+      0: { cellWidth: 24 }, 1: { cellWidth: 20 }, 2: { cellWidth: 22 }, 3: { cellWidth: 20 },
+      4: { cellWidth: 20 }, 5: { cellWidth: 13 }, 6: { cellWidth: 15 },
+      7: { cellWidth: 15 }, 8: { cellWidth: 15 }, 9: { cellWidth: 12 },
+      10: { cellWidth: 20 }, 11: { cellWidth: 24 }, 12: { cellWidth: 'auto' },
+    },
+    didParseCell(hook) {
+      if (hook.section === 'body' && hook.column.index === 9) {
+        const m = meta[hook.row.index];
+        if (m && !m.isHeader && m.efectividadVal != null) {
+          if (m.efectividadVal < 80) {
+            hook.cell.styles.fillColor = [240, 84, 84];
+            hook.cell.styles.textColor = [245, 245, 245];
+          } else {
+            hook.cell.styles.fillColor = [55, 151, 119];
+            hook.cell.styles.textColor = [245, 247, 248];
+          }
+        }
+      }
     },
     didDrawCell(hook) {
-      if (hook.section === 'body' && hook.column.index === 10) {
+      if (hook.section === 'body') {
         const m = meta[hook.row.index];
-        if (m && !m.isHeader && m.entryId && imgs[m.entryId]) {
+        if (m && !m.isHeader && m.entryId) {
           const { x, y, width, height } = hook.cell;
           const ih = Math.min(height - 4, 10);
-          try { doc.addImage(imgs[m.entryId], 'PNG', x + 1, y + 1, ih * 2, ih); } catch { /* ignore */ }
+          // col 10 — firma empleado
+          if (hook.column.index === 10 && imgs[`emp_${m.entryId}`]) {
+            try { doc.addImage(imgs[`emp_${m.entryId}`], 'PNG', x + 1, y + 1, ih * 2, ih); } catch { /* ignore */ }
+          }
+          // col 11 — firma responsable
+          if (hook.column.index === 11 && imgs[m.entryId]) {
+            try { doc.addImage(imgs[m.entryId], 'PNG', x + 1, y + 1, ih * 2, ih); } catch { /* ignore */ }
+          }
         }
       }
     },
   });
-  Y = (doc as any).lastAutoTable.finalY + 6;
+  Y = (doc as any).lastAutoTable.finalY + 5;
+
+  
+  const notaLineHeight = 4.5;
+  doc.setFontSize(8).setTextColor(30, 30, 30);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Nota:', M, Y);
+  const notaLabelWidth = doc.getTextWidth('Nota: ');
+  doc.setFont('helvetica', 'normal');
+  doc.text(
+    'Cualquier entrenamiento con una efectividad menor al 80% será sujeto a reentrenamiento o repetición del curso.',
+    M + notaLabelWidth,
+    Y,
+    { maxWidth: W - M * 2 - notaLabelWidth }
+  );
+  Y += notaLineHeight * 2;
 
   if (Y + 35 > H - 15) { doc.addPage(); Y = 15; }
   doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(25, 43, 82);
