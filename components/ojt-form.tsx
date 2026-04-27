@@ -38,7 +38,7 @@ const ENTRY_COLS: Array<{ key: keyof OjtEntry; label: string; type: string; minW
   { key: 'procedimientos_internos', label: 'Procedimientos Internos', type: 'text', minW: '170px' },
   { key: 'metodo_entrenamiento', label: 'Método de Entrenamiento', type: 'text', minW: '170px' },
   { key: 'duracion', label: 'Duración', type: 'text', minW: '100px' },
-  { key: 'fecha_planeada_terminacion', label: 'F. Planeada Terminación', type: 'date', minW: '160px' },
+  { key: 'puesto_responsable', label: 'Puesto Responsable', type: 'text', minW: '160px' },
 ];
 
 interface OjtFormProps { recordId: string | null; }
@@ -142,6 +142,7 @@ export function OjtForm({ recordId }: OjtFormProps) {
           procedimientos_internos: entry.procedimientos_internos ?? null,
           metodo_entrenamiento: entry.metodo_entrenamiento ?? null,
           duracion: entry.duracion ?? null,
+          puesto_responsable: entry.puesto_responsable ?? null,
           fecha_planeada_terminacion: entry.fecha_planeada_terminacion ?? null,
           // Campos de instancia — vacíos
           fecha_real_inicio: '',
@@ -227,6 +228,7 @@ export function OjtForm({ recordId }: OjtFormProps) {
               metodo_entrenamiento: 'Plática informativa en inducción',
               duracion: '2 hrs',
               fecha_planeada_terminacion: null,
+              puesto_responsable: null,
             },
             {
               section_id: sec.id,
@@ -238,6 +240,7 @@ export function OjtForm({ recordId }: OjtFormProps) {
               metodo_entrenamiento: 'Inducción general',
               duracion: '3 hrs',
               fecha_planeada_terminacion: null,
+              puesto_responsable: null,
             },
             {
               section_id: sec.id,
@@ -249,6 +252,7 @@ export function OjtForm({ recordId }: OjtFormProps) {
               metodo_entrenamiento: 'Plática informativa en inducción',
               duracion: '2 hrs',
               fecha_planeada_terminacion: null,
+              puesto_responsable: null,
             },
             {
               section_id: sec.id,
@@ -260,6 +264,7 @@ export function OjtForm({ recordId }: OjtFormProps) {
               metodo_entrenamiento: 'Demostración paso a paso',
               duracion: '2 hrs',
               fecha_planeada_terminacion: null,
+              puesto_responsable: null,
             },
             {
               section_id: sec.id,
@@ -271,6 +276,7 @@ export function OjtForm({ recordId }: OjtFormProps) {
               metodo_entrenamiento: 'Inducción en seguridad y recorrido en planta',
               duracion: '3 hrs',
               fecha_planeada_terminacion: null,
+              puesto_responsable: null,
             },
             {
               section_id: sec.id,
@@ -282,6 +288,7 @@ export function OjtForm({ recordId }: OjtFormProps) {
               metodo_entrenamiento: 'Ejemplos visuales (antes/después)',
               duracion: '1 hr',
               fecha_planeada_terminacion: null,
+              puesto_responsable: null,
             },
           ];
           const { data: insertedEntries } = await supabase

@@ -21,6 +21,7 @@ type InstanceEntryRow = {
   procedimientos_internos: string | null;
   metodo_entrenamiento: string | null;
   duracion: string | null;
+  puesto_responsable: string | null;
   fecha_planeada_terminacion: string | null;
   instance_entry_id: string | null;
   fecha_real_inicio: string;
@@ -118,10 +119,10 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
             id, tipo, nombre, orden,
             ojt_entries (
               id, orden, conocimiento_requerido, habilidades, fuentes_informacion,
-              procedimientos_internos, metodo_entrenamiento, duracion, fecha_planeada_terminacion,
+              procedimientos_internos, metodo_entrenamiento, duracion, puesto_responsable,
               ojt_instance_entries!ojt_instance_entries_entry_id_fkey (
                 id, efectividad, responsable_nombre, responsable_firma_url,
-                empleado_firma_url, fecha_real_inicio, fecha_real_termino, comentarios
+                empleado_firma_url, fecha_planeada_terminacion, fecha_real_inicio, fecha_real_termino, comentarios
               )
             )
           `)
@@ -143,7 +144,8 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
               procedimientos_internos: e.procedimientos_internos,
               metodo_entrenamiento: e.metodo_entrenamiento,
               duracion: e.duracion,
-              fecha_planeada_terminacion: e.fecha_planeada_terminacion,
+              puesto_responsable: e.puesto_responsable ?? null,
+              fecha_planeada_terminacion: ie?.fecha_planeada_terminacion ?? '',
               instance_entry_id: ie?.id ?? null,
               fecha_real_inicio: ie?.fecha_real_inicio ?? '',
               fecha_real_termino: ie?.fecha_real_termino ?? '',
@@ -409,10 +411,10 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
                 {[
                   'Conocimiento Requerido', 'Habilidades', 'Fuentes de Información', 'Procedimientos Internos',
                   'Método de Entrenamiento', 'Duración', 'F. Planeada Terminación',
-                  'F. Real Inicio', 'F. Real Término', 'Efectividad %', 'Firma Empleado', 'Responsable', 'Comentarios',
+                  'F. Real Inicio', 'F. Real Término', 'Efectividad %', 'Firma Empleado', 'Puesto Responsable', 'Responsable', 'Comentarios',
                 ].map((h, i) => (
                   <th key={i} className="border border-border px-2 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap"
-                    style={{ minWidth: i < 7 ? '140px' : i === 10 || i === 11 ? '150px' : '120px' }}>
+                    style={{ minWidth: i < 6 || i === 11 ? '140px' : i === 10 || i === 12 ? '150px' : '120px' }}>
                     {h}
                   </th>
                 ))}
@@ -422,7 +424,7 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
               {groups.map((group, gIdx) => (
                 <React.Fragment key={group.section_id}>
                   <tr className="bg-[#192b52]/5">
-                    <td colSpan={13} className="border border-border px-3 py-1.5">
+                    <td colSpan={14} className="border border-border px-3 py-1.5">
                       <span className="font-semibold text-foreground text-xs uppercase tracking-wide">
                         {group.section_nombre}
                       </span>
@@ -433,12 +435,18 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
                       {[
                         row.conocimiento_requerido, row.habilidades, row.fuentes_informacion,
                         row.procedimientos_internos, row.metodo_entrenamiento, row.duracion,
-                        row.fecha_planeada_terminacion,
                       ].map((val, ci) => (
                         <td key={ci} className="border border-border px-2 py-1 text-muted-foreground bg-muted/20">
                           {val || '—'}
                         </td>
                       ))}
+                      <td className="border border-border px-1 py-0.5">
+                        <input type="date" value={row.fecha_planeada_terminacion}
+                          onChange={e => updateRowLocal(gIdx, rIdx, 'fecha_planeada_terminacion', e.target.value)}
+                          onBlur={e => saveInstanceEntryField(gIdx, rIdx, 'fecha_planeada_terminacion', e.target.value)}
+                          className="w-full h-7 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded"
+                        />
+                      </td>
                       <td className="border border-border px-1 py-0.5">
                         <input type="date" value={row.fecha_real_inicio}
                           onChange={e => updateRowLocal(gIdx, rIdx, 'fecha_real_inicio', e.target.value)}
@@ -472,6 +480,9 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
                           />
                           <p className="text-[10px] text-center text-muted-foreground">Firma Empleado</p>
                         </div>
+                      </td>
+                      <td className="border border-border px-2 py-1 text-muted-foreground bg-muted/20">
+                        {row.puesto_responsable || '—'}
                       </td>
                       <td className="border border-border px-1 py-0.5" style={{ minWidth: '150px' }}>
                         <div className="space-y-1">

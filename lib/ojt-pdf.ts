@@ -10,6 +10,7 @@ export interface PdfInstanceRow {
   procedimientos_internos: string | null;
   metodo_entrenamiento: string | null;
   duracion: string | null;
+  puesto_responsable: string | null;
   fecha_planeada_terminacion: string | null;
   fecha_real_inicio: string;
   fecha_real_termino: string;
@@ -147,7 +148,7 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
   const meta: Array<{ isHeader: boolean; entryId?: string; efectividadVal?: number | null }> = [];
 
   for (const g of data.groups) {
-    body.push([{ content: g.section_nombre.toUpperCase(), colSpan: 13, styles: { fillColor: SEC, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left', fontSize: 8 } }]);
+    body.push([{ content: g.section_nombre.toUpperCase(), colSpan: 14, styles: { fillColor: SEC, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left', fontSize: 8 } }]);
     meta.push({ isHeader: true });
     for (const r of g.rows) {
       const efVal = r.efectividad ? parseFloat(r.efectividad) : null;
@@ -157,7 +158,7 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
         fmtDate(r.fecha_planeada_terminacion), fmtDate(r.fecha_real_inicio || null),
         fmtDate(r.fecha_real_termino || null), r.efectividad ? `${r.efectividad}%` : '—',
         '', // firma empleado — imagen dibujada en didDrawCell
-        d(r.responsable_nombre), d(r.comentarios),
+        d(r.puesto_responsable), d(r.responsable_nombre), d(r.comentarios),
       ]);
       meta.push({ isHeader: false, entryId: r.entry_id, efectividadVal: efVal });
     }
@@ -167,7 +168,7 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
     startY: Y,
     head: [['Conocimiento\nRequerido', 'Habilidades', 'Fuentes de\nInformación', 'Procedimientos\nInternos',
       'Método de\nEntrenamiento', 'Duración', 'F. Planeada\nTerminación',
-      'F. Real\nInicio', 'F. Real\nTérmino', 'Efect.\n%', 'Firma\nEmpleado', 'Responsable', 'Comentarios']],
+      'F. Real\nInicio', 'F. Real\nTérmino', 'Efect.\n%', 'Firma\nEmpleado', 'Puesto\nResponsable', 'Responsable', 'Comentarios']],
     body: body as any,
     theme: 'grid',
     headStyles: { fillColor: HDR, textColor: 255, fontStyle: 'bold', fontSize: 7, halign: 'center', valign: 'middle', minCellHeight: 10 },
@@ -176,10 +177,10 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
     margin: { left: M, right: M },
     tableWidth: W - M * 2,
     columnStyles: {
-      0: { cellWidth: 24 }, 1: { cellWidth: 20 }, 2: { cellWidth: 22 }, 3: { cellWidth: 20 },
-      4: { cellWidth: 20 }, 5: { cellWidth: 13 }, 6: { cellWidth: 15 },
-      7: { cellWidth: 15 }, 8: { cellWidth: 15 }, 9: { cellWidth: 12 },
-      10: { cellWidth: 20 }, 11: { cellWidth: 24 }, 12: { cellWidth: 'auto' },
+      0: { cellWidth: 22 }, 1: { cellWidth: 18 }, 2: { cellWidth: 20 }, 3: { cellWidth: 20 },
+      4: { cellWidth: 20 }, 5: { cellWidth: 12 }, 6: { cellWidth: 15 },
+      7: { cellWidth: 15 }, 8: { cellWidth: 15 }, 9: { cellWidth: 10 },
+      10: { cellWidth: 20 }, 11: { cellWidth: 18 }, 12: { cellWidth: 24 }, 13: { cellWidth: 'auto' },
     },
     didParseCell(hook) {
       if (hook.section === 'body' && hook.column.index === 9) {
@@ -205,8 +206,8 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
           if (hook.column.index === 10 && imgs[`emp_${m.entryId}`]) {
             try { doc.addImage(imgs[`emp_${m.entryId}`], 'PNG', x + 1, y + 1, ih * 2, ih); } catch { /* ignore */ }
           }
-          // col 11 — firma responsable
-          if (hook.column.index === 11 && imgs[m.entryId]) {
+          // col 12 — firma responsable
+          if (hook.column.index === 12 && imgs[m.entryId]) {
             try { doc.addImage(imgs[m.entryId], 'PNG', x + 1, y + 1, ih * 2, ih); } catch { /* ignore */ }
           }
         }

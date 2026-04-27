@@ -108,6 +108,7 @@ export type OjtEntry = {
   metodo_entrenamiento: string | null;
   duracion: string | null;
   fecha_planeada_terminacion: string | null;
+  puesto_responsable: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -138,6 +139,7 @@ export type OjtInstanceEntry = {
   efectividad: number | null;
   responsable_nombre: string | null;
   responsable_firma_url: string | null;
+  fecha_planeada_terminacion: string | null;
   fecha_real_inicio: string | null;
   fecha_real_termino: string | null;
   comentarios: string | null;
