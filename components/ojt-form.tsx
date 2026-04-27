@@ -144,7 +144,6 @@ export function OjtForm({ recordId }: OjtFormProps) {
           duracion: entry.duracion ?? null,
           puesto_responsable: entry.puesto_responsable ?? null,
           fecha_planeada_terminacion: entry.fecha_planeada_terminacion ?? null,
-          // Campos de instancia — vacíos
           fecha_real_inicio: '',
           fecha_real_termino: '',
           efectividad: '',
@@ -170,13 +169,6 @@ export function OjtForm({ recordId }: OjtFormProps) {
         sigDates: { empleado: '', jefe_directo: '', recursos_humanos: '' },
         sigUrls: { empleado: '', jefe_directo: '', recursos_humanos: '' },
       });
-
-      // Renombrar el archivo descargado con el patrón correcto
-      // (jsPDF usa el nombre que se le pasa en doc.save(), así que lo manejamos
-      //  sobreescribiendo temporalmente el título en el data para que el nombre
-      //  del PDF quede como OJT_{titulo}_PLANTILLA_{fecha}.pdf)
-      // Como generateOjtInstancePdf ya hace doc.save() internamente con el patrón
-      // OJT_{titulo}_{fecha}.pdf, aquí solo necesitamos notificar al usuario.
       toast({ title: 'Plantilla exportada', description: `OJT_${safe}_${fecha}.pdf descargado` });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'No se pudo exportar el PDF', variant: 'destructive' });

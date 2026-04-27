@@ -133,7 +133,6 @@ export async function GET(
             ? scores.reduce((sum, score) => sum + score, 0) / scores.length
             : null;
 
-        // Load logo
         const logoPath = join(process.cwd(), 'public', 'safe-demo_logo-blc-Photoroom.png');
         let logoBase64 = '';
         try {
@@ -143,10 +142,8 @@ export async function GET(
             console.error('Error loading logo:', error);
         }
 
-        // Generate PDF using jsPDF
         const doc = new jsPDF();
 
-        // Add logo if available
         if (logoBase64) {
             try {
                 doc.addImage(logoBase64, 'PNG', 14, 10, 30, 15);
@@ -155,18 +152,14 @@ export async function GET(
             }
         }
 
-        // Title
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
         const title = `REPORTE DE EVALUACIÓN - ${reportType === 'hot' ? 'CALIENTE' : 'FRÍO'}`;
         doc.text(title, doc.internal.pageSize.getWidth() / 2, 35, { align: 'center' });
 
-        // Form code
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        // Code removed as per requirement
 
-        // Course info
         doc.setFontSize(11);
         doc.setFont('helvetica', 'normal');
         doc.text(`Curso: ${courseData.name}`, 14, 52);
@@ -183,7 +176,6 @@ export async function GET(
             doc.setFont('helvetica', 'normal');
         }
 
-        // Participants table
         const tableData = participants.map((p, index) => [
             index + 1,
             p.employee_number,
@@ -218,7 +210,6 @@ export async function GET(
             }
         });
 
-        // Footer with date
         const finalY = (doc as any).lastAutoTable?.finalY || 84;
         doc.setFontSize(9);
         doc.setTextColor(128, 128, 128);
@@ -228,7 +219,6 @@ export async function GET(
             finalY + 10
         );
 
-        // Generate buffer
         const pdfBuffer = new Uint8Array(doc.output('arraybuffer'));
 
         const reportTypeName = reportType === 'hot' ? 'Empleado' : 'Evaluador';

@@ -157,7 +157,7 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
         d(r.procedimientos_internos), d(r.metodo_entrenamiento), d(r.duracion),
         fmtDate(r.fecha_planeada_terminacion), fmtDate(r.fecha_real_inicio || null),
         fmtDate(r.fecha_real_termino || null), r.efectividad ? `${r.efectividad}%` : '—',
-        '', // firma empleado — imagen dibujada en didDrawCell
+        '',
         d(r.puesto_responsable), d(r.responsable_nombre), d(r.comentarios),
       ]);
       meta.push({ isHeader: false, entryId: r.entry_id, efectividadVal: efVal });
@@ -216,7 +216,7 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
   });
   Y = (doc as any).lastAutoTable.finalY + 5;
 
-  
+
   const notaLineHeight = 4.5;
   doc.setFontSize(8).setTextColor(30, 30, 30);
   doc.setFont('helvetica', 'bold');
