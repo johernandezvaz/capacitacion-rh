@@ -21,6 +21,9 @@ export async function GET(
                 submitted_at,
                 average_score,
                 additional_comments,
+                observation_1,
+                observation_2,
+                observation_3,
                 course_participant:course_participants(
                     id,
                     course_id,
@@ -144,7 +147,9 @@ export async function GET(
         doc.line(margin, currentY, pageWidth - margin, currentY);
         currentY += 10;
 
-        const evaluationResponses = responsesData.filter((r: any) => r.section === 'evaluation');
+        const evaluationResponses = questionnaireData.type === 'cold'
+            ? responsesData
+            : responsesData.filter((r: any) => r.section === 'evaluation');
         if (evaluationResponses.length > 0) {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(12);
@@ -161,11 +166,22 @@ export async function GET(
 
                 doc.setFont('helvetica', 'normal');
                 if (response.percentage_value !== null) {
-                    const percentageLabel =
-                        response.percentage_value === 40 ? 'Bajo (40%)' :
-                            response.percentage_value === 60 ? 'Suficiente (60%)' :
-                                response.percentage_value === 80 ? 'Bien (80%)' :
-                                    'Excelente (100%)';
+                    let percentageLabel = '';
+                    if (questionnaireData.type === 'cold') {
+                        percentageLabel =
+                            response.percentage_value === 0 ? 'N/A' :
+                            response.percentage_value === 25 ? '<25%' :
+                            response.percentage_value === 40 ? '40%' :
+                            response.percentage_value === 60 ? '60%' :
+                            response.percentage_value === 80 ? '80%' :
+                            '100%';
+                    } else {
+                        percentageLabel =
+                            response.percentage_value === 40 ? 'Bajo (40%)' :
+                                response.percentage_value === 60 ? 'Suficiente (60%)' :
+                                    response.percentage_value === 80 ? 'Bien (80%)' :
+                                        'Excelente (100%)';
+                    }
                     doc.text(`Respuesta: ${percentageLabel}`, margin + 5, currentY);
                     currentY += 8;
                 }
@@ -218,6 +234,53 @@ export async function GET(
             doc.setFontSize(10);
             addWrappedText(questionnaireData.additional_comments, margin, contentWidth, 10);
             currentY += 5;
+        }
+
+        if (questionnaireData.type === 'cold') {
+            const hasObs1 = questionnaireData.observation_1 && questionnaireData.observation_1.trim();
+            const hasObs2 = questionnaireData.observation_2 && questionnaireData.observation_2.trim();
+            const hasObs3 = questionnaireData.observation_3 && questionnaireData.observation_3.trim();
+            
+            if (hasObs1 || hasObs2 || hasObs3) {
+                addNewPageIfNeeded(20);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(12);
+                doc.text('Observaciones del Evaluador', margin, currentY);
+                currentY += 8;
+
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                
+                if (hasObs1) {
+                    addNewPageIfNeeded(15);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Observación 1:', margin, currentY);
+                    currentY += 6;
+                    doc.setFont('helvetica', 'normal');
+                    addWrappedText(questionnaireData.observation_1, margin, contentWidth, 10);
+                    currentY += 5;
+                }
+                
+                if (hasObs2) {
+                    addNewPageIfNeeded(15);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Observación 2:', margin, currentY);
+                    currentY += 6;
+                    doc.setFont('helvetica', 'normal');
+                    addWrappedText(questionnaireData.observation_2, margin, contentWidth, 10);
+                    currentY += 5;
+                }
+                
+                if (hasObs3) {
+                    addNewPageIfNeeded(15);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Observación 3:', margin, currentY);
+                    currentY += 6;
+                    doc.setFont('helvetica', 'normal');
+                    addWrappedText(questionnaireData.observation_3, margin, contentWidth, 10);
+                    currentY += 5;
+                }
+            }
         }
 
         if (signaturesData && signaturesData.length > 0) {

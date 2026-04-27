@@ -85,23 +85,15 @@ export async function GET(
             const hotQ = questionnaires?.find((q) => q.course_participant_id === participant.id && q.type === 'hot') || null;
             const coldQ = questionnaires?.find((q) => q.course_participant_id === participant.id && q.type === 'cold') || null;
 
-            const hasHot = hotQ && hotQ.submitted_at;
-            const hasCold = coldQ && coldQ.submitted_at;
-
-            let hasColdSignatures = false;
-            if (coldQ) {
-                const coldSignatures = signatures.filter((s) => s.questionnaire_id === coldQ.id);
-                const evaluatorSig = coldSignatures.find((s) => s.signer_type === 'evaluator');
-                hasColdSignatures = !!evaluatorSig;
-            }
+            const hasHot = hotQ && hotQ.status === 'completed' && hotQ.submitted_at !== null;
+            const hasCold = coldQ && coldQ.status === 'completed' && coldQ.submitted_at !== null;
 
             if (reportType === 'hot' && !hasHot) {
                 incompleteParticipants.push(`${employee.nombre} (cuestionario empleado pendiente)`);
-            } else if (reportType === 'cold' && (!hasHot || !hasCold || !hasColdSignatures)) {
+            } else if (reportType === 'cold' && (!hasHot || !hasCold)) {
                 const missing: string[] = [];
                 if (!hasHot) missing.push('cuestionario empleado');
                 if (!hasCold) missing.push('cuestionario evaluador');
-                if (hasCold && !hasColdSignatures) missing.push('firmas del cuestionario evaluador');
                 incompleteParticipants.push(`${employee.nombre} (falta: ${missing.join(', ')})`);
             }
         }

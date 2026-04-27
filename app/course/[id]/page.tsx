@@ -516,7 +516,6 @@ export default function CourseDetailPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Delete course confirm dialog */}
             <ConfirmDialog
                 open={isDeleteDialogOpen}
                 onOpenChange={setIsDeleteDialogOpen}
@@ -527,7 +526,6 @@ export default function CourseDetailPage() {
                 variant="destructive"
             />
 
-            {/* Rename course dialog */}
             <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>

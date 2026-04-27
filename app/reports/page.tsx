@@ -96,17 +96,10 @@ export default function ReportsPage() {
 
             const { data: questionnaires, error: questionnairesError } = await supabase
                 .from('questionnaires')
-                .select('id, course_participant_id, type, submitted_at, observation_1, observation_2, observation_3')
+                .select('id, course_participant_id, type, status, submitted_at')
                 .in('course_participant_id', participantIds);
 
             if (questionnairesError) throw questionnairesError;
-
-            const { data: signatures, error: signaturesError } = await supabase
-                .from('questionnaire_signatures')
-                .select('questionnaire_id, signer_type')
-                .in('questionnaire_id', questionnaires?.map((q) => q.id) || []);
-
-            if (signaturesError) throw signaturesError;
 
             let completedHot = 0;
             let completedCold = 0;
@@ -119,28 +112,12 @@ export default function ReportsPage() {
                     (q: any) => q.course_participant_id === participant.id && q.type === 'cold'
                 );
 
-                if (hotQ && hotQ.submitted_at) {
-                    const hotSignature = signatures?.find(
-                        (s: any) => s.questionnaire_id === hotQ.id && s.signer_type === 'employee'
-                    );
-                    if (hotSignature) {
-                        completedHot++;
-                    }
+                if (hotQ && hotQ.status === 'completed' && hotQ.submitted_at !== null) {
+                    completedHot++;
                 }
 
-                if (coldQ && coldQ.submitted_at) {
-                    const hasObservations =
-                        coldQ.observation_1 && coldQ.observation_2 && coldQ.observation_3;
-                    const evaluatorSig = signatures?.find(
-                        (s: any) => s.questionnaire_id === coldQ.id && s.signer_type === 'evaluator'
-                    );
-                    const employeeSig = signatures?.find(
-                        (s: any) => s.questionnaire_id === coldQ.id && s.signer_type === 'employee'
-                    );
-
-                    if (hasObservations && evaluatorSig && employeeSig) {
-                        completedCold++;
-                    }
+                if (coldQ && coldQ.status === 'completed' && coldQ.submitted_at !== null) {
+                    completedCold++;
                 }
             }
 
