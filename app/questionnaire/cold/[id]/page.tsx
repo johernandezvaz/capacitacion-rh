@@ -75,7 +75,6 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
     const [observation2, setObservation2] = useState('');
     const [observation3, setObservation3] = useState('');
     const [evaluatorName, setEvaluatorName] = useState('');
-    const [employeeName, setEmployeeName] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [downloadingPDF, setDownloadingPDF] = useState(false);
@@ -261,41 +260,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
 
             if (sigError) throw sigError;
 
-            toast.success('Firma del evaluador registrada exitosamente');
-            await fetchQuestionnaire();
-        } catch (error: any) {
-            console.error('Error signing questionnaire:', error);
-            toast.error('Error al registrar la firma');
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const validateEmployeeForm = () => {
-        if (!employeeName.trim()) {
-            toast.error('Por favor ingrese el nombre del empleado');
-            return false;
-        }
-
-        return true;
-    };
-
-    const handleEmployeeSign = async () => {
-        if (!validateEmployeeForm()) return;
-
-        setSaving(true);
-        try {
-            const { error: sigError } = await supabase
-                .from('questionnaire_signatures')
-                .insert({
-                    questionnaire_id: resolvedParams.id,
-                    signer_type: 'employee',
-                    signer_name: employeeName.trim(),
-                });
-
-            if (sigError) throw sigError;
-
-            const { error: qError } = await supabase
+            const { error: completeError } = await supabase
                 .from('questionnaires')
                 .update({
                     status: 'completed',
@@ -303,9 +268,9 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                 })
                 .eq('id', resolvedParams.id);
 
-            if (qError) throw qError;
+            if (completeError) throw completeError;
 
-            toast.success('Cuestionario completado exitosamente');
+            toast.success('Firma del evaluador registrada y cuestionario completado exitosamente');
 
             setTimeout(() => {
                 router.push(`/course/${questionnaire?.course_participant.course_id}`);
@@ -317,6 +282,8 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             setSaving(false);
         }
     };
+
+
 
     const handleDownloadPDF = async () => {
         if (!questionnaire?.submitted_at) {
@@ -377,9 +344,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
 
     const isLocked = questionnaire.submitted_at !== null;
     const evaluatorSignature = signatures.find(s => s.signer_type === 'evaluator');
-    const employeeSignature = signatures.find(s => s.signer_type === 'employee');
     const canEdit = isAvailable && !evaluatorSignature && !isLocked;
-    const canEmployeeSign = evaluatorSignature && !employeeSignature && !isLocked;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
@@ -574,19 +539,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                                     </div>
                                 </div>
                             )}
-                            {employeeSignature && (
-                                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-                                    <div>
-                                        <p className="font-semibold text-blue-900">Empleado</p>
-                                        <p className="text-blue-700">{employeeSignature.signer_name}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-sm text-blue-600">
 
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
                         </CardContent>
                     </Card>
                 )}
@@ -620,34 +573,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                     </Card>
                 )}
 
-                {canEmployeeSign && (
-                    <Card className="mb-6">
-                        <CardHeader>
-                            <CardTitle>Firma del Empleado</CardTitle>
-                            <CardDescription>
-                                Revise la evaluación y firme para completar el cuestionario
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="employee-name">Nombre del Empleado</Label>
-                                <Input
-                                    id="employee-name"
-                                    value={employeeName}
-                                    onChange={(e) => setEmployeeName(e.target.value)}
-                                    placeholder="Ingrese su nombre completo"
-                                />
-                            </div>
-                            <Button
-                                onClick={handleEmployeeSign}
-                                disabled={saving}
-                                className="w-full"
-                            >
-                                {saving ? 'Firmando...' : 'Firmar como Empleado'}
-                            </Button>
-                        </CardContent>
-                    </Card>
-                )}
+
             </div>
         </div>
     );
