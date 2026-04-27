@@ -33,6 +33,7 @@ export default function ReportsPage() {
     const [reportStatuses, setReportStatuses] = useState<Record<string, ReportStatus>>({});
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
     useEffect(() => {
         loadCourses();
@@ -236,6 +237,51 @@ export default function ReportsPage() {
         course.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const groupedCourses = (() => {
+        const groups: Record<string, { label: string; sortKey: string; courses: Course[] }> = {};
+        const noDateCourses: Course[] = [];
+
+        filteredCourses.forEach(course => {
+            if (!course.date) {
+                noDateCourses.push(course);
+            } else {
+                const d = new Date(course.date + 'T12:00:00');
+                const month = d.toLocaleString('es-ES', { month: 'long' });
+                const yearVal = d.getFullYear();
+                const monthCap = month.charAt(0).toUpperCase() + month.slice(1);
+                const label = `${monthCap} ${yearVal}`;
+                const sortKey = `${yearVal}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+                if (!groups[sortKey]) {
+                    groups[sortKey] = { label, sortKey, courses: [] };
+                }
+                groups[sortKey].courses.push(course);
+            }
+        });
+
+        const sortedGroups = Object.values(groups).sort((a, b) => {
+            return sortOrder === 'desc'
+                ? b.sortKey.localeCompare(a.sortKey)
+                : a.sortKey.localeCompare(b.sortKey);
+        });
+
+        sortedGroups.forEach(group => {
+            group.courses.sort((a, b) => {
+                const dateA = a.date || '';
+                const dateB = b.date || '';
+                return sortOrder === 'desc'
+                    ? dateB.localeCompare(dateA)
+                    : dateA.localeCompare(dateB);
+            });
+        });
+
+        if (noDateCourses.length > 0) {
+            sortedGroups.push({ label: 'Sin fecha', sortKey: sortOrder === 'desc' ? '0000-00' : '9999-99', courses: noDateCourses });
+        }
+
+        return sortedGroups;
+    })();
+
     return (
         <div className="container mx-auto py-8 px-4">
             <div className="mb-8">
@@ -255,25 +301,35 @@ export default function ReportsPage() {
                 </Card>
             ) : (
                 <>
-                    <div className="mb-6">
-                        <div className="relative">
+                    <div className="mb-6 flex flex-col sm:flex-row items-center gap-4">
+                        <div className="relative flex-1 w-full">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                                 type="text"
                                 placeholder="Buscar curso por nombre..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10"
+                                className="pl-10 w-full"
                             />
                         </div>
-                        {searchTerm && (
-                            <p className="text-sm text-muted-foreground mt-2">
-                                Mostrando {filteredCourses.length} de {courses.length} cursos
-                            </p>
-                        )}
+                        <div className="w-full sm:w-64 shrink-0">
+                            <select
+                                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                value={sortOrder}
+                                onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')}
+                            >
+                                <option value="desc">Más reciente primero</option>
+                                <option value="asc">Más antiguo primero</option>
+                            </select>
+                        </div>
                     </div>
+                    {searchTerm && (
+                        <p className="text-sm text-muted-foreground mb-6">
+                            Mostrando {filteredCourses.length} de {courses.length} cursos
+                        </p>
+                    )}
 
-                    {filteredCourses.length === 0 ? (
+                    {groupedCourses.length === 0 ? (
                         <Card>
                             <CardContent className="py-8">
                                 <div className="text-center text-muted-foreground">
@@ -282,97 +338,104 @@ export default function ReportsPage() {
                             </CardContent>
                         </Card>
                     ) : (
-                        <div className="grid gap-6">
-                            {filteredCourses.map((course) => {
-                                const status = reportStatuses[course.id];
+                        <div className="space-y-8">
+                            {groupedCourses.map((group) => (
+                                <div key={group.sortKey} className="space-y-4">
+                                    <h2 className="text-xl font-semibold text-foreground border-b pb-2">{group.label}</h2>
+                                    <div className="grid gap-6">
+                                        {group.courses.map((course) => {
+                                            const status = reportStatuses[course.id];
 
-                                return (
-                                    <Card key={course.id}>
-                                        <CardHeader>
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <CardTitle className="text-xl">{course.name}</CardTitle>
-                                                    <CardDescription>
-                                                        Año: {course.year?.year || 'N/A'} | Fecha: {new Date(course.date + 'T12:00:00').toLocaleDateString('es-MX')}
-                                                    </CardDescription>
-                                                </div>
-                                                {status && (
-                                                    <Badge variant="outline">
-                                                        {status.completedHot}/{status.totalParticipants} empleado | {status.completedCold}/{status.totalParticipants} evaluador
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent>
-                                            {status ? (
-                                                <div className="grid md:grid-cols-2 gap-4">
-                                                    <div className="border rounded-lg p-4">
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <FileText className="h-5 w-5 text-orange-500" />
-                                                            <h3 className="font-semibold">Reporte Empleado</h3>
-                                                        </div>
-
-                                                        <div className="mb-4">
-                                                            {status.hotReportAvailable ? (
-                                                                <Badge variant="default" className="bg-green-500">
-                                                                    {status.hotReportMessage}
+                                            return (
+                                                <Card key={course.id}>
+                                                    <CardHeader>
+                                                        <div className="flex justify-between items-start">
+                                                            <div>
+                                                                <CardTitle className="text-xl">{course.name}</CardTitle>
+                                                                <CardDescription>
+                                                                    Año: {course.year?.year || 'N/A'} | Fecha: {new Date(course.date + 'T12:00:00').toLocaleDateString('es-MX')}
+                                                                </CardDescription>
+                                                            </div>
+                                                            {status && (
+                                                                <Badge variant="outline">
+                                                                    {status.completedHot}/{status.totalParticipants} empleado | {status.completedCold}/{status.totalParticipants} evaluador
                                                                 </Badge>
-                                                            ) : (
-                                                                <div className="flex items-start gap-2 text-sm text-amber-600">
-                                                                    <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                                                                    <span>{status.hotReportMessage}</span>
-                                                                </div>
                                                             )}
                                                         </div>
+                                                    </CardHeader>
+                                                    <CardContent>
+                                                        {status ? (
+                                                            <div className="grid md:grid-cols-2 gap-4">
+                                                                <div className="border rounded-lg p-4">
+                                                                    <div className="flex items-center gap-2 mb-3">
+                                                                        <FileText className="h-5 w-5 text-orange-500" />
+                                                                        <h3 className="font-semibold">Reporte Empleado</h3>
+                                                                    </div>
 
-                                                        <Button
-                                                            onClick={() => handleDownloadReport(course.id, 'hot')}
-                                                            disabled={!status.hotReportAvailable}
-                                                            className="w-full"
-                                                        >
-                                                            <Download className="h-4 w-4 mr-2" />
-                                                            Descargar Reporte Empleado
-                                                        </Button>
-                                                    </div>
+                                                                    <div className="mb-4">
+                                                                        {status.hotReportAvailable ? (
+                                                                            <Badge variant="default" className="bg-green-500">
+                                                                                {status.hotReportMessage}
+                                                                            </Badge>
+                                                                        ) : (
+                                                                            <div className="flex items-start gap-2 text-sm text-amber-600">
+                                                                                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                                                                <span>{status.hotReportMessage}</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
 
-                                                    <div className="border rounded-lg p-4">
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <FileText className="h-5 w-5 text-blue-500" />
-                                                            <h3 className="font-semibold">Reporte Evaluador</h3>
-                                                        </div>
-
-                                                        <div className="mb-4">
-                                                            {status.coldReportAvailable ? (
-                                                                <Badge variant="default" className="bg-green-500">
-                                                                    {status.coldReportMessage}
-                                                                </Badge>
-                                                            ) : (
-                                                                <div className="flex items-start gap-2 text-sm text-amber-600">
-                                                                    <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                                                                    <span>{status.coldReportMessage}</span>
+                                                                    <Button
+                                                                        onClick={() => handleDownloadReport(course.id, 'hot')}
+                                                                        disabled={!status.hotReportAvailable}
+                                                                        className="w-full"
+                                                                    >
+                                                                        <Download className="h-4 w-4 mr-2" />
+                                                                        Descargar Reporte Empleado
+                                                                    </Button>
                                                                 </div>
-                                                            )}
-                                                        </div>
 
-                                                        <Button
-                                                            onClick={() => handleDownloadReport(course.id, 'cold')}
-                                                            disabled={!status.coldReportAvailable}
-                                                            className="w-full"
-                                                        >
-                                                            <Download className="h-4 w-4 mr-2" />
-                                                            Descargar Reporte Evaluador
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="text-center py-4 text-muted-foreground">
-                                                    Verificando disponibilidad...
-                                                </div>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-                                );
-                            })}
+                                                                <div className="border rounded-lg p-4">
+                                                                    <div className="flex items-center gap-2 mb-3">
+                                                                        <FileText className="h-5 w-5 text-blue-500" />
+                                                                        <h3 className="font-semibold">Reporte Evaluador</h3>
+                                                                    </div>
+
+                                                                    <div className="mb-4">
+                                                                        {status.coldReportAvailable ? (
+                                                                            <Badge variant="default" className="bg-green-500">
+                                                                                {status.coldReportMessage}
+                                                                            </Badge>
+                                                                        ) : (
+                                                                            <div className="flex items-start gap-2 text-sm text-amber-600">
+                                                                                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                                                                <span>{status.coldReportMessage}</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+
+                                                                    <Button
+                                                                        onClick={() => handleDownloadReport(course.id, 'cold')}
+                                                                        disabled={!status.coldReportAvailable}
+                                                                        className="w-full"
+                                                                    >
+                                                                        <Download className="h-4 w-4 mr-2" />
+                                                                        Descargar Reporte Evaluador
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-center py-4 text-muted-foreground">
+                                                                Verificando disponibilidad...
+                                                            </div>
+                                                        )}
+                                                    </CardContent>
+                                                </Card>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </>

@@ -92,8 +92,7 @@ export async function GET(
             if (coldQ) {
                 const coldSignatures = signatures.filter((s) => s.questionnaire_id === coldQ.id);
                 const evaluatorSig = coldSignatures.find((s) => s.signer_type === 'evaluator');
-                const employeeSig = coldSignatures.find((s) => s.signer_type === 'employee');
-                hasColdSignatures = !!evaluatorSig && !!employeeSig;
+                hasColdSignatures = !!evaluatorSig;
             }
 
             if (reportType === 'hot' && !hasHot) {

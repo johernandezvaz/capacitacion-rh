@@ -39,10 +39,8 @@ export default function CourseDetailPage() {
     const [editStartDate, setEditStartDate] = useState('');
     const [editEndDate, setEditEndDate] = useState('');
 
-    // --- Delete course ---
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-    // --- Rename course ---
     const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
     const [renameValue, setRenameValue] = useState('');
     const [isRenameSaving, setIsRenameSaving] = useState(false);
@@ -124,6 +122,7 @@ export default function CourseDetailPage() {
                 return {
                     ...p.employee,
                     participant_id: p.id,
+                    course_id: params.id as string,
                     hot_questionnaire: hotQ,
                     cold_questionnaire: coldQ,
                 };

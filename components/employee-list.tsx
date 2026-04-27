@@ -73,10 +73,7 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
 
         if (!hasHot || !coldQ) return false;
 
-        const hasEvaluatorSignature = coldQ.evaluator_signed_at !== null;
-        const hasEmployeeSignature = coldQ.employee_signed_at !== null;
-
-        return hasEvaluatorSignature && hasEmployeeSignature;
+        return coldQ.submitted_at !== null;
     };
 
     const handleDownloadReport = async (employee: EmployeeWithQuestionnaires, type: 'hot' | 'cold') => {
