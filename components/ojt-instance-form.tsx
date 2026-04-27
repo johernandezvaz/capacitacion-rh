@@ -441,7 +441,7 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
                         </td>
                       ))}
                       <td className="border border-border px-1 py-0.5">
-                        <input type="date" value={row.fecha_planeada_terminacion}
+                        <input type="date" value={row.fecha_planeada_terminacion || ''}
                           onChange={e => updateRowLocal(gIdx, rIdx, 'fecha_planeada_terminacion', e.target.value)}
                           onBlur={e => saveInstanceEntryField(gIdx, rIdx, 'fecha_planeada_terminacion', e.target.value)}
                           className="w-full h-7 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded"
