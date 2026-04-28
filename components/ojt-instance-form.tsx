@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { FileDown, Save } from 'lucide-react';
+import { FileDown, Save, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -435,11 +435,44 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
                       {[
                         row.conocimiento_requerido, row.habilidades, row.fuentes_informacion,
                         row.procedimientos_internos, row.metodo_entrenamiento, row.duracion,
-                      ].map((val, ci) => (
-                        <td key={ci} className="border border-border px-2 py-1 text-muted-foreground bg-muted/20">
-                          {val || '—'}
-                        </td>
-                      ))}
+                      ].map((val, ci) => {
+                        const rawVal = val || '';
+                        
+                        if (ci === 2 && rawVal) {
+                          const urlRegex = /(https?:\/\/[^\s]+)/g;
+                          const parts = rawVal.split(urlRegex);
+                          return (
+                            <td key={ci} className="border border-border px-2 py-1 text-muted-foreground bg-muted/20 align-top">
+                              <div className="whitespace-pre-wrap break-words text-xs">
+                                {parts.map((part, pIdx) => {
+                                  if (part.match(urlRegex)) {
+                                    return (
+                                      <a
+                                        key={pIdx}
+                                        href={part}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-0.5 text-[#2166be] hover:text-[#1a5299] transition-colors font-medium mx-0.5"
+                                        title={`Abrir: ${part}`}
+                                      >
+                                        <span className="underline max-w-[150px] truncate align-bottom inline-block">{part}</span>
+                                        <ExternalLink className="w-3 h-3 shrink-0" />
+                                      </a>
+                                    );
+                                  }
+                                  return <span key={pIdx}>{part}</span>;
+                                })}
+                              </div>
+                            </td>
+                          );
+                        }
+
+                        return (
+                          <td key={ci} className="border border-border px-2 py-1 text-muted-foreground bg-muted/20 align-top whitespace-pre-wrap text-xs">
+                            {rawVal || '—'}
+                          </td>
+                        );
+                      })}
                       <td className="border border-border px-1 py-0.5">
                         <input type="date" value={row.fecha_planeada_terminacion || ''}
                           onChange={e => updateRowLocal(gIdx, rIdx, 'fecha_planeada_terminacion', e.target.value)}
@@ -503,11 +536,24 @@ export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps
                         </div>
                       </td>
                       <td className="border border-border px-1 py-0.5">
-                        <input type="text" value={row.comentarios}
-                          onChange={e => updateRowLocal(gIdx, rIdx, 'comentarios', e.target.value)}
-                          onBlur={e => saveInstanceEntryField(gIdx, rIdx, 'comentarios', e.target.value)}
+                        <textarea
+                          value={row.comentarios}
+                          onChange={e => {
+                            e.target.style.height = 'auto';
+                            e.target.style.height = `${e.target.scrollHeight}px`;
+                            updateRowLocal(gIdx, rIdx, 'comentarios', e.target.value);
+                          }}
+                          onFocus={e => {
+                            e.target.style.height = 'auto';
+                            e.target.style.height = `${e.target.scrollHeight}px`;
+                          }}
+                          onBlur={e => {
+                            e.target.style.height = '28px';
+                            saveInstanceEntryField(gIdx, rIdx, 'comentarios', e.target.value);
+                          }}
                           placeholder="Comentarios..."
-                          className="w-full h-7 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded"
+                          className="w-full min-h-[28px] px-1.5 py-1 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded resize-none overflow-hidden"
+                          style={{ height: '28px' }}
                         />
                       </td>
                     </tr>

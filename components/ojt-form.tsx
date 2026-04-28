@@ -494,29 +494,45 @@ export function OjtForm({ recordId }: OjtFormProps) {
                       <tr key={entry.id || `new-${idx}`} className="hover:bg-muted/30">
                         {ENTRY_COLS.map(col => {
                           const rawVal = (entry[col.key] as string) ?? '';
-                          const isUrl = col.key === 'fuentes_informacion' &&
-                            (rawVal.startsWith('http://') || rawVal.startsWith('https://'));
+                          const extractedUrls = col.key === 'fuentes_informacion' 
+                            ? (rawVal.match(/https?:\/\/[^\s]+/g) || []) 
+                            : [];
                           return (
                             <td key={col.key} className="border border-border px-1 py-0.5">
-                              <div className="flex items-center gap-0.5">
-                                <input
-                                  type={col.type}
+                              <div className="flex items-start gap-0.5">
+                                <textarea
                                   value={rawVal}
-                                  onChange={e => updateEntryLocal(section.id, idx, col.key, e.target.value)}
-                                  onBlur={e => saveEntryField(entry, col.key, e.target.value)}
-                                  className="w-full h-7 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded"
-                                  style={{ minWidth: col.minW }}
+                                  onChange={e => {
+                                    e.target.style.height = 'auto';
+                                    e.target.style.height = `${e.target.scrollHeight}px`;
+                                    updateEntryLocal(section.id, idx, col.key, e.target.value);
+                                  }}
+                                  onFocus={e => {
+                                    e.target.style.height = 'auto';
+                                    e.target.style.height = `${e.target.scrollHeight}px`;
+                                  }}
+                                  onBlur={e => {
+                                    e.target.style.height = '28px';
+                                    saveEntryField(entry, col.key, e.target.value);
+                                  }}
+                                  className="w-full min-h-[28px] px-1.5 py-1 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded resize-none overflow-hidden"
+                                  style={{ minWidth: col.minW, height: '28px' }}
                                 />
-                                {isUrl && (
-                                  <a
-                                    href={rawVal}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title="Abrir enlace en nueva ventana"
-                                    className="shrink-0 text-[#2166be] hover:text-[#1a5299] transition-colors"
-                                  >
-                                    <ExternalLink className="w-3.5 h-3.5" />
-                                  </a>
+                                {extractedUrls.length > 0 && (
+                                  <div className="flex flex-col gap-1.5 pt-1 shrink-0">
+                                    {extractedUrls.map((url, uIdx) => (
+                                      <a
+                                        key={uIdx}
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title={`Abrir: ${url}`}
+                                        className="text-[#2166be] hover:text-[#1a5299] transition-colors"
+                                      >
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                      </a>
+                                    ))}
+                                  </div>
                                 )}
                               </div>
                             </td>
