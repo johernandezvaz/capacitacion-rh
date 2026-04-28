@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, FileDown } from 'lucide-react';
+import { Plus, Trash2, Save, FileDown, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -492,18 +492,36 @@ export function OjtForm({ recordId }: OjtFormProps) {
                     </tr>
                     {section.entries.map((entry, idx) => (
                       <tr key={entry.id || `new-${idx}`} className="hover:bg-muted/30">
-                        {ENTRY_COLS.map(col => (
-                          <td key={col.key} className="border border-border px-1 py-0.5">
-                            <input
-                              type={col.type}
-                              value={(entry[col.key] as string) ?? ''}
-                              onChange={e => updateEntryLocal(section.id, idx, col.key, e.target.value)}
-                              onBlur={e => saveEntryField(entry, col.key, e.target.value)}
-                              className="w-full h-7 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded"
-                              style={{ minWidth: col.minW }}
-                            />
-                          </td>
-                        ))}
+                        {ENTRY_COLS.map(col => {
+                          const rawVal = (entry[col.key] as string) ?? '';
+                          const isUrl = col.key === 'fuentes_informacion' &&
+                            (rawVal.startsWith('http://') || rawVal.startsWith('https://'));
+                          return (
+                            <td key={col.key} className="border border-border px-1 py-0.5">
+                              <div className="flex items-center gap-0.5">
+                                <input
+                                  type={col.type}
+                                  value={rawVal}
+                                  onChange={e => updateEntryLocal(section.id, idx, col.key, e.target.value)}
+                                  onBlur={e => saveEntryField(entry, col.key, e.target.value)}
+                                  className="w-full h-7 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded"
+                                  style={{ minWidth: col.minW }}
+                                />
+                                {isUrl && (
+                                  <a
+                                    href={rawVal}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="Abrir enlace en nueva ventana"
+                                    className="shrink-0 text-[#2166be] hover:text-[#1a5299] transition-colors"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
                         <td className="border border-border px-1 py-0.5 text-center">
                           <button type="button" onClick={() => deleteEntry(section.id, entry)} className="text-red-400 hover:text-red-600" title="Eliminar fila">
                             <Trash2 className="w-3.5 h-3.5" />
