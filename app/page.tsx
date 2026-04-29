@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
@@ -7,8 +7,10 @@ import { YearCard } from '@/components/year-card';
 import { CreateYearModal } from '@/components/create-year-modal';
 import { supabase, TrainingYear } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function HomePage() {
+  const { plantId } = useAuth();
   const [years, setYears] = useState<TrainingYear[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,6 +21,7 @@ export default function HomePage() {
       const { data, error } = await supabase
         .from('training_years')
         .select('*')
+        .eq('plant_id', plantId)
         .order('year', { ascending: false });
 
       if (error) throw error;
@@ -35,8 +38,9 @@ export default function HomePage() {
   };
 
   useEffect(() => {
+    if (!plantId) return;
     fetchYears();
-  }, []);
+  }, [plantId]);
 
   const handleYearCreated = () => {
     fetchYears();
@@ -110,6 +114,7 @@ export default function HomePage() {
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         onSuccess={handleYearCreated}
+        plantId={plantId || ''}
       />
     </div>
   );

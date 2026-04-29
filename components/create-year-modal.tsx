@@ -19,12 +19,14 @@ interface CreateYearModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  plantId: string;
 }
 
 export function CreateYearModal({
   open,
   onOpenChange,
   onSuccess,
+  plantId,
 }: CreateYearModalProps) {
   const [year, setYear] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -46,7 +48,7 @@ export function CreateYearModal({
     try {
       const { error: insertError } = await supabase
         .from('training_years')
-        .insert([{ year: yearNumber }]);
+        .insert([{ year: yearNumber, plant_id: plantId }]);
 
       if (insertError) {
         if (insertError.code === '23505') {
