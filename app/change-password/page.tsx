@@ -53,10 +53,7 @@ export default function ChangePasswordPage() {
         return;
       }
 
-      // Refresh session so AuthContext receives the updated user_metadata
-      // via onAuthStateChange BEFORE navigating, preventing a frozen state.
       await supabase.auth.refreshSession();
-
       router.replace('/');
     } catch {
       setError('Ocurrió un error inesperado. Intenta de nuevo.');
@@ -76,7 +73,6 @@ export default function ChangePasswordPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        {/* Logo / Header */}
         <div className="flex flex-col items-center mb-8">
           <div className="bg-[#192b52] rounded-xl p-4 mb-4 flex items-center justify-center w-20 h-20">
             <Image
@@ -95,7 +91,6 @@ export default function ChangePasswordPage() {
           </p>
         </div>
 
-        {/* Card */}
         <div className="bg-white border border-border rounded-xl shadow-sm p-6 space-y-5">
           <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2">
             <p className="text-sm text-amber-800">

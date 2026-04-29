@@ -13,24 +13,22 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Public routes bypass all auth checks — must be before any session logic
-  if (pathname.startsWith('/public')) {
-    return <>{children}</>;
-  }
-
   useEffect(() => {
+    if (pathname.startsWith('/public')) return;
     if (isLoading) return;
-
     if (!user) {
       router.replace('/login');
       return;
     }
-
     if (user.user_metadata?.force_password_change === true) {
       router.replace('/change-password');
       return;
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router, pathname]);
+
+  if (pathname.startsWith('/public')) {
+    return <>{children}</>;
+  }
 
   if (isLoading) {
     return (
