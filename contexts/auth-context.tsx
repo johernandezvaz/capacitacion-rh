@@ -43,13 +43,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (userPlant) {
         setPlantId(userPlant.plant_id);
         setRole(userPlant.role as 'admin' | 'user');
-
         const { data: plant } = await supabase
           .from('plants')
           .select('name')
           .eq('id', userPlant.plant_id)
           .maybeSingle();
-
         setPlantName(plant?.name ?? null);
       } else {
         setPlantId(null);
@@ -61,36 +59,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      if (currentUser) {
-        await loadPlantData(currentUser.id);
-      }
-      setIsLoading(false);
-    });
+  const clearAuth = () => {
+    setUser(null);
+    setPlantId(null);
+    setPlantName(null);
+    setRole(null);
+  };
 
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setPlantId(null);
-          setPlantName(null);
-          setRole(null);
+          clearAuth();
           setIsLoading(false);
           return;
         }
 
         const currentUser = session?.user ?? null;
         setUser(currentUser);
+
         if (currentUser) {
           await loadPlantData(currentUser.id);
         } else {
-          setPlantId(null);
-          setPlantName(null);
-          setRole(null);
+          clearAuth();
         }
+
         setIsLoading(false);
       }
     );
@@ -100,10 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    setPlantId(null);
-    setPlantName(null);
-    setRole(null);
+    clearAuth();
     router.replace('/login');
   };
 
