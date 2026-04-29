@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect } from 'react';
-import { use } from 'react';
-import { useRouter } from 'next/navigation';
+import { use, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import dynamic from 'next/dynamic';
+
+const HotPage = dynamic(() => import('@/app/questionnaire/hot/[id]/page'), { ssr: false });
+const ColdPage = dynamic(() => import('@/app/questionnaire/cold/[id]/page'), { ssr: false });
 
 export default function PublicQuestionnairePage({
   params,
@@ -11,36 +13,57 @@ export default function PublicQuestionnairePage({
   params: Promise<{ token: string }>;
 }) {
   const resolvedParams = use(params);
-  const router = useRouter();
+  const [state, setState] = useState<{
+    type: 'hot' | 'cold' | null;
+    id: string | null;
+    notFound: boolean;
+    loading: boolean;
+  }>({ type: null, id: null, notFound: false, loading: true });
 
   useEffect(() => {
-    const resolveToken = async () => {
-      const { data, error } = await supabase
-        .from('questionnaires')
-        .select('id, type')
-        .eq('id', resolvedParams.token)
-        .maybeSingle();
+    supabase
+      .from('questionnaires')
+      .select('id, type')
+      .eq('id', resolvedParams.token)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error || !data) {
+          setState({ type: null, id: null, notFound: true, loading: false });
+          return;
+        }
+        setState({ type: data.type as 'hot' | 'cold', id: data.id, notFound: false, loading: false });
+      });
+  }, [resolvedParams.token]);
 
-      if (error || !data) {
-        return;
-      }
-
-      if (data.type === 'hot') {
-        router.replace(`/questionnaire/hot/${data.id}`);
-      } else if (data.type === 'cold') {
-        router.replace(`/questionnaire/cold/${data.id}`);
-      }
-    };
-
-    resolveToken();
-  }, [resolvedParams.token, router]);
-
-  return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-border rounded-xl shadow-sm p-8 max-w-sm w-full text-center space-y-4">
-        <div className="w-10 h-10 border-4 border-[#2166be] border-t-transparent rounded-full animate-spin mx-auto" />
-        <p className="text-muted-foreground text-sm">Cargando cuestionario...</p>
+  if (state.loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white border border-border rounded-xl shadow-sm p-8 max-w-sm w-full text-center space-y-4">
+          <div className="w-10 h-10 border-4 border-[#2166be] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-muted-foreground text-sm">Cargando cuestionario...</p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (state.notFound || !state.id || !state.type) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white border border-border rounded-xl shadow-sm p-8 max-w-sm w-full text-center space-y-3">
+          <div className="text-4xl">⚠️</div>
+          <h1 className="text-lg font-semibold">Enlace no válido</h1>
+          <p className="text-muted-foreground text-sm">
+            Este enlace no existe o ha expirado.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const resolvedId = state.id;
+
+  if (state.type === 'hot') {
+    return <HotPage params={Promise.resolve({ id: resolvedId })} />;
+  }
+  return <ColdPage params={Promise.resolve({ id: resolvedId })} />;
 }
