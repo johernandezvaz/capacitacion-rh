@@ -7,6 +7,7 @@ import { YearCard } from '@/components/year-card';
 import { CreateYearModal } from '@/components/create-year-modal';
 import { supabase, TrainingYear } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { ProtectedRoute } from '@/components/protected-route';
 
 export default function HomePage() {
   const [years, setYears] = useState<TrainingYear[]>([]);
@@ -48,6 +49,7 @@ export default function HomePage() {
   };
 
   return (
+    <ProtectedRoute>
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-6 sm:mb-8">
@@ -112,5 +114,6 @@ export default function HomePage() {
         onSuccess={handleYearCreated}
       />
     </div>
+    </ProtectedRoute>
   );
 }

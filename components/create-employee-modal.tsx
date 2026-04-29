@@ -19,12 +19,14 @@ interface CreateEmployeeModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSuccess: (employeeId: string) => void;
+    plantId: string;
 }
 
 export function CreateEmployeeModal({
     open,
     onOpenChange,
     onSuccess,
+    plantId,
 }: CreateEmployeeModalProps) {
     const [formData, setFormData] = useState({
         employee_number: '',
@@ -81,6 +83,7 @@ export function CreateEmployeeModal({
                     area: formData.area.trim(),
                     puesto: formData.puesto.trim(),
                     evaluador: formData.evaluador.trim(),
+                    plant_id: plantId || null,
                 }])
                 .select()
                 .single();

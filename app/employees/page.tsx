@@ -11,10 +11,13 @@ import { supabase, Employee } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { CreateEmployeeModal } from '@/components/create-employee-modal';
+import { ProtectedRoute } from '@/components/protected-route';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function EmployeesPage() {
     const router = useRouter();
     const { toast } = useToast();
+    const { plantId } = useAuth();
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -43,6 +46,7 @@ export default function EmployeesPage() {
             const { data, error } = await supabase
                 .from('employees')
                 .select('*')
+                .eq('plant_id', plantId)
                 .order('nombre');
 
             if (error) throw error;
@@ -141,6 +145,7 @@ export default function EmployeesPage() {
     }
 
     return (
+        <ProtectedRoute>
         <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 bg-slate-50">
             <div className="max-w-7xl mx-auto">
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-6 sm:mb-8">
@@ -289,6 +294,7 @@ export default function EmployeesPage() {
                 open={isCreateModalOpen}
                 onOpenChange={setIsCreateModalOpen}
                 onSuccess={handleEmployeeCreated}
+                plantId={plantId || ''}
             />
 
             <ConfirmDialog
@@ -315,5 +321,6 @@ export default function EmployeesPage() {
                 variant={deleteDialog.hasActiveCourses ? "default" : "destructive"}
             />
         </div>
+        </ProtectedRoute>
     );
 }

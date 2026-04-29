@@ -20,11 +20,14 @@ import {
 } from '@/components/ui/dialog';
 import { supabase, TrainingYear, Course } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { ProtectedRoute } from '@/components/protected-route';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function YearDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { plantId } = useAuth();
   const [year, setYear] = useState<TrainingYear | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -71,6 +74,7 @@ export default function YearDetailPage() {
         .from('courses')
         .select('*')
         .eq('year_id', params.id)
+        .eq('plant_id', plantId)
         .order('date', { ascending: true });
 
       if (coursesError) throw coursesError;
@@ -294,6 +298,7 @@ export default function YearDetailPage() {
   })();
 
   return (
+    <ProtectedRoute>
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 overflow-x-auto">
@@ -423,6 +428,7 @@ export default function YearDetailPage() {
         onOpenChange={setIsCreateModalOpen}
         onSuccess={handleCourseCreated}
         yearId={params.id as string}
+        plantId={plantId || ''}
       />
 
       <ConfirmDialog
@@ -493,5 +499,6 @@ export default function YearDetailPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </ProtectedRoute>
   );
 }

@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { CreateEmployeeModal } from '@/components/create-employee-modal';
 import { supabase, Employee } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
 
 interface EmployeeSearcherProps {
     courseId: string;
@@ -23,6 +24,7 @@ export function EmployeeSearcher({ courseId, onEmployeeAdded, existingEmployeeId
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isAddingEmployee, setIsAddingEmployee] = useState<string | null>(null);
     const { toast } = useToast();
+    const { plantId } = useAuth();
 
     useEffect(() => {
         const searchEmployees = async () => {
@@ -40,6 +42,7 @@ export function EmployeeSearcher({ courseId, onEmployeeAdded, existingEmployeeId
                     .from('employees')
                     .select('*')
                     .or(`employee_number.ilike.%${searchTerm}%,nombre.ilike.%${searchTerm}%`)
+                    .eq('plant_id', plantId)
                     .limit(10);
 
                 if (error) throw error;
@@ -202,6 +205,7 @@ export function EmployeeSearcher({ courseId, onEmployeeAdded, existingEmployeeId
                 open={isCreateModalOpen}
                 onOpenChange={setIsCreateModalOpen}
                 onSuccess={handleEmployeeCreated}
+                plantId={plantId || ''}
             />
         </div>
     );

@@ -20,6 +20,7 @@ interface CreateCourseModalProps {
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
   yearId: string;
+  plantId: string;
 }
 
 export function CreateCourseModal({
@@ -27,6 +28,7 @@ export function CreateCourseModal({
   onOpenChange,
   onSuccess,
   yearId,
+  plantId,
 }: CreateCourseModalProps) {
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -80,6 +82,7 @@ export function CreateCourseModal({
           end_date: endDate || null,
           duration_hours: durationNumber,
           status: 'active',
+          plant_id: plantId || null,
         },
       ]);
 

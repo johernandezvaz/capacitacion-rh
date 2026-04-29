@@ -4,11 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Calendar, BarChart3, Users, Menu, X, ClipboardList } from 'lucide-react';
+import { Calendar, BarChart3, Users, Menu, X, ClipboardList, LogOut, Building2 } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
 
 export function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const { user, plantName, signOut } = useAuth();
 
   const menuItems = [
     {
@@ -40,6 +42,8 @@ export function Sidebar() {
   const handleLinkClick = () => {
     setIsOpen(false);
   };
+
+  const displayName = user?.user_metadata?.name || user?.email || '';
 
   return (
     <>
@@ -103,10 +107,29 @@ export function Sidebar() {
           </ul>
         </nav>
 
-        <div className="p-4 border-t border-white/10">
-          <p className="text-white/60 text-sm text-center">
-            Sistema de Capacitaciones
-          </p>
+        {/* User info + sign out */}
+        <div className="p-4 border-t border-white/10 space-y-3">
+          {/* Plant info */}
+          {plantName && (
+            <div className="flex items-center gap-2 px-1">
+              <Building2 className="w-4 h-4 text-white/50 flex-shrink-0" />
+              <span className="text-white/70 text-xs truncate">{plantName}</span>
+            </div>
+          )}
+          {/* User name */}
+          {displayName && (
+            <div className="px-1">
+              <p className="text-white/90 text-sm font-medium truncate">{displayName}</p>
+            </div>
+          )}
+          {/* Sign out button */}
+          <button
+            onClick={() => { setIsOpen(false); signOut(); }}
+            className="w-full flex items-center gap-2 px-4 py-2.5 rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200 text-sm"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Cerrar sesión</span>
+          </button>
         </div>
       </aside>
     </>

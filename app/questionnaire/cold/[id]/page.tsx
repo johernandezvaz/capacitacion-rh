@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, CheckCircle2, Lock, AlertCircle, Download } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Lock, AlertCircle, Download, Link as LinkIcon } from 'lucide-react';
 import { format, isAfter } from 'date-fns';
 import { toast } from 'sonner';
+import { ProtectedRoute } from '@/components/protected-route';
 
 interface QuestionnaireData {
     id: string;
@@ -347,6 +348,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
     const canEdit = isAvailable && !evaluatorSignature && !isLocked;
 
     return (
+        <ProtectedRoute>
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
             <div className="max-w-4xl mx-auto">
                 <Button
@@ -375,6 +377,19 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
+                                <Button
+                                    onClick={() => {
+                                        const url = `${window.location.origin}/public/questionnaire/${questionnaire.id}`;
+                                        navigator.clipboard.writeText(url);
+                                        toast.success('Enlace copiado al portapapeles');
+                                    }}
+                                    variant="outline"
+                                    size="sm"
+                                    title="Copiar enlace público"
+                                >
+                                    <LinkIcon className="h-4 w-4 mr-2" />
+                                    Compartir
+                                </Button>
                                 {isLocked && (
                                     <>
                                         <Button
@@ -576,5 +591,6 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
 
             </div>
         </div>
+        </ProtectedRoute>
     );
 }

@@ -15,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ProtectedRoute } from '@/components/protected-route';
+import { useAuth } from '@/contexts/auth-context';
 
 type OjtListItem = {
   id: string;
@@ -27,6 +29,7 @@ type OjtListItem = {
 
 export default function OjtPage() {
   const { toast } = useToast();
+  const { plantId } = useAuth();
   const [records, setRecords] = useState<OjtListItem[]>([]);
   const [puestos, setPuestos] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,6 +45,7 @@ export default function OjtPage() {
           ojt_instances(id)
         `)
         .eq('is_template', true)
+        .eq('plant_id', plantId)
         .order('puesto', { ascending: true })
         .order('titulo', { ascending: true });
 
@@ -62,6 +66,7 @@ export default function OjtPage() {
         .from('ojt_records')
         .select('puesto')
         .eq('is_template', true)
+        .eq('plant_id', plantId)
         .not('puesto', 'is', null)
         .neq('puesto', '');
 
@@ -91,6 +96,7 @@ export default function OjtPage() {
   }, [records, searchQuery, selectedPuesto]);
 
   return (
+    <ProtectedRoute>
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
       <div className="max-w-5xl mx-auto">
         <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-6 sm:mb-8">
@@ -217,5 +223,6 @@ export default function OjtPage() {
         )}
       </div>
     </div>
+    </ProtectedRoute>
   );
 }

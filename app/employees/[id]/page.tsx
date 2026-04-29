@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase, Employee } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { ProtectedRoute } from '@/components/protected-route';
 
 export default function EmployeeEditPage({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = use(params);
@@ -180,6 +181,7 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
     if (!employee) return null;
 
     return (
+        <ProtectedRoute>
         <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 bg-slate-50">
             <div className="max-w-3xl mx-auto">
                 <Button
@@ -306,5 +308,6 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
                 </Card>
             </div>
         </div>
+        </ProtectedRoute>
     );
 }

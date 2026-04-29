@@ -41,9 +41,9 @@ const ENTRY_COLS: Array<{ key: keyof OjtEntry; label: string; type: string; minW
   { key: 'puesto_responsable', label: 'Puesto Responsable', type: 'text', minW: '160px' },
 ];
 
-interface OjtFormProps { recordId: string | null; }
+interface OjtFormProps { recordId: string | null; plantId: string; }
 
-export function OjtForm({ recordId }: OjtFormProps) {
+export function OjtForm({ recordId, plantId }: OjtFormProps) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -67,9 +67,10 @@ export function OjtForm({ recordId }: OjtFormProps) {
     supabase
       .from('employees')
       .select('id, nombre, puesto, employee_number, area, evaluador, created_at')
+      .eq('plant_id', plantId)
       .order('nombre')
       .then(({ data }) => setEmployees(data || []));
-  }, []);
+  }, [plantId]);
 
   useEffect(() => {
     if (!recordId) return;
@@ -198,7 +199,7 @@ export function OjtForm({ recordId }: OjtFormProps) {
       } else {
         const { data: ins, error } = await supabase
           .from('ojt_records')
-          .insert([{ ...payload, status: 'draft' }])
+          .insert([{ ...payload, status: 'draft', plant_id: plantId || null }])
           .select()
           .single();
         if (error) throw error;
