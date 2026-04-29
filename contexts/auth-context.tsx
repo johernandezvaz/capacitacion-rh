@@ -92,18 +92,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    clearAuth();
+    router.replace('/login');
     try {
-      await Promise.race([
-        supabase.auth.signOut(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), 3000)
-        ),
-      ]);
+      await supabase.auth.signOut();
     } catch (err) {
-      console.warn('signOut timeout o error, forzando limpieza:', err);
-    } finally {
-      clearAuth();
-      router.replace('/login');
+      console.warn('signOut error (ignorado, sesión ya limpiada):', err);
     }
   };
 
