@@ -3,24 +3,30 @@
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 import { AuthProvider } from '@/contexts/auth-context';
+import { ProtectedRoute } from '@/components/protected-route';
 
-const NO_SIDEBAR_PATHS = ['/login', '/change-password'];
+const PUBLIC_PATHS = ['/login', '/change-password'];
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  const showSidebar =
-    !NO_SIDEBAR_PATHS.includes(pathname) &&
-    !pathname.startsWith('/public/');
+  if (
+    pathname.startsWith('/public/') ||
+    PUBLIC_PATHS.includes(pathname)
+  ) {
+    return <>{children}</>;
+  }
 
   return (
     <AuthProvider>
-      <div className="flex min-h-screen">
-        {showSidebar && <Sidebar />}
-        <main className={showSidebar ? 'flex-1 lg:ml-64 overflow-y-auto' : 'flex-1'}>
-          {children}
-        </main>
-      </div>
+      <ProtectedRoute>
+        <div className="flex min-h-screen">
+          <Sidebar />
+          <main className="flex-1 lg:ml-64 overflow-y-auto">
+            {children}
+          </main>
+        </div>
+      </ProtectedRoute>
     </AuthProvider>
   );
 }
