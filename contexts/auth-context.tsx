@@ -33,22 +33,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadPlantData = async (uid: string) => {
     try {
-      const { data: userPlant } = await supabase
+      const { data: userPlant, error: plantError } = await supabase
         .from('user_plants')
         .select('plant_id, role')
         .eq('user_id', uid)
         .limit(1)
         .maybeSingle();
 
+      if (plantError) {
+        console.error('Error loading user_plants:', plantError);
+        setPlantId(null);
+        setPlantName(null);
+        setRole(null);
+        return;
+      }
+
       if (userPlant) {
         setPlantId(userPlant.plant_id);
         setRole(userPlant.role as 'admin' | 'user');
-        const { data: plant } = await supabase
+        const { data: plant, error: nameError } = await supabase
           .from('plants')
           .select('name')
           .eq('id', userPlant.plant_id)
           .maybeSingle();
-        setPlantName(plant?.name ?? null);
+
+        if (nameError) {
+          console.error('Error loading plant name:', nameError);
+          setPlantName(null);
+        } else {
+          setPlantName(plant?.name ?? null);
+        }
       } else {
         setPlantId(null);
         setPlantName(null);
@@ -56,6 +70,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       console.error('Error loading plant data:', err);
+      setPlantId(null);
+      setPlantName(null);
+      setRole(null);
     }
   };
 

@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, isLoading } = useAuth();
+  const { user, plantId, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -24,13 +24,17 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       router.replace('/change-password');
       return;
     }
-  }, [user, isLoading, router, pathname]);
+    if (!plantId && !pathname.startsWith('/login') && !pathname.startsWith('/change-password')) {
+      router.replace('/login?error=no_plant');
+      return;
+    }
+  }, [user, plantId, isLoading, router, pathname]);
 
   if (pathname.startsWith('/public')) {
     return <>{children}</>;
   }
 
-  if (isLoading) {
+  if (isLoading || !plantId) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
