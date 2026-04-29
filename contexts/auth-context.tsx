@@ -92,6 +92,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        if (event === 'TOKEN_REFRESHED') {
+          const currentUser = session?.user ?? null;
+          setUser(currentUser);
+          setIsLoading(false);
+          return; // plantId y role no cambian con un refresh
+        }
+
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
