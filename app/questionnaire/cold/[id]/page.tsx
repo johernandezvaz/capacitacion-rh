@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -12,7 +12,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, CheckCircle2, Lock, AlertCircle, Download, Link as LinkIcon } from 'lucide-react';
 import { format, isAfter } from 'date-fns';
 import { toast } from 'sonner';
-import { ProtectedRoute } from '@/components/protected-route';
 
 interface QuestionnaireData {
     id: string;
@@ -348,7 +347,6 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
     const canEdit = isAvailable && !evaluatorSignature && !isLocked;
 
     return (
-        <ProtectedRoute>
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
             <div className="max-w-4xl mx-auto">
                 <Button
@@ -591,6 +589,5 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
 
             </div>
         </div>
-        </ProtectedRoute>
     );
 }

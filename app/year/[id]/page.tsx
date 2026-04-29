@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -20,7 +20,6 @@ import {
 } from '@/components/ui/dialog';
 import { supabase, TrainingYear, Course } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
-import { ProtectedRoute } from '@/components/protected-route';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function YearDetailPage() {
@@ -298,7 +297,6 @@ export default function YearDetailPage() {
   })();
 
   return (
-    <ProtectedRoute>
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 overflow-x-auto">
@@ -499,6 +497,5 @@ export default function YearDetailPage() {
         </DialogContent>
       </Dialog>
     </div>
-    </ProtectedRoute>
   );
 }

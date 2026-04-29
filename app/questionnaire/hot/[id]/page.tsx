@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -12,7 +12,6 @@ import { ArrowLeft, CheckCircle2, Lock, PenTool, Download, Link as LinkIcon } fr
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
-import { ProtectedRoute } from '@/components/protected-route';
 
 interface QuestionnaireData {
     id: string;
@@ -332,7 +331,6 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
     const employeeSignature = signatures.find(s => s.signer_type === 'employee');
 
     return (
-        <ProtectedRoute>
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
             <div className="max-w-4xl mx-auto">
                 <Button
@@ -582,6 +580,5 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                 )}
             </div>
         </div>
-        </ProtectedRoute>
     );
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -6,7 +6,6 @@ import { ChevronRight, Link as LinkIcon } from 'lucide-react';
 import { OjtInstanceForm } from '@/components/ojt-instance-form';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { ProtectedRoute } from '@/components/protected-route';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -22,7 +21,6 @@ export default function OjtInstancePage() {
   }, [templateId, instanceId]);
 
   return (
-    <ProtectedRoute>
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
       <div className="max-w-[1600px] mx-auto">
         <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6">
@@ -63,6 +61,5 @@ export default function OjtInstancePage() {
         <OjtInstanceForm instanceId={instanceId} templateId={templateId} />
       </div>
     </div>
-    </ProtectedRoute>
   );
 }

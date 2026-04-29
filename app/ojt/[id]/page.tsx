@@ -1,11 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight, Users } from 'lucide-react';
 import { OjtForm } from '@/components/ojt-form';
 import { Button } from '@/components/ui/button';
-import { ProtectedRoute } from '@/components/protected-route';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function OjtDetailPage() {
@@ -14,7 +13,6 @@ export default function OjtDetailPage() {
   const { plantId } = useAuth();
 
   return (
-    <ProtectedRoute>
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6">
@@ -39,6 +37,5 @@ export default function OjtDetailPage() {
         <OjtForm recordId={recordId} plantId={plantId || ''} />
       </div>
     </div>
-    </ProtectedRoute>
   );
 }

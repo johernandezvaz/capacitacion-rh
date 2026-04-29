@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { FileText, Download, AlertCircle, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { ProtectedRoute } from '@/components/protected-route';
+import { useAuth } from '@/contexts/auth-context';
 
 interface Course {
     id: string;
@@ -30,6 +30,7 @@ interface ReportStatus {
 }
 
 export default function ReportsPage() {
+    const { plantId } = useAuth();
     const [courses, setCourses] = useState<Course[]>([]);
     const [reportStatuses, setReportStatuses] = useState<Record<string, ReportStatus>>({});
     const [loading, setLoading] = useState(true);
@@ -37,14 +38,16 @@ export default function ReportsPage() {
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
     useEffect(() => {
+        if (!plantId) return;
         loadCourses();
-    }, []);
+    }, [plantId]);
 
     async function loadCourses() {
         try {
             const { data, error } = await supabase
                 .from('courses')
                 .select('id, name, date, year_id, training_years(year)')
+                .eq('plant_id', plantId)
                 .order('date', { ascending: false });
 
             if (error) throw error;
@@ -261,7 +264,6 @@ export default function ReportsPage() {
     })();
 
     return (
-        <ProtectedRoute>
             <div className="container mx-auto py-8 px-4">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold mb-2">Reportes de Cursos</h1>
@@ -420,6 +422,5 @@ export default function ReportsPage() {
                     </>
                 )}
             </div>
-        </ProtectedRoute>
     );
 }

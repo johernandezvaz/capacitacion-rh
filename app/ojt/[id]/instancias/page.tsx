@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -14,7 +14,6 @@ import {
 import { OjtEmployeeSelect } from '@/components/ojt-employee-select';
 import { supabase, Employee, OjtInstance, OjtRecord } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
-import { ProtectedRoute } from '@/components/protected-route';
 import { useAuth } from '@/contexts/auth-context';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -142,7 +141,6 @@ export default function OjtInstanciasPage() {
   };
 
   return (
-    <ProtectedRoute>
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
       <div className="max-w-5xl mx-auto">
 
@@ -285,6 +283,5 @@ export default function OjtInstanciasPage() {
         </DialogContent>
       </Dialog>
     </div>
-    </ProtectedRoute>
   );
 }

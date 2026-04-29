@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -23,7 +23,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Edit2 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/confirm-dialog';
-import { ProtectedRoute } from '@/components/protected-route';
 
 export default function CourseDetailPage() {
     const params = useParams();
@@ -312,7 +311,6 @@ export default function CourseDetailPage() {
     };
 
     return (
-        <ProtectedRoute>
         <div className="min-h-screen p-8 bg-slate-50">
             <div className="max-w-7xl mx-auto">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
@@ -565,6 +563,5 @@ export default function CourseDetailPage() {
                 </DialogContent>
             </Dialog>
         </div>
-        </ProtectedRoute>
     );
 }

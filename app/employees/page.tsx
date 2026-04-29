@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Pencil, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,6 @@ import { supabase, Employee } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { CreateEmployeeModal } from '@/components/create-employee-modal';
-import { ProtectedRoute } from '@/components/protected-route';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function EmployeesPage() {
@@ -34,14 +33,16 @@ export default function EmployeesPage() {
     });
 
     useEffect(() => {
+        if (!plantId) return;
         fetchEmployees();
-    }, []);
+    }, [plantId]);
 
     useEffect(() => {
         filterEmployees();
     }, [searchQuery, employees]);
 
     const fetchEmployees = async () => {
+        setIsLoading(true);
         try {
             const { data, error } = await supabase
                 .from('employees')
@@ -145,7 +146,6 @@ export default function EmployeesPage() {
     }
 
     return (
-        <ProtectedRoute>
         <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 bg-slate-50">
             <div className="max-w-7xl mx-auto">
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-6 sm:mb-8">
@@ -321,6 +321,5 @@ export default function EmployeesPage() {
                 variant={deleteDialog.hasActiveCourses ? "default" : "destructive"}
             />
         </div>
-        </ProtectedRoute>
     );
 }
