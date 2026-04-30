@@ -89,115 +89,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRole(null);
   };
 
+  // Efecto 1: inicializar sesión y escuchar cambios de auth.
+  // REGLA: onAuthStateChange solo actualiza `user` (state puro).
+  // NUNCA llamar queries de Supabase dentro de este callback — deadlock con locks internos.
   useEffect(() => {
     let mounted = true;
 
-    const initialize = async () => {
-      authLog('auth', 'AuthProvider mount → initialize()', {
-        path: typeof window !== 'undefined' ? window.location.pathname : '(ssr)',
-        storage: dumpLocalStorageAuth(),
-      });
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!mounted) return;
+    authLog('auth', 'AuthProvider mount', {
+      path: typeof window !== 'undefined' ? window.location.pathname : '(ssr)',
+      storage: dumpLocalStorageAuth(),
+    });
 
-        authLog('auth', 'getSession() resuelto', { session: summarizeSession(session) });
-
-        if (!session) {
-          clearAuth();
-          setIsLoading(false);
-          return;
-        }
-
-        setUser(session.user);
-        await loadPlantData(session.user.id);
-        if (mounted) setIsLoading(false);
-      } catch (e) {
-        authLog('warn', 'initialize() lanzó excepción', { error: String(e) });
-        if (mounted) {
-          clearAuth();
-          setIsLoading(false);
-        }
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!mounted) return;
+      authLog('auth', 'getSession() resuelto', { session: summarizeSession(session), error: error?.message });
+      if (error || !session) {
+        setUser(null);
+        setIsLoading(false);
+        return;
       }
-    };
+      setUser(session.user);
+      // isLoading se apaga en el efecto de plantData cuando termina
+    });
 
-    initialize();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      authLog('auth', `onAuthStateChange: ${event}`, { session: summarizeSession(session) });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
-
-        authLog('auth', `onAuthStateChange: ${event}`, { session: summarizeSession(session) });
-
-        if (event === 'SIGNED_OUT') {
-          clearAuth();
-          setIsLoading(false);
-          if (typeof window !== 'undefined' &&
-            !window.location.pathname.startsWith('/login') &&
-            !window.location.pathname.startsWith('/public')) {
-            authLog('auth', 'SIGNED_OUT → redirect a /login');
-            router.replace('/login');
-          }
-          return;
-        }
-
-        if (event === 'TOKEN_REFRESHED') {
-          const currentUser = session?.user ?? null;
-          setUser(currentUser);
-          setIsLoading(false);
-          return;
-        }
-
-        if (event === 'INITIAL_SESSION') {
-          return;
-        }
-
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-
-        if (currentUser) {
-          await loadPlantData(currentUser.id);
-        } else {
-          clearAuth();
-        }
-
-        if (mounted) setIsLoading(false);
-      }
-    );
-
-    const handleStorage = (e: StorageEvent) => {
-      if (!e.key) return;
-      if (!e.key.startsWith('sb-')) return;
-      authLog('storage', `storage event: ${e.key}`, {
-        oldPresent: e.oldValue !== null,
-        newPresent: e.newValue !== null,
-      });
-      if (e.newValue === null) {
-        clearAuth();
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
         setIsLoading(false);
         if (typeof window !== 'undefined' &&
           !window.location.pathname.startsWith('/login') &&
           !window.location.pathname.startsWith('/public')) {
-          authLog('auth', 'storage cleared en otra pestaña → redirect a /login');
-          window.location.replace('/login');
+          authLog('auth', 'SIGNED_OUT → redirect /login');
+          router.replace('/login');
         }
+        return;
+      }
+
+      if (event === 'INITIAL_SESSION') return;
+
+      // SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED: solo actualizar user
+      setUser(session?.user ?? null);
+    });
+
+    const handleStorage = (e: StorageEvent) => {
+      if (!e.key?.startsWith('sb-')) return;
+      authLog('storage', `storage event: ${e.key}`, { removed: e.newValue === null });
+      if (e.newValue === null && typeof window !== 'undefined' &&
+        !window.location.pathname.startsWith('/login') &&
+        !window.location.pathname.startsWith('/public')) {
+        authLog('auth', 'storage cleared por otra pestaña → redirect /login');
+        window.location.replace('/login');
       }
     };
 
-    const handleVisibility = () => {
-      authLog('visibility', `visibilitychange: ${document.visibilityState}`, {
-        path: window.location.pathname,
-        storage: dumpLocalStorageAuth(),
-      });
-    };
-
-    const handleFocus = () => {
-      authLog('visibility', 'window focus', { path: window.location.pathname });
-    };
-
-    const handleBlur = () => {
-      authLog('visibility', 'window blur', { path: window.location.pathname });
-    };
+    const handleVisibility = () =>
+      authLog('visibility', `visibilitychange: ${document.visibilityState}`, { storage: dumpLocalStorageAuth() });
+    const handleFocus = () => authLog('visibility', 'window focus');
+    const handleBlur = () => authLog('visibility', 'window blur');
 
     window.addEventListener('storage', handleStorage);
     document.addEventListener('visibilitychange', handleVisibility);
@@ -213,6 +164,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('blur', handleBlur);
     };
   }, [router]);
+
+  // Efecto 2: cargar datos de planta cuando cambia el user.id.
+  // Separado del efecto de auth para no bloquear el cliente de Supabase.
+  useEffect(() => {
+    if (user === null) {
+      setPlantId(null);
+      setPlantName(null);
+      setRole(null);
+      return;
+    }
+
+    let mounted = true;
+
+    loadPlantData(user.id).finally(() => {
+      if (mounted) {
+        authLog('auth', 'setIsLoading(false) tras loadPlantData');
+        setIsLoading(false);
+      }
+    });
+
+    return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const signOut = async () => {
     clearAuth();
