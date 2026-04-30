@@ -27,6 +27,8 @@ const AuthContext = createContext<AuthContextValue>({
   signOut: async () => { },
 });
 
+//
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
