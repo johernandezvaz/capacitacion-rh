@@ -96,23 +96,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!mounted) return;
+        const { data: { user }, error } = await supabase.auth.getUser();
 
-        authLog('auth', 'getSession() resuelto', {
-          session: summarizeSession(session),
+        authLog('auth', 'getUser() resuelto', {
+          user_id: user?.id,
+          error: error?.message,
         });
 
-        if (!session) {
-          clearAuth();
+        if (!user) {
+          // ⚠️ NO limpies agresivamente aquí todavía
           setIsLoading(false);
           return;
         }
 
-        setUser(session.user);
-        await loadPlantData(session.user.id);
-
+        setUser(user);
+        await loadPlantData(user.id);
         if (mounted) setIsLoading(false);
+
       } catch (e) {
         authLog('warn', 'initialize() lanzó excepción', { error: String(e) });
         if (mounted) {
