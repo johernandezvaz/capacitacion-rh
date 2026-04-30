@@ -84,8 +84,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    let mounted = true;
+
+    const initialize = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        if (error || !session) {
+          clearAuth();
+          setIsLoading(false);
+          return;
+        }
+
+        setUser(session.user);
+        await loadPlantData(session.user.id);
+        if (mounted) setIsLoading(false);
+      } catch {
+        if (mounted) {
+          clearAuth();
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initialize();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return;
+
         if (event === 'SIGNED_OUT') {
           clearAuth();
           setIsLoading(false);
@@ -96,7 +124,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const currentUser = session?.user ?? null;
           setUser(currentUser);
           setIsLoading(false);
-          return; // plantId y role no cambian con un refresh
+          return;
+        }
+
+        if (event === 'INITIAL_SESSION') {
+          return;
         }
 
         const currentUser = session?.user ?? null;
@@ -108,11 +140,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           clearAuth();
         }
 
-        setIsLoading(false);
+        if (mounted) setIsLoading(false);
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
