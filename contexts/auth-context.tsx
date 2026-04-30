@@ -26,6 +26,7 @@ const AuthContext = createContext<AuthContextValue>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+
   const [user, setUser] = useState<User | null>(null);
   const [plantId, setPlantId] = useState<string | null>(null);
   const [plantName, setPlantName] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (userPlant) {
         setPlantId(userPlant.plant_id);
         setRole(userPlant.role as 'admin' | 'user');
+
         const { data: plant, error: nameError } = await supabase
           .from('plants')
           .select('name')
@@ -92,11 +94,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         path: typeof window !== 'undefined' ? window.location.pathname : '(ssr)',
         storage: dumpLocalStorageAuth(),
       });
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!mounted) return;
 
-        authLog('auth', 'getSession() resuelto', { session: summarizeSession(session) });
+        authLog('auth', 'getSession() resuelto', {
+          session: summarizeSession(session),
+        });
 
         if (!session) {
           clearAuth();
@@ -106,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setUser(session.user);
         await loadPlantData(session.user.id);
+
         if (mounted) setIsLoading(false);
       } catch (e) {
         authLog('warn', 'initialize() lanzó excepción', { error: String(e) });
@@ -122,14 +128,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (!mounted) return;
 
-        authLog('auth', `onAuthStateChange: ${event}`, { session: summarizeSession(session) });
+        authLog('auth', `onAuthStateChange: ${event}`, {
+          session: summarizeSession(session),
+        });
 
         if (event === 'SIGNED_OUT') {
           clearAuth();
           setIsLoading(false);
-          if (typeof window !== 'undefined' &&
+
+          if (
+            typeof window !== 'undefined' &&
             !window.location.pathname.startsWith('/login') &&
-            !window.location.pathname.startsWith('/public')) {
+            !window.location.pathname.startsWith('/public')
+          ) {
             authLog('auth', 'SIGNED_OUT → redirect a /login');
             router.replace('/login');
           }
@@ -143,11 +154,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        if (event === 'INITIAL_SESSION') {
+        if (event === 'INITIAL_SESSION') return;
+
+        const currentUser = session?.user ?? null;
+
+        // 🔥 CLAVE: ignorar SIGNED_IN redundante
+        if (event === 'SIGNED_IN' && user?.id === currentUser?.id) {
+          authLog('auth', 'SIGNED_IN ignorado (mismo usuario)');
           return;
         }
 
-        const currentUser = session?.user ?? null;
         setUser(currentUser);
 
         if (currentUser) {
@@ -163,17 +179,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const handleStorage = (e: StorageEvent) => {
       if (!e.key) return;
       if (!e.key.startsWith('sb-')) return;
+
       authLog('storage', `storage event: ${e.key}`, {
         oldPresent: e.oldValue !== null,
         newPresent: e.newValue !== null,
       });
+
       if (e.newValue === null) {
         clearAuth();
         setIsLoading(false);
-        if (typeof window !== 'undefined' &&
+
+        if (
+          typeof window !== 'undefined' &&
           !window.location.pathname.startsWith('/login') &&
-          !window.location.pathname.startsWith('/public')) {
-          authLog('auth', 'storage cleared en otra pestaña → redirect a /login');
+          !window.location.pathname.startsWith('/public')
+        ) {
+          authLog('auth', 'storage cleared → redirect');
           window.location.replace('/login');
         }
       }
@@ -182,32 +203,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const handleVisibility = () => {
       authLog('visibility', `visibilitychange: ${document.visibilityState}`, {
         path: window.location.pathname,
-        storage: dumpLocalStorageAuth(),
       });
-    };
-
-    const handleFocus = () => {
-      authLog('visibility', 'window focus', { path: window.location.pathname });
-    };
-
-    const handleBlur = () => {
-      authLog('visibility', 'window blur', { path: window.location.pathname });
     };
 
     window.addEventListener('storage', handleStorage);
     document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('blur', handleBlur);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
       window.removeEventListener('storage', handleStorage);
       document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('blur', handleBlur);
     };
-  }, [router]);
+  }, [router, user?.id]);
 
   const signOut = async () => {
     clearAuth();
@@ -215,7 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await supabase.auth.signOut();
     } catch (err) {
-      console.warn('signOut error (ignorado, sesión ya limpiada):', err);
+      console.warn('signOut error (ignorado):', err);
     }
   };
 
