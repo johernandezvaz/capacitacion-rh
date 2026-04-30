@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { authLog, summarizeSession, dumpLocalStorageAuth } from '@/lib/auth-debug';
 
 interface AuthContextValue {
   user: User | null;
@@ -87,9 +88,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     const initialize = async () => {
+      authLog('auth', 'AuthProvider mount → initialize()', {
+        path: typeof window !== 'undefined' ? window.location.pathname : '(ssr)',
+        storage: dumpLocalStorageAuth(),
+      });
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!mounted) return;
+
+        authLog('auth', 'getSession() resuelto', { session: summarizeSession(session) });
 
         if (!session) {
           clearAuth();
@@ -100,7 +107,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session.user);
         await loadPlantData(session.user.id);
         if (mounted) setIsLoading(false);
-      } catch {
+      } catch (e) {
+        authLog('warn', 'initialize() lanzó excepción', { error: String(e) });
         if (mounted) {
           clearAuth();
           setIsLoading(false);
@@ -114,12 +122,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (!mounted) return;
 
+        authLog('auth', `onAuthStateChange: ${event}`, { session: summarizeSession(session) });
+
         if (event === 'SIGNED_OUT') {
           clearAuth();
           setIsLoading(false);
           if (typeof window !== 'undefined' &&
             !window.location.pathname.startsWith('/login') &&
             !window.location.pathname.startsWith('/public')) {
+            authLog('auth', 'SIGNED_OUT → redirect a /login');
             router.replace('/login');
           }
           return;
@@ -152,23 +163,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const handleStorage = (e: StorageEvent) => {
       if (!e.key) return;
       if (!e.key.startsWith('sb-')) return;
+      authLog('storage', `storage event: ${e.key}`, {
+        oldPresent: e.oldValue !== null,
+        newPresent: e.newValue !== null,
+      });
       if (e.newValue === null) {
         clearAuth();
         setIsLoading(false);
         if (typeof window !== 'undefined' &&
           !window.location.pathname.startsWith('/login') &&
           !window.location.pathname.startsWith('/public')) {
+          authLog('auth', 'storage cleared en otra pestaña → redirect a /login');
           window.location.replace('/login');
         }
       }
     };
 
+    const handleVisibility = () => {
+      authLog('visibility', `visibilitychange: ${document.visibilityState}`, {
+        path: window.location.pathname,
+        storage: dumpLocalStorageAuth(),
+      });
+    };
+
+    const handleFocus = () => {
+      authLog('visibility', 'window focus', { path: window.location.pathname });
+    };
+
+    const handleBlur = () => {
+      authLog('visibility', 'window blur', { path: window.location.pathname });
+    };
+
     window.addEventListener('storage', handleStorage);
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
       window.removeEventListener('storage', handleStorage);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
     };
   }, [router]);
 
