@@ -84,6 +84,7 @@ export const supabase =
     auth: {
       persistSession: true,
       autoRefreshToken: true,
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     },
     global: {
       fetch: customFetch,
