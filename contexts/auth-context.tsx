@@ -6,7 +6,6 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { authLog, summarizeSession, dumpLocalStorageAuth } from '@/lib/auth-debug';
 
-const initializedRef = useRef(false);
 
 interface AuthContextValue {
   user: User | null;
@@ -29,6 +28,8 @@ const AuthContext = createContext<AuthContextValue>({
 //
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const initializedRef = useRef(false);
+
   const router = useRouter();
 
   const [user, setUser] = useState<User | null>(null);
