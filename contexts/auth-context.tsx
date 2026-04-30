@@ -85,6 +85,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let revalidating = false;
+
+    const revalidateSession = async (forceRedirectOnFail: boolean) => {
+      if (revalidating) return;
+      revalidating = true;
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        if (error || !session) {
+          clearAuth();
+          setIsLoading(false);
+          if (forceRedirectOnFail) {
+            try { await supabase.auth.signOut(); } catch { }
+            router.replace('/login');
+          }
+          return;
+        }
+
+        const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+        const now = Date.now();
+        if (expiresAt && expiresAt - now < 60_000) {
+          const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+          if (!mounted) return;
+          if (refreshError || !refreshed.session) {
+            clearAuth();
+            setIsLoading(false);
+            if (forceRedirectOnFail) {
+              try { await supabase.auth.signOut(); } catch { }
+              router.replace('/login');
+            }
+            return;
+          }
+          setUser(refreshed.session.user);
+        } else {
+          setUser(session.user);
+        }
+      } catch {
+        if (!mounted) return;
+        clearAuth();
+        setIsLoading(false);
+        if (forceRedirectOnFail) router.replace('/login');
+      } finally {
+        revalidating = false;
+      }
+    };
 
     const initialize = async () => {
       try {
@@ -144,11 +190,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        revalidateSession(true);
+      }
+    };
+
+    const handleFocus = () => {
+      revalidateSession(true);
+    };
+
+    const handleOnline = () => {
+      revalidateSession(true);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('online', handleOnline);
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('online', handleOnline);
     };
-  }, []);
+  }, [router]);
 
   const signOut = async () => {
     clearAuth();
