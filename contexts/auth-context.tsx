@@ -3,8 +3,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@supabase/supabase-js';
+import { useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { authLog, summarizeSession, dumpLocalStorageAuth } from '@/lib/auth-debug';
+
+const initializedRef = useRef(false);
 
 interface AuthContextValue {
   user: User | null;
@@ -90,6 +93,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     const initialize = async () => {
+      if (initializedRef.current) {
+        authLog('auth', 'initialize() SKIPPED (ya ejecutado)');
+        return;
+      }
+
+      initializedRef.current = true;
+
       authLog('auth', 'AuthProvider mount → initialize()', {
         path: typeof window !== 'undefined' ? window.location.pathname : '(ssr)',
         storage: dumpLocalStorageAuth(),
@@ -104,21 +114,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (!user) {
-          // ⚠️ NO limpies agresivamente aquí todavía
           setIsLoading(false);
           return;
         }
 
         setUser(user);
         await loadPlantData(user.id);
-        if (mounted) setIsLoading(false);
+        setIsLoading(false);
 
       } catch (e) {
         authLog('warn', 'initialize() lanzó excepción', { error: String(e) });
-        if (mounted) {
-          clearAuth();
-          setIsLoading(false);
-        }
+        clearAuth();
+        setIsLoading(false);
       }
     };
 
