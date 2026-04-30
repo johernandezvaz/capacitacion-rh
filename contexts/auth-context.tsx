@@ -1,9 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { User } from '@supabase/supabase-js';
-import { useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { authLog, summarizeSession, dumpLocalStorageAuth } from '@/lib/auth-debug';
 
