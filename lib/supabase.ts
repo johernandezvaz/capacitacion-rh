@@ -1,50 +1,17 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { authLog, dumpLocalStorageAuth } from './auth-debug';
+import { authLog } from './auth-debug';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 const globalForSupabase = globalThis as unknown as {
   supabase: SupabaseClient | undefined;
-  __sb_handling_401: boolean | undefined;
 };
 
 const isPublicPath = () => {
   if (typeof window === 'undefined') return true;
   const p = window.location.pathname;
   return p.startsWith('/public') || p.startsWith('/login');
-};
-
-const handleDeadSession = async (reason: string) => {
-  if (typeof window === 'undefined') return;
-  if (globalForSupabase.__sb_handling_401) {
-    authLog('warn', 'handleDeadSession ignorado (ya en progreso)', { reason });
-    return;
-  }
-  globalForSupabase.__sb_handling_401 = true;
-  authLog('warn', 'handleDeadSession DISPARADO', {
-    reason,
-    path: window.location.pathname,
-    storage: dumpLocalStorageAuth(),
-  });
-  try {
-    try { await globalForSupabase.supabase?.auth.signOut(); } catch (e) {
-      authLog('warn', 'signOut falló dentro de handleDeadSession', { error: String(e) });
-    }
-    try {
-      const removed: string[] = [];
-      Object.keys(window.localStorage)
-        .filter(k => k.startsWith('sb-'))
-        .forEach(k => { window.localStorage.removeItem(k); removed.push(k); });
-      authLog('storage', 'localStorage limpiado', { removed });
-    } catch { }
-    if (!isPublicPath()) {
-      authLog('auth', 'Redirigiendo a /login');
-      window.location.replace('/login');
-    }
-  } finally {
-    setTimeout(() => { globalForSupabase.__sb_handling_401 = false; }, 2000);
-  }
 };
 
 const shortUrl = (url: string) => {
@@ -57,19 +24,31 @@ const shortUrl = (url: string) => {
 };
 
 const customFetch: typeof fetch = async (input, init) => {
-  const url = typeof input === 'string'
-    ? input
-    : input instanceof URL ? input.toString()
-      : input instanceof Request ? input.url
-        : '';
-  const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+  const url =
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : input instanceof Request
+          ? input.url
+          : '';
+
+  const method = (
+    init?.method ??
+    (input instanceof Request ? input.method : 'GET')
+  ).toUpperCase();
+
   const start = performance.now();
 
   let response: Response;
+
   try {
     response = await fetch(input as RequestInfo, init);
   } catch (e) {
-    authLog('fetch', `NETWORK ERROR ${method} ${shortUrl(url)}`, { error: String(e), duration_ms: Math.round(performance.now() - start) });
+    authLog('fetch', `NETWORK ERROR ${method} ${shortUrl(url)}`, {
+      error: String(e),
+      duration_ms: Math.round(performance.now() - start),
+    });
     throw e;
   }
 
@@ -77,19 +56,21 @@ const customFetch: typeof fetch = async (input, init) => {
   const isAuth = url.includes('/auth/v1/');
 
   if (response.status >= 400) {
-    authLog(response.status === 401 ? 'warn' : 'fetch',
+    authLog(
+      response.status === 401 ? 'warn' : 'fetch',
       `${response.status} ${method} ${shortUrl(url)}`,
-      { duration_ms: duration, isAuth });
+      { duration_ms: duration, isAuth }
+    );
   } else if (isAuth) {
-    authLog('fetch', `${response.status} ${method} ${shortUrl(url)}`, { duration_ms: duration });
+    authLog('fetch', `${response.status} ${method} ${shortUrl(url)}`, {
+      duration_ms: duration,
+    });
   }
 
   if (response.status === 401 && !isPublicPath()) {
-    if (!url.includes('/auth/v1/token') && !url.includes('/auth/v1/logout')) {
-      handleDeadSession(`401 desde ${shortUrl(url)}`);
-    } else {
-      authLog('warn', `401 desde endpoint de auth — NO se dispara handleDeadSession`, { url: shortUrl(url) });
-    }
+    authLog('warn', '401 detectado (IGNORADO)', {
+      url: shortUrl(url),
+    });
   }
 
   return response;
@@ -101,9 +82,6 @@ export const supabase =
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true,
-      storageKey: 'sb-session',
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     },
     global: {
       fetch: customFetch,
