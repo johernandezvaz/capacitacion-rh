@@ -83,6 +83,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRole(null);
   };
 
+  const restoreSession = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+        await loadPlantData(session.user.id);
+      } else {
+        clearAuth();
+      }
+    } catch (err) {
+      console.error('Error restoring session:', err);
+      clearAuth();
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -128,6 +143,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (event === 'TOKEN_REFRESHED') {
           const currentUser = session?.user ?? null;
           setUser(currentUser);
+          if (currentUser) {
+            await loadPlantData(currentUser.id);
+          }
           setIsLoading(false);
           return;
         }
@@ -149,10 +167,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    const handleStorage = (e: StorageEvent) => {
+    const handleStorageChange = (e: StorageEvent) => {
       if (!e.key) return;
-      if (!e.key.startsWith('sb-')) return;
-      if (e.newValue === null) {
+
+      if (e.key.startsWith('sb-') && e.newValue === null) {
         clearAuth();
         setIsLoading(false);
         if (typeof window !== 'undefined' &&
@@ -160,15 +178,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           !window.location.pathname.startsWith('/public')) {
           window.location.replace('/login');
         }
+        return;
+      }
+
+      if (e.key === 'sb-session' && e.newValue !== null) {
+        if (!mounted) return;
+        restoreSession().then(() => {
+          if (mounted) setIsLoading(false);
+        });
       }
     };
 
-    window.addEventListener('storage', handleStorage);
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        if (!mounted) return;
+        restoreSession().then(() => {
+          if (mounted) setIsLoading(false);
+        });
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorageChange);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
-      window.removeEventListener('storage', handleStorage);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('storage', handleStorageChange);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
     };
   }, [router]);
 
