@@ -85,82 +85,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-    let validating = false;
-
-    const hardSignOut = async () => {
-      try { await supabase.auth.signOut(); } catch { }
-      try {
-        if (typeof window !== 'undefined') {
-          window.localStorage.removeItem('sb-session');
-          Object.keys(window.localStorage)
-            .filter(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
-            .forEach(k => window.localStorage.removeItem(k));
-        }
-      } catch { }
-      clearAuth();
-    };
-
-    const getCurrentAccessToken = async () => {
-      const { data } = await supabase.auth.getSession();
-      return data.session?.access_token ?? null;
-    };
-
-    const validateSession = async (opts: { reloadOnRefresh: boolean; redirectOnFail: boolean }) => {
-      if (validating) return;
-      validating = true;
-      try {
-        const tokenBefore = await getCurrentAccessToken();
-
-        if (!tokenBefore) {
-          if (mounted) {
-            clearAuth();
-            setIsLoading(false);
-            if (opts.redirectOnFail) router.replace('/login');
-          }
-          return;
-        }
-
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (!mounted) return;
-
-        const isAuthError =
-          !!userError &&
-          (userError.status === 401 ||
-            userError.status === 403 ||
-            /jwt|token|session|expired|invalid/i.test(userError.message ?? ''));
-
-        if (isAuthError || !userData?.user) {
-          await hardSignOut();
-          if (!mounted) return;
-          setIsLoading(false);
-          if (opts.redirectOnFail) router.replace('/login');
-          return;
-        }
-
-        if (userError) {
-          return;
-        }
-
-        setUser(userData.user);
-
-        const tokenAfter = await getCurrentAccessToken();
-        if (!mounted) return;
-
-        if (
-          opts.reloadOnRefresh &&
-          tokenAfter &&
-          tokenBefore &&
-          tokenAfter !== tokenBefore &&
-          typeof window !== 'undefined' &&
-          !window.location.pathname.startsWith('/login')
-        ) {
-          window.location.reload();
-        }
-      } catch {
-      } finally {
-        validating = false;
-      }
-    };
 
     const initialize = async () => {
       try {
@@ -173,18 +97,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (!mounted) return;
-
-        if (userError || !userData?.user) {
-          await hardSignOut();
-          if (!mounted) return;
-          setIsLoading(false);
-          return;
-        }
-
-        setUser(userData.user);
-        await loadPlantData(userData.user.id);
+        setUser(session.user);
+        await loadPlantData(session.user.id);
         if (mounted) setIsLoading(false);
       } catch {
         if (mounted) {
@@ -203,6 +117,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (event === 'SIGNED_OUT') {
           clearAuth();
           setIsLoading(false);
+          if (typeof window !== 'undefined' &&
+            !window.location.pathname.startsWith('/login') &&
+            !window.location.pathname.startsWith('/public')) {
+            router.replace('/login');
+          }
           return;
         }
 
@@ -230,30 +149,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        validateSession({ reloadOnRefresh: true, redirectOnFail: true });
+    const handleStorage = (e: StorageEvent) => {
+      if (!e.key) return;
+      if (!e.key.startsWith('sb-')) return;
+      if (e.newValue === null) {
+        clearAuth();
+        setIsLoading(false);
+        if (typeof window !== 'undefined' &&
+          !window.location.pathname.startsWith('/login') &&
+          !window.location.pathname.startsWith('/public')) {
+          window.location.replace('/login');
+        }
       }
     };
 
-    const handleFocus = () => {
-      validateSession({ reloadOnRefresh: true, redirectOnFail: true });
-    };
-
-    const handleOnline = () => {
-      validateSession({ reloadOnRefresh: true, redirectOnFail: true });
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('online', handleOnline);
+    window.addEventListener('storage', handleStorage);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('storage', handleStorage);
     };
   }, [router]);
 

@@ -5,6 +5,47 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 const globalForSupabase = globalThis as unknown as {
   supabase: SupabaseClient | undefined;
+  __sb_handling_401: boolean | undefined;
+};
+
+const isPublicPath = () => {
+  if (typeof window === 'undefined') return true;
+  const p = window.location.pathname;
+  return p.startsWith('/public') || p.startsWith('/login');
+};
+
+const handleDeadSession = async () => {
+  if (typeof window === 'undefined') return;
+  if (globalForSupabase.__sb_handling_401) return;
+  globalForSupabase.__sb_handling_401 = true;
+  try {
+    try { await globalForSupabase.supabase?.auth.signOut(); } catch { }
+    try {
+      Object.keys(window.localStorage)
+        .filter(k => k.startsWith('sb-'))
+        .forEach(k => window.localStorage.removeItem(k));
+    } catch { }
+    if (!isPublicPath()) {
+      window.location.replace('/login');
+    }
+  } finally {
+    setTimeout(() => { globalForSupabase.__sb_handling_401 = false; }, 2000);
+  }
+};
+
+const customFetch: typeof fetch = async (input, init) => {
+  const response = await fetch(input as RequestInfo, init);
+  if (response.status === 401 && !isPublicPath()) {
+    const url = typeof input === 'string'
+      ? input
+      : input instanceof URL ? input.toString()
+        : input instanceof Request ? input.url
+          : '';
+    if (!url.includes('/auth/v1/token') && !url.includes('/auth/v1/logout')) {
+      handleDeadSession();
+    }
+  }
+  return response;
 };
 
 export const supabase =
@@ -15,10 +56,14 @@ export const supabase =
       autoRefreshToken: true,
       detectSessionInUrl: true,
       storageKey: 'sb-session',
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    },
+    global: {
+      fetch: customFetch,
     },
   });
 
-if (process.env.NODE_ENV !== 'production') {
+if (typeof window !== 'undefined') {
   globalForSupabase.supabase = supabase;
 }
 
