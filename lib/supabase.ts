@@ -26,20 +26,13 @@ const shortUrl = (url: string) => {
 };
 
 const customFetch: typeof fetch = async (input, init) => {
-  const url =
-    typeof input === 'string'
-      ? input
-      : input instanceof URL
-        ? input.toString()
-        : input instanceof Request
-          ? input.url
-          : '';
+  const url = typeof input === 'string'
+    ? input
+    : input instanceof URL ? input.toString()
+      : input instanceof Request ? input.url
+        : '';
 
-  const method = (
-    init?.method ??
-    (input instanceof Request ? input.method : 'GET')
-  ).toUpperCase();
-
+  const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
   const start = performance.now();
 
   let response: Response;
@@ -47,32 +40,18 @@ const customFetch: typeof fetch = async (input, init) => {
   try {
     response = await fetch(input as RequestInfo, init);
   } catch (e) {
-    authLog('fetch', `NETWORK ERROR ${method} ${shortUrl(url)}`, {
-      error: String(e),
-      duration_ms: Math.round(performance.now() - start),
-    });
+    authLog('fetch', `NETWORK ERROR ${method} ${url}`, { error: String(e) });
     throw e;
   }
 
-  const duration = Math.round(performance.now() - start);
   const isAuth = url.includes('/auth/v1/');
 
   if (response.status >= 400) {
-    authLog(
-      response.status === 401 ? 'warn' : 'fetch',
-      `${response.status} ${method} ${shortUrl(url)}`,
-      { duration_ms: duration, isAuth }
-    );
-  } else if (isAuth) {
-    authLog('fetch', `${response.status} ${method} ${shortUrl(url)}`, {
-      duration_ms: duration,
-    });
+    authLog('fetch', `${response.status} ${method} ${url}`, { isAuth });
   }
 
-  if (response.status === 401 && !isPublicPath()) {
-    authLog('warn', '401 detectado (IGNORADO)', {
-      url: shortUrl(url),
-    });
+  if (response.status === 401) {
+    authLog('warn', '401 detectado (ignorado)', { url });
   }
 
   return response;
