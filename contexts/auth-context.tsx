@@ -85,66 +85,106 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-    let revalidating = false;
+    let validating = false;
 
-    const revalidateSession = async (forceRedirectOnFail: boolean) => {
-      if (revalidating) return;
-      revalidating = true;
+    const hardSignOut = async () => {
+      try { await supabase.auth.signOut(); } catch { }
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (!mounted) return;
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('sb-session');
+          Object.keys(window.localStorage)
+            .filter(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
+            .forEach(k => window.localStorage.removeItem(k));
+        }
+      } catch { }
+      clearAuth();
+    };
 
-        if (error || !session) {
-          clearAuth();
-          setIsLoading(false);
-          if (forceRedirectOnFail) {
-            try { await supabase.auth.signOut(); } catch { }
-            router.replace('/login');
+    const getCurrentAccessToken = async () => {
+      const { data } = await supabase.auth.getSession();
+      return data.session?.access_token ?? null;
+    };
+
+    const validateSession = async (opts: { reloadOnRefresh: boolean; redirectOnFail: boolean }) => {
+      if (validating) return;
+      validating = true;
+      try {
+        const tokenBefore = await getCurrentAccessToken();
+
+        if (!tokenBefore) {
+          if (mounted) {
+            clearAuth();
+            setIsLoading(false);
+            if (opts.redirectOnFail) router.replace('/login');
           }
           return;
         }
 
-        const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
-        const now = Date.now();
-        if (expiresAt && expiresAt - now < 60_000) {
-          const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (!mounted) return;
+
+        const isAuthError =
+          !!userError &&
+          (userError.status === 401 ||
+            userError.status === 403 ||
+            /jwt|token|session|expired|invalid/i.test(userError.message ?? ''));
+
+        if (isAuthError || !userData?.user) {
+          await hardSignOut();
           if (!mounted) return;
-          if (refreshError || !refreshed.session) {
-            clearAuth();
-            setIsLoading(false);
-            if (forceRedirectOnFail) {
-              try { await supabase.auth.signOut(); } catch { }
-              router.replace('/login');
-            }
-            return;
-          }
-          setUser(refreshed.session.user);
-        } else {
-          setUser(session.user);
+          setIsLoading(false);
+          if (opts.redirectOnFail) router.replace('/login');
+          return;
+        }
+
+        if (userError) {
+          return;
+        }
+
+        setUser(userData.user);
+
+        const tokenAfter = await getCurrentAccessToken();
+        if (!mounted) return;
+
+        if (
+          opts.reloadOnRefresh &&
+          tokenAfter &&
+          tokenBefore &&
+          tokenAfter !== tokenBefore &&
+          typeof window !== 'undefined' &&
+          !window.location.pathname.startsWith('/login')
+        ) {
+          window.location.reload();
         }
       } catch {
-        if (!mounted) return;
-        clearAuth();
-        setIsLoading(false);
-        if (forceRedirectOnFail) router.replace('/login');
       } finally {
-        revalidating = false;
+        validating = false;
       }
     };
 
     const initialize = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         if (!mounted) return;
 
-        if (error || !session) {
+        if (!session) {
           clearAuth();
           setIsLoading(false);
           return;
         }
 
-        setUser(session.user);
-        await loadPlantData(session.user.id);
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (!mounted) return;
+
+        if (userError || !userData?.user) {
+          await hardSignOut();
+          if (!mounted) return;
+          setIsLoading(false);
+          return;
+        }
+
+        setUser(userData.user);
+        await loadPlantData(userData.user.id);
         if (mounted) setIsLoading(false);
       } catch {
         if (mounted) {
@@ -192,16 +232,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        revalidateSession(true);
+        validateSession({ reloadOnRefresh: true, redirectOnFail: true });
       }
     };
 
     const handleFocus = () => {
-      revalidateSession(true);
+      validateSession({ reloadOnRefresh: true, redirectOnFail: true });
     };
 
     const handleOnline = () => {
-      revalidateSession(true);
+      validateSession({ reloadOnRefresh: true, redirectOnFail: true });
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
