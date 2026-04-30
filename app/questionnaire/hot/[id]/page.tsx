@@ -106,6 +106,9 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
             if (!qData) {
                 throw new Error('Cuestionario no encontrado');
             }
+            if (!qData.course_participant || !(qData.course_participant as any).course || !(qData.course_participant as any).employee) {
+                throw new Error('No se pudo cargar la información del curso o empleado asociado');
+            }
 
             const { data: rData, error: rError } = await supabase
                 .from('questionnaire_responses')
