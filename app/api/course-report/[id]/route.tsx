@@ -76,37 +76,33 @@ export async function GET(
             signatures = signaturesData || [];
         }
 
-        const incompleteParticipants: string[] = [];
+        // Reporte en caliente: bloquear si algún participante no completó su cuestionario.
+        // Reporte en frío: no bloquear — solo incluir en el PDF a quienes ya completaron.
+        if (reportType === 'hot') {
+            const incompleteParticipants: string[] = [];
 
-        for (const participant of participantsData) {
-            const employee = Array.isArray(participant.employee) ? participant.employee[0] : participant.employee;
-            if (!employee) continue;
+            for (const participant of participantsData) {
+                const employee = Array.isArray(participant.employee) ? participant.employee[0] : participant.employee;
+                if (!employee) continue;
 
-            const hotQ = questionnaires?.find((q) => q.course_participant_id === participant.id && q.type === 'hot') || null;
-            const coldQ = questionnaires?.find((q) => q.course_participant_id === participant.id && q.type === 'cold') || null;
+                const hotQ = questionnaires?.find((q) => q.course_participant_id === participant.id && q.type === 'hot') || null;
+                const hasHot = hotQ && hotQ.status === 'completed' && hotQ.submitted_at !== null;
 
-            const hasHot = hotQ && hotQ.status === 'completed' && hotQ.submitted_at !== null;
-            const hasCold = coldQ && coldQ.status === 'completed' && coldQ.submitted_at !== null;
-
-            if (reportType === 'hot' && !hasHot) {
-                incompleteParticipants.push(`${employee.nombre} (cuestionario empleado pendiente)`);
-            } else if (reportType === 'cold' && (!hasHot || !hasCold)) {
-                const missing: string[] = [];
-                if (!hasHot) missing.push('cuestionario empleado');
-                if (!hasCold) missing.push('cuestionario evaluador');
-                incompleteParticipants.push(`${employee.nombre} (falta: ${missing.join(', ')})`);
+                if (!hasHot) {
+                    incompleteParticipants.push(`${employee.nombre} (cuestionario empleado pendiente)`);
+                }
             }
-        }
 
-        if (incompleteParticipants.length > 0) {
-            return NextResponse.json(
-                {
-                    error: `No se puede generar el reporte ${reportType === 'hot' ? 'empleado' : 'evaluador'}`,
-                    reason: 'Hay participantes que no han completado todos los requisitos',
-                    incompleteParticipants,
-                },
-                { status: 400 }
-            );
+            if (incompleteParticipants.length > 0) {
+                return NextResponse.json(
+                    {
+                        error: 'No se puede generar el reporte empleado',
+                        reason: 'Hay participantes que no han completado todos los requisitos',
+                        incompleteParticipants,
+                    },
+                    { status: 400 }
+                );
+            }
         }
 
         const participants = participantsData.map((p: any) => {
@@ -114,16 +110,33 @@ export async function GET(
             const hotQ = questionnaires?.find((q) => q.course_participant_id === p.id && q.type === 'hot') || null;
             const coldQ = questionnaires?.find((q) => q.course_participant_id === p.id && q.type === 'cold') || null;
 
+            const hasHot = hotQ && hotQ.status === 'completed' && hotQ.submitted_at !== null;
+            const hasCold = coldQ && coldQ.status === 'completed' && coldQ.submitted_at !== null;
+
+            // Para reporte en frío: excluir participantes sin cuestionario de evaluador completado.
+            if (reportType === 'cold' && !hasCold) return null;
+
             return {
                 employee_number: employee?.employee_number || '',
                 nombre: employee?.nombre || '',
                 area: employee?.area || '',
                 puesto: employee?.puesto || '',
                 evaluador: employee?.evaluador || '',
-                hot_score: hotQ?.average_score || null,
-                cold_score: reportType === 'cold' ? (coldQ?.average_score || hotQ?.average_score || null) : null,
+                hot_score: hasHot ? (hotQ?.average_score ?? null) : null,
+                cold_score: hasCold ? (coldQ?.average_score ?? null) : null,
             };
-        }).filter(p => p.employee_number);
+        }).filter((p): p is NonNullable<typeof p> => p !== null && !!p.employee_number);
+
+        if (participants.length === 0) {
+            return NextResponse.json(
+                {
+                    error: reportType === 'cold'
+                        ? 'Aún no hay cuestionarios de evaluador completados para este curso'
+                        : 'No hay participantes con cuestionarios completados'
+                },
+                { status: 400 }
+            );
+        }
 
         const scores = participants
             .map(p => reportType === 'hot' ? p.hot_score : p.cold_score)
