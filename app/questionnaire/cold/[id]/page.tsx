@@ -21,8 +21,6 @@ interface QuestionnaireData {
     available_from: string;
     average_score: number | null;
     observation_1: string | null;
-    observation_2: string | null;
-    observation_3: string | null;
     course_participant: {
         id: string;
         course_id: string;
@@ -72,8 +70,6 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
     const [responses, setResponses] = useState<Response[]>([]);
     const [signatures, setSignatures] = useState<Signature[]>([]);
     const [observation1, setObservation1] = useState('');
-    const [observation2, setObservation2] = useState('');
-    const [observation3, setObservation3] = useState('');
     const [evaluatorName, setEvaluatorName] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -96,8 +92,6 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
           available_from,
           average_score,
           observation_1,
-          observation_2,
-          observation_3,
           course_participant:course_participants(
             id,
             course_id,
@@ -137,8 +131,6 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             setResponses(rData as Response[]);
             setSignatures(sData as Signature[]);
             setObservation1(qData.observation_1 || '');
-            setObservation2(qData.observation_2 || '');
-            setObservation3(qData.observation_3 || '');
 
             const now = new Date();
             const availableDate = qData.available_from ? new Date(qData.available_from) : null;
@@ -194,8 +186,6 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             .from('questionnaires')
             .update({
                 observation_1: observation1,
-                observation_2: observation2,
-                observation_3: observation3,
             })
             .eq('id', resolvedParams.id);
 
@@ -212,12 +202,9 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             return false;
         }
 
-        const hasAtLeastOneObservation =
-            observation1.trim() || observation2.trim() || observation3.trim();
-
-        if (!hasAtLeastOneObservation) {
+        if (!observation1.trim()) {
             toast.error(
-                'Se requiere al menos una observación para poder firmar. Por favor llene al menos el campo de Observación 1.',
+                'Se requiere la observación para poder firmar.',
                 { duration: 5000 }
             );
             return false;
@@ -246,8 +233,6 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                 .update({
                     average_score: average,
                     observation_1: observation1.trim(),
-                    observation_2: observation2.trim(),
-                    observation_3: observation3.trim(),
                 })
                 .eq('id', resolvedParams.id);
 
@@ -493,43 +478,19 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                     <CardHeader>
                         <CardTitle>Observaciones del Evaluador</CardTitle>
                         <CardDescription>
-                            Complete al menos una observación (obligatoria). Las demás son opcionales.
+                            La observación es obligatoria para poder firmar.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="space-y-3">
-                            <Label htmlFor="obs1" className="text-base font-semibold">Observación 1 *</Label>
+                            <Label htmlFor="obs1" className="text-base font-semibold">Observación *</Label>
                             <Textarea
                                 id="obs1"
                                 value={observation1}
                                 onChange={(e) => setObservation1(e.target.value)}
                                 onBlur={updateObservations}
                                 disabled={!canEdit}
-                                placeholder="Ingrese la primera observación..."
-                                rows={3}
-                            />
-                        </div>
-                        <div className="space-y-3">
-                            <Label htmlFor="obs2" className="text-base font-semibold">Observación 2 <span className="text-gray-400 font-normal text-sm">(opcional)</span></Label>
-                            <Textarea
-                                id="obs2"
-                                value={observation2}
-                                onChange={(e) => setObservation2(e.target.value)}
-                                onBlur={updateObservations}
-                                disabled={!canEdit}
-                                placeholder="Ingrese la segunda observación (opcional)..."
-                                rows={3}
-                            />
-                        </div>
-                        <div className="space-y-3">
-                            <Label htmlFor="obs3" className="text-base font-semibold">Observación 3 <span className="text-gray-400 font-normal text-sm">(opcional)</span></Label>
-                            <Textarea
-                                id="obs3"
-                                value={observation3}
-                                onChange={(e) => setObservation3(e.target.value)}
-                                onBlur={updateObservations}
-                                disabled={!canEdit}
-                                placeholder="Ingrese la tercera observación (opcional)..."
+                                placeholder="Ingrese la observación..."
                                 rows={3}
                             />
                         </div>

@@ -76,8 +76,6 @@ export async function GET(
             signatures = signaturesData || [];
         }
 
-        // Reporte en caliente: bloquear si algún participante no completó su cuestionario.
-        // Reporte en frío: no bloquear — solo incluir en el PDF a quienes ya completaron.
         if (reportType === 'hot') {
             const incompleteParticipants: string[] = [];
 
@@ -113,7 +111,6 @@ export async function GET(
             const hasHot = hotQ && hotQ.status === 'completed' && hotQ.submitted_at !== null;
             const hasCold = coldQ && coldQ.status === 'completed' && coldQ.submitted_at !== null;
 
-            // Para reporte en frío: excluir participantes sin cuestionario de evaluador completado.
             if (reportType === 'cold' && !hasCold) return null;
 
             return {
