@@ -1,4 +1,5 @@
 export type DeteccionStatus = 'tomado' | 'no_tomado' | 'reprogramado' | 'actualizacion' | null;
+
 export const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; dot: string }> = {
     tomado: { label: 'Tomado', color: '#22c55e', bg: 'bg-green-100 text-green-800', dot: 'bg-green-500' },
     no_tomado: { label: 'No tomado', color: '#ef4444', bg: 'bg-red-100 text-red-800', dot: 'bg-red-500' },
