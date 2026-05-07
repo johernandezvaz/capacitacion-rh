@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronRight, Calendar, Clock, Users, FileText, Trash2, Pencil } from 'lucide-react';
+import { ChevronRight, Calendar, Clock, Users, FileText, Trash2, Pencil, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -232,7 +232,6 @@ export default function CourseDetailPage() {
         }
     };
 
-    // ---- Delete course ----
     const handleDeleteCourse = async () => {
         try {
             await supabase.from('course_participants').delete().eq('course_id', params.id);
@@ -252,7 +251,6 @@ export default function CourseDetailPage() {
         }
     };
 
-    // ---- Rename course ----
     const handleOpenRenameCourse = () => {
         setRenameValue(course?.name || '');
         setIsRenameDialogOpen(true);
@@ -357,6 +355,14 @@ export default function CourseDetailPage() {
                                     className="text-muted-foreground hover:text-red-600 hover:bg-red-50"
                                 >
                                     <Trash2 className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                    onClick={() => router.push(`/course/${params.id}/dnc`)}
+                                    variant="outline"
+                                    className="flex items-center gap-2"
+                                >
+                                    <ClipboardList className="w-4 h-4" />
+                                    Ver DNC
                                 </Button>
                                 <Button
                                     onClick={handleExportPDF}

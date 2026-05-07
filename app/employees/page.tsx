@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, BarChart2 } from 'lucide-react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,16 @@ export default function EmployeesPage() {
         hasActiveCourses: false,
     });
 
+    const [editingAreaId, setEditingAreaId] = useState<string | null>(null);
+    const [editingAreaValue, setEditingAreaValue] = useState('');
+    const [savingAreaId, setSavingAreaId] = useState<string | null>(null);
+    const areaInputRef = useRef<HTMLInputElement>(null);
+
+    const [editingDeptId, setEditingDeptId] = useState<string | null>(null);
+    const [editingDeptValue, setEditingDeptValue] = useState('');
+    const [savingDeptId, setSavingDeptId] = useState<string | null>(null);
+    const deptInputRef = useRef<HTMLInputElement>(null);
+
     useEffect(() => {
         if (!plantId) return;
         fetchEmployees();
@@ -40,6 +51,20 @@ export default function EmployeesPage() {
     useEffect(() => {
         filterEmployees();
     }, [searchQuery, employees]);
+
+    useEffect(() => {
+        if (editingAreaId && areaInputRef.current) {
+            areaInputRef.current.focus();
+            areaInputRef.current.select();
+        }
+    }, [editingAreaId]);
+
+    useEffect(() => {
+        if (editingDeptId && deptInputRef.current) {
+            deptInputRef.current.focus();
+            deptInputRef.current.select();
+        }
+    }, [editingDeptId]);
 
     const fetchEmployees = async () => {
         setIsLoading(true);
@@ -79,6 +104,112 @@ export default function EmployeesPage() {
                 emp.puesto.toLowerCase().includes(query)
         );
         setFilteredEmployees(filtered);
+    };
+
+    const startEditArea = (employee: Employee) => {
+        setEditingAreaId(employee.id);
+        setEditingAreaValue(employee.area);
+    };
+
+    const cancelEditArea = () => {
+        setEditingAreaId(null);
+        setEditingAreaValue('');
+    };
+
+    const saveEditArea = async (employeeId: string) => {
+        const newValue = editingAreaValue.trim();
+        const original = employees.find(e => e.id === employeeId);
+        if (!original) { cancelEditArea(); return; }
+        if (newValue === original.area) { cancelEditArea(); return; }
+
+        setSavingAreaId(employeeId);
+        try {
+            const { error } = await supabase
+                .from('employees')
+                .update({ area: newValue })
+                .eq('id', employeeId);
+
+            if (error) throw error;
+
+            setEmployees(prev =>
+                prev.map(e => e.id === employeeId ? { ...e, area: newValue } : e)
+            );
+            setEditingAreaId(null);
+            setEditingAreaValue('');
+        } catch (error: any) {
+            console.error('Error updating area:', error);
+            toast({
+                title: 'Error',
+                description: error.message || 'No se pudo actualizar el área',
+                variant: 'destructive',
+            });
+            setEditingAreaValue(original.area);
+        } finally {
+            setSavingAreaId(null);
+        }
+    };
+
+    const handleAreaKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, employeeId: string) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEditArea(employeeId);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEditArea();
+        }
+    };
+
+    const startEditDept = (employee: Employee) => {
+        setEditingDeptId(employee.id);
+        setEditingDeptValue(employee.departamento || '');
+    };
+
+    const cancelEditDept = () => {
+        setEditingDeptId(null);
+        setEditingDeptValue('');
+    };
+
+    const saveEditDept = async (employeeId: string) => {
+        const newValue = editingDeptValue.trim();
+        const original = employees.find(e => e.id === employeeId);
+        if (!original) { cancelEditDept(); return; }
+        if (newValue === (original.departamento || '')) { cancelEditDept(); return; }
+
+        setSavingDeptId(employeeId);
+        try {
+            const { error } = await supabase
+                .from('employees')
+                .update({ departamento: newValue || null })
+                .eq('id', employeeId);
+
+            if (error) throw error;
+
+            setEmployees(prev =>
+                prev.map(e => e.id === employeeId ? { ...e, departamento: newValue || null } : e)
+            );
+            setEditingDeptId(null);
+            setEditingDeptValue('');
+        } catch (error: any) {
+            console.error('Error updating departamento:', error);
+            toast({
+                title: 'Error',
+                description: error.message || 'No se pudo actualizar el departamento',
+                variant: 'destructive',
+            });
+            setEditingDeptValue(original.departamento || '');
+        } finally {
+            setSavingDeptId(null);
+        }
+    };
+
+    const handleDeptKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, employeeId: string) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEditDept(employeeId);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEditDept();
+        }
     };
 
     const handleDeleteClick = async (employee: Employee) => {
@@ -211,7 +342,14 @@ export default function EmployeesPage() {
                                             <tr className="border-b">
                                                 <th className="text-left py-3 px-4 font-semibold text-sm">Número</th>
                                                 <th className="text-left py-3 px-4 font-semibold text-sm">Nombre</th>
-                                                <th className="text-left py-3 px-4 font-semibold text-sm">Área</th>
+                                                <th className="text-left py-3 px-4 font-semibold text-sm">
+                                                    Área
+                                                    <span className="ml-1 text-xs font-normal text-muted-foreground">(click para editar)</span>
+                                                </th>
+                                                <th className="text-left py-3 px-4 font-semibold text-sm">
+                                                    Departamento
+                                                    <span className="ml-1 text-xs font-normal text-muted-foreground">(click para editar)</span>
+                                                </th>
                                                 <th className="text-left py-3 px-4 font-semibold text-sm">Puesto</th>
                                                 <th className="text-left py-3 px-4 font-semibold text-sm">Evaluador</th>
                                                 <th className="text-right py-3 px-4 font-semibold text-sm">Acciones</th>
@@ -222,11 +360,78 @@ export default function EmployeesPage() {
                                                 <tr key={employee.id} className="border-b hover:bg-muted/50">
                                                     <td className="py-3 px-4 text-sm">{employee.employee_number}</td>
                                                     <td className="py-3 px-4 text-sm font-medium">{employee.nombre}</td>
-                                                    <td className="py-3 px-4 text-sm">{employee.area}</td>
+
+                                                    <td
+                                                        className="py-2 px-4 text-sm"
+                                                        onClick={() => {
+                                                            if (editingAreaId !== employee.id) startEditArea(employee);
+                                                        }}
+                                                    >
+                                                        {editingAreaId === employee.id ? (
+                                                            <input
+                                                                ref={areaInputRef}
+                                                                type="text"
+                                                                value={editingAreaValue}
+                                                                onChange={e => setEditingAreaValue(e.target.value)}
+                                                                onBlur={() => saveEditArea(employee.id)}
+                                                                onKeyDown={e => handleAreaKeyDown(e, employee.id)}
+                                                                disabled={savingAreaId === employee.id}
+                                                                className={`
+                                                                    h-8 w-full rounded border px-2 text-sm bg-white
+                                                                    border-[#2166be] ring-1 ring-[#2166be] outline-none
+                                                                    ${savingAreaId === employee.id ? 'opacity-50 cursor-not-allowed' : ''}
+                                                                `}
+                                                            />
+                                                        ) : (
+                                                            <span className="cursor-pointer rounded px-1 -mx-1 py-0.5 hover:bg-blue-50 hover:text-[#2166be] transition-colors">
+                                                                {employee.area || <span className="text-muted-foreground italic">—</span>}
+                                                            </span>
+                                                        )}
+                                                    </td>
+
+                                                    <td
+                                                        className="py-2 px-4 text-sm"
+                                                        onClick={() => {
+                                                            if (editingDeptId !== employee.id) startEditDept(employee);
+                                                        }}
+                                                    >
+                                                        {editingDeptId === employee.id ? (
+                                                            <input
+                                                                ref={deptInputRef}
+                                                                type="text"
+                                                                value={editingDeptValue}
+                                                                onChange={e => setEditingDeptValue(e.target.value)}
+                                                                onBlur={() => saveEditDept(employee.id)}
+                                                                onKeyDown={e => handleDeptKeyDown(e, employee.id)}
+                                                                disabled={savingDeptId === employee.id}
+                                                                className={`
+                                                                    h-8 w-full rounded border px-2 text-sm bg-white
+                                                                    border-[#2166be] ring-1 ring-[#2166be] outline-none
+                                                                    ${savingDeptId === employee.id ? 'opacity-50 cursor-not-allowed' : ''}
+                                                                `}
+                                                            />
+                                                        ) : (
+                                                            <span className="cursor-pointer rounded px-1 -mx-1 py-0.5 hover:bg-blue-50 hover:text-[#2166be] transition-colors">
+                                                                {employee.departamento || <span className="text-muted-foreground italic">—</span>}
+                                                            </span>
+                                                        )}
+                                                    </td>
+
                                                     <td className="py-3 px-4 text-sm">{employee.puesto}</td>
                                                     <td className="py-3 px-4 text-sm">{employee.evaluador}</td>
                                                     <td className="py-3 px-4 text-right">
                                                         <div className="flex items-center justify-end gap-2">
+                                                            <Link href={`/employees/${employee.id}/dnc`}>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="text-[#2166be] hover:text-[#1a5299] hover:bg-blue-50"
+                                                                    title="Ver DNC"
+                                                                >
+                                                                    <BarChart2 className="w-4 h-4 mr-1" />
+                                                                    DNC
+                                                                </Button>
+                                                            </Link>
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
@@ -259,12 +464,73 @@ export default function EmployeesPage() {
                                                     </p>
                                                     <p className="font-medium text-sm mb-2 break-words">{employee.nombre}</p>
                                                     <div className="text-xs text-muted-foreground space-y-1">
-                                                        <p><span className="font-medium">Área:</span> {employee.area}</p>
+                                                        <p className="flex items-center gap-1">
+                                                            <span className="font-medium">Área:</span>
+                                                            {editingAreaId === employee.id ? (
+                                                                <input
+                                                                    type="text"
+                                                                    value={editingAreaValue}
+                                                                    onChange={e => setEditingAreaValue(e.target.value)}
+                                                                    onBlur={() => saveEditArea(employee.id)}
+                                                                    onKeyDown={e => handleAreaKeyDown(e, employee.id)}
+                                                                    disabled={savingAreaId === employee.id}
+                                                                    autoFocus
+                                                                    className={`
+                                                                        h-7 flex-1 rounded border px-2 text-xs bg-white
+                                                                        border-[#2166be] ring-1 ring-[#2166be] outline-none
+                                                                        ${savingAreaId === employee.id ? 'opacity-50 cursor-not-allowed' : ''}
+                                                                    `}
+                                                                />
+                                                            ) : (
+                                                                <span
+                                                                    className="cursor-pointer rounded px-1 -mx-1 py-0.5 hover:bg-blue-50 hover:text-[#2166be] transition-colors"
+                                                                    onClick={() => startEditArea(employee)}
+                                                                >
+                                                                    {employee.area || <span className="italic">—</span>}
+                                                                </span>
+                                                            )}
+                                                        </p>
+                                                        <p className="flex items-center gap-1">
+                                                            <span className="font-medium">Departamento:</span>
+                                                            {editingDeptId === employee.id ? (
+                                                                <input
+                                                                    type="text"
+                                                                    value={editingDeptValue}
+                                                                    onChange={e => setEditingDeptValue(e.target.value)}
+                                                                    onBlur={() => saveEditDept(employee.id)}
+                                                                    onKeyDown={e => handleDeptKeyDown(e, employee.id)}
+                                                                    disabled={savingDeptId === employee.id}
+                                                                    autoFocus
+                                                                    className={`
+                                                                        h-7 flex-1 rounded border px-2 text-xs bg-white
+                                                                        border-[#2166be] ring-1 ring-[#2166be] outline-none
+                                                                        ${savingDeptId === employee.id ? 'opacity-50 cursor-not-allowed' : ''}
+                                                                    `}
+                                                                />
+                                                            ) : (
+                                                                <span
+                                                                    className="cursor-pointer rounded px-1 -mx-1 py-0.5 hover:bg-blue-50 hover:text-[#2166be] transition-colors"
+                                                                    onClick={() => startEditDept(employee)}
+                                                                >
+                                                                    {employee.departamento || <span className="italic">—</span>}
+                                                                </span>
+                                                            )}
+                                                        </p>
                                                         <p><span className="font-medium">Puesto:</span> {employee.puesto}</p>
                                                         <p><span className="font-medium">Evaluador:</span> {employee.evaluador}</p>
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-1 flex-shrink-0">
+                                                    <Link href={`/employees/${employee.id}/dnc`}>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-[#2166be] hover:text-[#1a5299] hover:bg-blue-50"
+                                                            title="Ver DNC"
+                                                        >
+                                                            <BarChart2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </Link>
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"

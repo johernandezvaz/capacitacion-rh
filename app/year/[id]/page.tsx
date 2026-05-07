@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -7,8 +7,9 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { CourseCard } from '@/components/course-card';
-import { CreateCourseModal } from '@/components/create-course-modal';
+import { CreateCourseModal, CreateCourseModalPrefill } from '@/components/create-course-modal';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import {
   Dialog,
@@ -39,19 +40,51 @@ export default function YearDetailPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
-  // --- Delete course ---
   const [deleteCourseDialog, setDeleteCourseDialog] = useState<{ open: boolean; course: Course | null }>({
     open: false,
     course: null,
   });
 
-  // --- Rename course ---
   const [renameCourseDialog, setRenameCourseDialog] = useState<{ open: boolean; course: Course | null }>({
     open: false,
     course: null,
   });
   const [renameValue, setRenameValue] = useState('');
   const [isRenameSaving, setIsRenameSaving] = useState(false);
+
+  // --- Crear a partir de detección ---
+  const [detPickerOpen, setDetPickerOpen] = useState(false);
+  const [allDetecciones, setAllDetecciones] = useState<any[]>([]);
+  const [detSearch, setDetSearch] = useState('');
+  const [createFromDet, setCreateFromDet] = useState<any | null>(null);
+
+  const STATUS_DOTS: Record<string, string> = {
+    tomado: 'bg-green-500', no_tomado: 'bg-red-500',
+    reprogramado: 'bg-yellow-500', actualizacion: 'bg-blue-500',
+  };
+  const STATUS_LABELS: Record<string, string> = {
+    tomado: 'Tomado', no_tomado: 'No tomado',
+    reprogramado: 'Reprogramado', actualizacion: 'Actualización',
+  };
+
+  const openDetPicker = async () => {
+    const { data } = await supabase.from('detecciones').select('*').order('nombre', { ascending: true });
+    setAllDetecciones(data || []);
+    setDetSearch('');
+    setDetPickerOpen(true);
+  };
+
+  const selectDeteccion = (det: any) => {
+    setCreateFromDet(det);
+    setDetPickerOpen(false);
+    setIsCreateModalOpen(true);
+  };
+
+  function fmtDate(v: string | null) {
+    if (!v) return '—';
+    const [y, m, d] = v.split('-');
+    return `${d}/${m}/${y}`;
+  }
 
   const fetchYearAndCourses = async () => {
     try {
@@ -112,6 +145,7 @@ export default function YearDetailPage() {
   const handleCourseCreated = () => {
     fetchYearAndCourses();
     setIsCreateModalOpen(false);
+    setCreateFromDet(null);
     toast({
       title: 'Éxito',
       description: 'Curso creado correctamente',
@@ -168,8 +202,6 @@ export default function YearDetailPage() {
     }
   };
 
-  // ---- Course-level actions ----
-
   const handleDeleteCourseClick = (e: React.MouseEvent, course: Course) => {
     e.preventDefault();
     e.stopPropagation();
@@ -180,7 +212,6 @@ export default function YearDetailPage() {
     const course = deleteCourseDialog.course;
     if (!course) return;
     try {
-      // Remove FK dependencies first
       await supabase.from('course_participants').delete().eq('course_id', course.id);
       const { error } = await supabase.from('courses').delete().eq('id', course.id);
       if (error) throw error;
@@ -265,7 +296,7 @@ export default function YearDetailPage() {
         const monthCap = month.charAt(0).toUpperCase() + month.slice(1);
         const label = `${monthCap} ${yearVal}`;
         const sortKey = `${yearVal}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        
+
         if (!groups[sortKey]) {
           groups[sortKey] = { label, sortKey, courses: [] };
         }
@@ -274,8 +305,8 @@ export default function YearDetailPage() {
     });
 
     const sortedGroups = Object.values(groups).sort((a, b) => {
-      return sortOrder === 'desc' 
-        ? b.sortKey.localeCompare(a.sortKey) 
+      return sortOrder === 'desc'
+        ? b.sortKey.localeCompare(a.sortKey)
         : a.sortKey.localeCompare(b.sortKey);
     });
 
@@ -288,13 +319,15 @@ export default function YearDetailPage() {
           : dateA.localeCompare(dateB);
       });
     });
-    
+
     if (noDateCourses.length > 0) {
       sortedGroups.push({ label: 'Sin fecha', sortKey: sortOrder === 'desc' ? '0000-00' : '9999-99', courses: noDateCourses });
     }
 
     return sortedGroups;
   })();
+
+  const filteredDets = allDetecciones.filter(d => !detSearch || d.nombre.toLowerCase().includes(detSearch.toLowerCase()));
 
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
@@ -332,6 +365,15 @@ export default function YearDetailPage() {
             >
               <Plus className="w-5 h-5 mr-2" />
               Crear Curso
+            </Button>
+            <Button
+              onClick={openDetPicker}
+              variant="outline"
+              className="border-[#2166be] text-[#2166be] hover:bg-[#2166be] hover:text-white w-full sm:w-auto"
+              size="lg"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Crear a partir de detección
             </Button>
           </div>
         </div>
@@ -423,10 +465,24 @@ export default function YearDetailPage() {
 
       <CreateCourseModal
         open={isCreateModalOpen}
-        onOpenChange={setIsCreateModalOpen}
+        onOpenChange={(v) => { setIsCreateModalOpen(v); if (!v) setCreateFromDet(null); }}
         onSuccess={handleCourseCreated}
         yearId={params.id as string}
         plantId={plantId || ''}
+        prefill={createFromDet ? {
+          name: createFromDet.nombre,
+          instInterno: createFromDet.inst_interno || '',
+          proveedorSugerido: createFromDet.proveedor_sugerido || '',
+          costo: createFromDet.costo != null ? String(createFromDet.costo) : '',
+          fechaProgramada: createFromDet.fecha_programada || '',
+          fechaReal: createFromDet.fecha_real || '',
+          durationHours: createFromDet.duration_hours != null ? String(createFromDet.duration_hours) : '',
+          desarrolloPersonal: createFromDet.desarrollo_personal ?? false,
+          habilidadesBlandas: createFromDet.habilidades_blandas ?? false,
+          prevencionRiesgos: createFromDet.prevencion_riesgos ?? false,
+          habilidadesTecnicas: createFromDet.habilidades_tecnicas ?? false,
+          comentarioDnc: createFromDet.comentario_dnc || '',
+        } : undefined}
       />
 
       <ConfirmDialog
@@ -445,7 +501,6 @@ export default function YearDetailPage() {
         variant="destructive"
       />
 
-      {/* Delete course confirm dialog */}
       <ConfirmDialog
         open={deleteCourseDialog.open}
         onOpenChange={(open) => setDeleteCourseDialog({ open, course: deleteCourseDialog.course })}
@@ -456,7 +511,6 @@ export default function YearDetailPage() {
         variant="destructive"
       />
 
-      {/* Rename course dialog */}
       <Dialog
         open={renameCourseDialog.open}
         onOpenChange={(open) => setRenameCourseDialog({ open, course: renameCourseDialog.course })}
@@ -493,6 +547,49 @@ export default function YearDetailPage() {
             >
               {isRenameSaving ? 'Guardando...' : 'Guardar'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detección picker dialog */}
+      <Dialog open={detPickerOpen} onOpenChange={v => { setDetPickerOpen(v); if (!v) setDetSearch(''); }}>
+        <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Crear a partir de Detección</DialogTitle>
+            <DialogDescription>Selecciona una detección para pre-llenar el formulario del curso</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-3 py-4">
+            <Input
+              placeholder="Buscar por nombre..."
+              value={detSearch}
+              onChange={e => setDetSearch(e.target.value)}
+            />
+            <div className="space-y-1 max-h-80 overflow-y-auto">
+              {filteredDets.length === 0 ? (
+                <p className="text-muted-foreground text-sm text-center py-6">
+                  {detSearch ? 'Sin resultados' : 'No hay detecciones registradas'}
+                </p>
+              ) : filteredDets.map(d => (
+                <button
+                  key={d.id}
+                  type="button"
+                  className="w-full flex items-center gap-3 p-3 rounded-md border border-transparent hover:border-[#2166be] hover:bg-blue-50 transition-colors text-left"
+                  onClick={() => selectDeteccion(d)}
+                >
+                  {d.status && <span className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${STATUS_DOTS[d.status] ?? 'bg-gray-400'}`} />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{d.nombre}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {d.status ? STATUS_LABELS[d.status] : 'Sin status'}
+                      {d.fecha_programada ? ` · ${fmtDate(d.fecha_programada)}` : ''}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetPickerOpen(false)}>Cancelar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

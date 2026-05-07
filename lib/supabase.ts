@@ -90,6 +90,17 @@ export type Course = {
   duration_hours: number;
   status: 'draft' | 'active' | 'closed';
   created_at: string;
+  plant_id?: string | null;
+  inst_interno?: string | null;
+  proveedor_sugerido?: string | null;
+  costo?: number | null;
+  desarrollo_personal?: boolean;
+  habilidades_blandas?: boolean;
+  prevencion_riesgos?: boolean;
+  habilidades_tecnicas?: boolean;
+  fecha_programada?: string | null;
+  fecha_real?: string | null;
+  comentario_dnc?: string | null;
 };
 
 export type Employee = {
@@ -97,6 +108,7 @@ export type Employee = {
   employee_number: string;
   nombre: string;
   area: string;
+  departamento?: string | null;
   puesto: string;
   evaluador: string;
   created_at: string;

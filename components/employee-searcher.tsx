@@ -96,6 +96,18 @@ export function EmployeeSearcher({ courseId, onEmployeeAdded, existingEmployeeId
                 console.error('Error creating hot questionnaire:', hotError);
             }
 
+            if (plantId) {
+                const { error: dncError } = await supabase
+                    .from('dnc_entries')
+                    .insert([{
+                        course_participant_id: participantData.id,
+                        plant_id: plantId,
+                    }]);
+                if (dncError) {
+                    console.error('Error creating DNC entry:', dncError);
+                }
+            }
+
             toast({
                 title: 'Empleado agregado',
                 description: 'El empleado fue inscrito exitosamente y sus cuestionarios fueron creados',

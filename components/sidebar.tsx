@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Calendar, BarChart3, Users, Menu, X, ClipboardList, LogOut, Building2 } from 'lucide-react';
+import { Calendar, BarChart3, Users, Menu, X, ClipboardList, LogOut, Building2, CalendarDays, FileBarChart2, ClipboardCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
 export function Sidebar() {
@@ -36,6 +36,24 @@ export function Sidebar() {
       href: '/ojt',
       icon: ClipboardList,
       active: pathname.startsWith('/ojt'),
+    },
+    {
+      name: 'Calendario de Cursos',
+      href: '/dnc',
+      icon: CalendarDays,
+      active: pathname === '/dnc',
+    },
+    {
+      name: 'DNC General',
+      href: '/dnc/general',
+      icon: FileBarChart2,
+      active: pathname === '/dnc/general',
+    },
+    {
+      name: 'Detecciones',
+      href: '/detecciones',
+      icon: ClipboardCheck,
+      active: pathname === '/detecciones' || pathname.startsWith('/detecciones/'),
     },
   ];
 
@@ -107,22 +125,18 @@ export function Sidebar() {
           </ul>
         </nav>
 
-        {/* User info + sign out */}
         <div className="p-4 border-t border-white/10 space-y-3">
-          {/* Plant info */}
           {plantName && (
             <div className="flex items-center gap-2 px-1">
               <Building2 className="w-4 h-4 text-white/50 flex-shrink-0" />
               <span className="text-white/70 text-xs truncate">{plantName}</span>
             </div>
           )}
-          {/* User name */}
           {displayName && (
             <div className="px-1">
               <p className="text-white/90 text-sm font-medium truncate">{displayName}</p>
             </div>
           )}
-          {/* Sign out button */}
           <button
             onClick={() => { setIsOpen(false); signOut(); }}
             className="w-full flex items-center gap-2 px-4 py-2.5 rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200 text-sm"
