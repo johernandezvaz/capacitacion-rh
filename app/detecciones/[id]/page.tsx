@@ -25,12 +25,12 @@ type Deteccion = {
 };
 
 type AssignedEmployee = { id: string; nombre: string; puesto: string; departamento: string | null; };
-type EmployeeOption   = { id: string; nombre: string; puesto: string; departamento: string | null; };
+type EmployeeOption = { id: string; nombre: string; puesto: string; departamento: string | null; };
 
 const CHECKBOX_FIELDS = [
-    { key: 'desarrollo_personal' as const,  label: 'Desarrollo Personal y Académico' },
-    { key: 'habilidades_blandas' as const,  label: 'Habilidades Blandas' },
-    { key: 'prevencion_riesgos' as const,   label: 'Prevención de Riesgos y Accidentes' },
+    { key: 'desarrollo_personal' as const, label: 'Desarrollo Personal y Académico' },
+    { key: 'habilidades_blandas' as const, label: 'Habilidades Blandas' },
+    { key: 'prevencion_riesgos' as const, label: 'Prevención de Riesgos y Accidentes' },
     { key: 'habilidades_tecnicas' as const, label: 'Habilidades Técnicas' },
 ];
 
@@ -236,7 +236,6 @@ export default function DeteccionDetailPage() {
                     </CardContent>
                 </Card>
 
-                {/* Section 2: Employees */}
                 <Card className="border-none shadow-lg">
                     <CardHeader className="pb-4 border-b">
                         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -263,7 +262,7 @@ export default function DeteccionDetailPage() {
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b">
-                                            {['Nombre','Puesto','Departamento','Acción'].map(h => (
+                                            {['Nombre', 'Puesto', 'Departamento', 'Acción'].map(h => (
                                                 <th key={h} className={`py-3 px-4 text-sm font-semibold text-[#192b52] ${h === 'Acción' ? 'text-right' : 'text-left'}`}>{h}</th>
                                             ))}
                                         </tr>
@@ -289,7 +288,6 @@ export default function DeteccionDetailPage() {
                 </Card>
             </div>
 
-            {/* Assign modal */}
             <Dialog open={isAssignOpen} onOpenChange={v => { setIsAssignOpen(v); if (!v) { setSelected(new Set()); setEmpSearch(''); } }}>
                 <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col">
                     <DialogHeader>

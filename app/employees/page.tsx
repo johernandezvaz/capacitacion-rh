@@ -8,10 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { supabase, Employee } from '@/lib/supabase';
+import { supabase, Employee, Departamento } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { CreateEmployeeModal } from '@/components/create-employee-modal';
+import { DepartmentCombobox } from '@/components/department-combobox';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function EmployeesPage() {
@@ -21,8 +22,12 @@ export default function EmployeesPage() {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [filterDeptId, setFilterDeptId] = useState<string>('');
     const [isLoading, setIsLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+    const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
+
     const [deleteDialog, setDeleteDialog] = useState<{
         open: boolean;
         employee: Employee | null;
@@ -39,18 +44,17 @@ export default function EmployeesPage() {
     const areaInputRef = useRef<HTMLInputElement>(null);
 
     const [editingDeptId, setEditingDeptId] = useState<string | null>(null);
-    const [editingDeptValue, setEditingDeptValue] = useState('');
     const [savingDeptId, setSavingDeptId] = useState<string | null>(null);
-    const deptInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (!plantId) return;
+        fetchDepartamentos();
         fetchEmployees();
     }, [plantId]);
 
     useEffect(() => {
         filterEmployees();
-    }, [searchQuery, employees]);
+    }, [searchQuery, filterDeptId, employees]);
 
     useEffect(() => {
         if (editingAreaId && areaInputRef.current) {
@@ -59,24 +63,31 @@ export default function EmployeesPage() {
         }
     }, [editingAreaId]);
 
-    useEffect(() => {
-        if (editingDeptId && deptInputRef.current) {
-            deptInputRef.current.focus();
-            deptInputRef.current.select();
-        }
-    }, [editingDeptId]);
+    const fetchDepartamentos = async () => {
+        const { data } = await supabase
+            .from('departamentos')
+            .select('id, codigo, nombre, nombre_completo')
+            .order('codigo');
+        setDepartamentos(data || []);
+    };
 
     const fetchEmployees = async () => {
         setIsLoading(true);
         try {
             const { data, error } = await supabase
                 .from('employees')
-                .select('*')
+                .select('*, departamentos!departamento_id(nombre_completo)')
                 .eq('plant_id', plantId)
                 .order('nombre');
 
             if (error) throw error;
-            setEmployees(data || []);
+
+            const mapped: Employee[] = (data || []).map((row: any) => ({
+                ...row,
+                departamento_nombre: row.departamentos?.nombre_completo ?? null,
+                departamentos: undefined,
+            }));
+            setEmployees(mapped);
         } catch (error) {
             console.error('Error fetching employees:', error);
             toast({
@@ -90,21 +101,29 @@ export default function EmployeesPage() {
     };
 
     const filterEmployees = () => {
-        if (!searchQuery.trim()) {
-            setFilteredEmployees(employees);
-            return;
+        let result = employees;
+
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            result = result.filter(
+                emp =>
+                    emp.nombre.toLowerCase().includes(q) ||
+                    emp.employee_number.toLowerCase().includes(q) ||
+                    emp.area.toLowerCase().includes(q) ||
+                    emp.puesto.toLowerCase().includes(q)
+            );
         }
 
-        const query = searchQuery.toLowerCase();
-        const filtered = employees.filter(
-            (emp) =>
-                emp.nombre.toLowerCase().includes(query) ||
-                emp.employee_number.toLowerCase().includes(query) ||
-                emp.area.toLowerCase().includes(query) ||
-                emp.puesto.toLowerCase().includes(query)
-        );
-        setFilteredEmployees(filtered);
+        if (filterDeptId) {
+            result = result.filter(emp => emp.departamento_id === filterDeptId);
+        }
+
+        setFilteredEmployees(result);
     };
+
+    const deptosConEmpleados = departamentos.filter(d =>
+        employees.some(e => e.departamento_id === d.id)
+    );
 
     const startEditArea = (employee: Employee) => {
         setEditingAreaId(employee.id);
@@ -150,45 +169,35 @@ export default function EmployeesPage() {
     };
 
     const handleAreaKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, employeeId: string) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            saveEditArea(employeeId);
-        } else if (e.key === 'Escape') {
-            e.preventDefault();
-            cancelEditArea();
-        }
+        if (e.key === 'Enter') { e.preventDefault(); saveEditArea(employeeId); }
+        else if (e.key === 'Escape') { e.preventDefault(); cancelEditArea(); }
     };
 
-    const startEditDept = (employee: Employee) => {
-        setEditingDeptId(employee.id);
-        setEditingDeptValue(employee.departamento || '');
-    };
-
-    const cancelEditDept = () => {
-        setEditingDeptId(null);
-        setEditingDeptValue('');
-    };
-
-    const saveEditDept = async (employeeId: string) => {
-        const newValue = editingDeptValue.trim();
+    const saveEditDept = async (employeeId: string, newDeptId: string | null) => {
         const original = employees.find(e => e.id === employeeId);
-        if (!original) { cancelEditDept(); return; }
-        if (newValue === (original.departamento || '')) { cancelEditDept(); return; }
+        if (!original) return;
+        if (newDeptId === (original.departamento_id ?? null)) {
+            setEditingDeptId(null);
+            return;
+        }
 
         setSavingDeptId(employeeId);
         try {
             const { error } = await supabase
                 .from('employees')
-                .update({ departamento: newValue || null })
+                .update({ departamento_id: newDeptId })
                 .eq('id', employeeId);
 
             if (error) throw error;
 
+            const dept = newDeptId ? departamentos.find(d => d.id === newDeptId) : null;
             setEmployees(prev =>
-                prev.map(e => e.id === employeeId ? { ...e, departamento: newValue || null } : e)
+                prev.map(e => e.id === employeeId
+                    ? { ...e, departamento_id: newDeptId, departamento_nombre: dept?.nombre_completo ?? null }
+                    : e
+                )
             );
             setEditingDeptId(null);
-            setEditingDeptValue('');
         } catch (error: any) {
             console.error('Error updating departamento:', error);
             toast({
@@ -196,19 +205,8 @@ export default function EmployeesPage() {
                 description: error.message || 'No se pudo actualizar el departamento',
                 variant: 'destructive',
             });
-            setEditingDeptValue(original.departamento || '');
         } finally {
             setSavingDeptId(null);
-        }
-    };
-
-    const handleDeptKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, employeeId: string) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            saveEditDept(employeeId);
-        } else if (e.key === 'Escape') {
-            e.preventDefault();
-            cancelEditDept();
         }
     };
 
@@ -236,11 +234,7 @@ export default function EmployeesPage() {
 
             if (error) throw error;
 
-            toast({
-                title: 'Éxito',
-                description: 'Empleado eliminado correctamente',
-            });
-
+            toast({ title: 'Éxito', description: 'Empleado eliminado correctamente' });
             fetchEmployees();
         } catch (error: any) {
             console.error('Error deleting employee:', error);
@@ -257,10 +251,7 @@ export default function EmployeesPage() {
     const handleEmployeeCreated = () => {
         fetchEmployees();
         setIsCreateModalOpen(false);
-        toast({
-            title: 'Éxito',
-            description: 'Empleado creado correctamente',
-        });
+        toast({ title: 'Éxito', description: 'Empleado creado correctamente' });
     };
 
     if (isLoading) {
@@ -298,6 +289,7 @@ export default function EmployeesPage() {
                     </Button>
                 </div>
 
+                {/* ── Barra de búsqueda + filtro departamento ── */}
                 <Card className="mb-6 border-none shadow-lg">
                     <CardHeader>
                         <CardTitle>Buscar Empleados</CardTitle>
@@ -306,14 +298,28 @@ export default function EmployeesPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-                            <Input
-                                placeholder="Buscar empleados..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10"
-                            />
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                                <Input
+                                    placeholder="Buscar empleados..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-10"
+                                />
+                            </div>
+                            {deptosConEmpleados.length > 0 && (
+                                <select
+                                    value={filterDeptId}
+                                    onChange={e => setFilterDeptId(e.target.value)}
+                                    className="border border-gray-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#2166be] sm:min-w-[220px]"
+                                >
+                                    <option value="">Todos los departamentos</option>
+                                    {deptosConEmpleados.map(d => (
+                                        <option key={d.id} value={d.id}>{d.nombre_completo}</option>
+                                    ))}
+                                </select>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -331,7 +337,7 @@ export default function EmployeesPage() {
                         {filteredEmployees.length === 0 ? (
                             <div className="text-center py-12">
                                 <p className="text-muted-foreground text-sm sm:text-base">
-                                    {searchQuery ? 'No se encontraron empleados' : 'No hay empleados registrados'}
+                                    {searchQuery || filterDeptId ? 'No se encontraron empleados' : 'No hay empleados registrados'}
                                 </p>
                             </div>
                         ) : (
@@ -389,30 +395,23 @@ export default function EmployeesPage() {
                                                         )}
                                                     </td>
 
-                                                    <td
-                                                        className="py-2 px-4 text-sm"
-                                                        onClick={() => {
-                                                            if (editingDeptId !== employee.id) startEditDept(employee);
-                                                        }}
-                                                    >
+                                                    <td className="py-2 px-4 text-sm min-w-[200px]">
                                                         {editingDeptId === employee.id ? (
-                                                            <input
-                                                                ref={deptInputRef}
-                                                                type="text"
-                                                                value={editingDeptValue}
-                                                                onChange={e => setEditingDeptValue(e.target.value)}
-                                                                onBlur={() => saveEditDept(employee.id)}
-                                                                onKeyDown={e => handleDeptKeyDown(e, employee.id)}
+                                                            <DepartmentCombobox
+                                                                departamentos={departamentos}
+                                                                value={employee.departamento_id ?? null}
+                                                                onChange={(id) => saveEditDept(employee.id, id)}
                                                                 disabled={savingDeptId === employee.id}
-                                                                className={`
-                                                                    h-8 w-full rounded border px-2 text-sm bg-white
-                                                                    border-[#2166be] ring-1 ring-[#2166be] outline-none
-                                                                    ${savingDeptId === employee.id ? 'opacity-50 cursor-not-allowed' : ''}
-                                                                `}
                                                             />
                                                         ) : (
-                                                            <span className="cursor-pointer rounded px-1 -mx-1 py-0.5 hover:bg-blue-50 hover:text-[#2166be] transition-colors">
-                                                                {employee.departamento || <span className="text-muted-foreground italic">—</span>}
+                                                            <span
+                                                                className="cursor-pointer rounded px-1 -mx-1 py-0.5 hover:bg-blue-50 hover:text-[#2166be] transition-colors"
+                                                                onClick={() => {
+                                                                    setEditingAreaId(null);
+                                                                    setEditingDeptId(employee.id);
+                                                                }}
+                                                            >
+                                                                {employee.departamento_nombre || <span className="text-muted-foreground italic">—</span>}
                                                             </span>
                                                         )}
                                                     </td>
@@ -454,6 +453,7 @@ export default function EmployeesPage() {
                                     </table>
                                 </div>
 
+                                {/* ── Vista móvil ── */}
                                 <div className="lg:hidden space-y-3">
                                     {filteredEmployees.map((employee) => (
                                         <div key={employee.id} className="border rounded-lg p-4 space-y-2">
@@ -490,32 +490,31 @@ export default function EmployeesPage() {
                                                                 </span>
                                                             )}
                                                         </p>
-                                                        <p className="flex items-center gap-1">
-                                                            <span className="font-medium">Departamento:</span>
+
+                                                        <div className="flex items-start gap-1">
+                                                            <span className="font-medium mt-1.5">Departamento:</span>
                                                             {editingDeptId === employee.id ? (
-                                                                <input
-                                                                    type="text"
-                                                                    value={editingDeptValue}
-                                                                    onChange={e => setEditingDeptValue(e.target.value)}
-                                                                    onBlur={() => saveEditDept(employee.id)}
-                                                                    onKeyDown={e => handleDeptKeyDown(e, employee.id)}
-                                                                    disabled={savingDeptId === employee.id}
-                                                                    autoFocus
-                                                                    className={`
-                                                                        h-7 flex-1 rounded border px-2 text-xs bg-white
-                                                                        border-[#2166be] ring-1 ring-[#2166be] outline-none
-                                                                        ${savingDeptId === employee.id ? 'opacity-50 cursor-not-allowed' : ''}
-                                                                    `}
-                                                                />
+                                                                <div className="flex-1">
+                                                                    <DepartmentCombobox
+                                                                        departamentos={departamentos}
+                                                                        value={employee.departamento_id ?? null}
+                                                                        onChange={(id) => saveEditDept(employee.id, id)}
+                                                                        disabled={savingDeptId === employee.id}
+                                                                    />
+                                                                </div>
                                                             ) : (
                                                                 <span
                                                                     className="cursor-pointer rounded px-1 -mx-1 py-0.5 hover:bg-blue-50 hover:text-[#2166be] transition-colors"
-                                                                    onClick={() => startEditDept(employee)}
+                                                                    onClick={() => {
+                                                                        setEditingAreaId(null);
+                                                                        setEditingDeptId(employee.id);
+                                                                    }}
                                                                 >
-                                                                    {employee.departamento || <span className="italic">—</span>}
+                                                                    {employee.departamento_nombre || <span className="italic">—</span>}
                                                                 </span>
                                                             )}
-                                                        </p>
+                                                        </div>
+
                                                         <p><span className="font-medium">Puesto:</span> {employee.puesto}</p>
                                                         <p><span className="font-medium">Evaluador:</span> {employee.evaluador}</p>
                                                     </div>
@@ -561,6 +560,7 @@ export default function EmployeesPage() {
                 onOpenChange={setIsCreateModalOpen}
                 onSuccess={handleEmployeeCreated}
                 plantId={plantId || ''}
+                departamentos={departamentos}
             />
 
             <ConfirmDialog

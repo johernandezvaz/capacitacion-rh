@@ -124,15 +124,25 @@ export default function CourseDncPage() {
 
             const { data: pData, error: pError } = await supabase
                 .from('course_participants')
-                .select('employees!employee_id(id, nombre, puesto, area, departamento)')
+                .select('employees!employee_id(id, nombre, puesto, area, departamentos!departamento_id(nombre_completo))')
                 .eq('course_id', courseId)
                 .order('employees(nombre)', { ascending: true });
 
             if (pError) throw pError;
 
-            const parts: Participant[] = (pData || [])
-                .map((row: any) => row.employees)
-                .filter(Boolean)
+            const parts: Participant[] = ((pData || [])
+                .map((row: any) => {
+                    const emp = row.employees;
+                    if (!emp) return null;
+                    return {
+                        id: emp.id,
+                        nombre: emp.nombre,
+                        puesto: emp.puesto,
+                        area: emp.area,
+                        departamento: emp.departamentos?.nombre_completo ?? null,
+                    };
+                })
+                .filter(Boolean) as Participant[])
                 .sort((a: Participant, b: Participant) => a.nombre.localeCompare(b.nombre));
 
             setParticipants(parts);
