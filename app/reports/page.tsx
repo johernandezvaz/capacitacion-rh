@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { FileText, Download, AlertCircle, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/auth-context';
+import { useTrainingYears } from '@/hooks/use-training-years';
 
 interface Course {
     id: string;
@@ -31,6 +32,7 @@ interface ReportStatus {
 
 export default function ReportsPage() {
     const { plantId } = useAuth();
+    const { years, selectedYearId, setSelectedYearId } = useTrainingYears();
     const [courses, setCourses] = useState<Course[]>([]);
     const [reportStatuses, setReportStatuses] = useState<Record<string, ReportStatus>>({});
     const [loading, setLoading] = useState(true);
@@ -38,9 +40,9 @@ export default function ReportsPage() {
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
     useEffect(() => {
-        if (!plantId) return;
+        if (!plantId || !selectedYearId) return;
         loadCourses();
-    }, [plantId]);
+    }, [plantId, selectedYearId]);
 
     async function loadCourses() {
         try {
@@ -48,6 +50,7 @@ export default function ReportsPage() {
                 .from('courses')
                 .select('id, name, date, year_id, training_years(year)')
                 .eq('plant_id', plantId)
+                .eq('year_id', selectedYearId)
                 .order('date', { ascending: false });
 
             if (error) throw error;
@@ -126,8 +129,6 @@ export default function ReportsPage() {
             }
 
             const hotReportAvailable = completedHot === totalParticipants;
-            // El reporte en frío se puede descargar en cualquier momento;
-            // el PDF incluirá únicamente los participantes que ya completaron su cuestionario.
             const coldReportAvailable = totalParticipants > 0;
 
             let hotReportMessage = '';
@@ -263,11 +264,22 @@ export default function ReportsPage() {
 
     return (
         <div className="container mx-auto py-8 px-4">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold mb-2">Reportes de Cursos</h1>
-                <p className="text-muted-foreground">
-                    Genera reportes de empleados y evaluadores para todos los cursos
-                </p>
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold mb-1">Reportes de Cursos</h1>
+                    <p className="text-muted-foreground text-sm">Genera reportes de empleados y evaluadores</p>
+                </div>
+                {years.length > 0 && (
+                    <select
+                        value={selectedYearId}
+                        onChange={e => setSelectedYearId(e.target.value)}
+                        className="border border-gray-200 rounded-lg px-4 py-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2166be] w-fit"
+                    >
+                        {years.map(y => (
+                            <option key={y.id} value={y.id}>{y.year}</option>
+                        ))}
+                    </select>
+                )}
             </div>
 
             {courses.length === 0 ? (

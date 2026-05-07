@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase, Employee, Departamento } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { DepartmentCombobox } from '@/components/department-combobox';
-import { STATUS_CONFIG, fmtDate } from '@/app/detecciones/page';
+import { STATUS_CONFIG, fmtDate } from '@/lib/detecciones-utils';
 
 export default function EmployeeEditPage({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = use(params);
@@ -350,7 +350,6 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
                     </CardContent>
                 </Card>
 
-                {/* ── Detecciones asignadas (read-only) ── */}
                 <Card className="border-none shadow-lg mt-8">
                     <CardHeader className="pb-4 border-b">
                         <CardTitle className="text-lg font-semibold text-[#192b52]">Detecciones</CardTitle>
@@ -387,7 +386,7 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
                                                     <td className="py-3 px-4 text-sm text-muted-foreground">{fmtDate(d.fecha_programada)}</td>
                                                     <td className="py-3 px-4 text-sm text-muted-foreground">{fmtDate(d.fecha_real)}</td>
                                                     <td className="py-3 px-4 text-right">
-                                                        <Button size="sm" variant="ghost" className="text-[#2166be] hover:text-[#1a5299] hover:bg-blue-50" onClick={() => router.push(`/detecciones/${d.id}`)}>
+                                                        <Button size="sm" variant="ghost" className="text-[#2166be] hover:text-[#1a5299] hover:bg-blue-50" onClick={() => router.push('/detecciones')}>
                                                             <Eye className="w-3.5 h-3.5 mr-1" />Ver
                                                         </Button>
                                                     </td>
