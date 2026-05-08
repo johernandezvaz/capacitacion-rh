@@ -6,7 +6,6 @@ const MONTHS_SHORT = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'S
 export interface CalendarioPdfFila {
     tipo: 'curso' | 'deteccion';
     nombre: string;
-    dirigido_a: string | null;
     color: string;
     comentario: string | null;
     meses: Array<{
@@ -95,13 +94,12 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
     const ALT: [number, number, number] = [248, 250, 252];
 
     // Build head row
-    const head = [['TEMA', 'DIRIGIDO A', ...MONTHS_SHORT, 'COMENTARIO']];
+    const head = [['TEMA', ...MONTHS_SHORT, 'COMENTARIO']];
 
     // Build body rows (text content — colours applied via willDrawCell)
     const body = data.filas.map(fila => [
         fila.nombre,
-        fila.dirigido_a || '',
-        ...fila.meses.map(m => ''),   // placeholder — cells coloured below
+        ...fila.meses.map(() => ''),   // placeholder — cells coloured below
         fila.comentario || '',
     ]);
 
@@ -124,36 +122,35 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
         },
         alternateRowStyles: { fillColor: ALT },
         columnStyles: {
-            0: { cellWidth: 55 },
-            1: { cellWidth: 30 },
-            // cols 2-13: each month (12 cols)
-            2: { cellWidth: 12, halign: 'center' },
-            3: { cellWidth: 12, halign: 'center' },
-            4: { cellWidth: 12, halign: 'center' },
-            5: { cellWidth: 12, halign: 'center' },
-            6: { cellWidth: 12, halign: 'center' },
-            7: { cellWidth: 12, halign: 'center' },
-            8: { cellWidth: 12, halign: 'center' },
-            9: { cellWidth: 12, halign: 'center' },
-            10: { cellWidth: 12, halign: 'center' },
-            11: { cellWidth: 12, halign: 'center' },
-            12: { cellWidth: 12, halign: 'center' },
-            13: { cellWidth: 12, halign: 'center' },
-            14: { cellWidth: 'auto' },
+            0: { cellWidth: 65 },    // TEMA (wider now that DIRIGIDO A is gone)
+            // cols 1-12: months
+            1:  { cellWidth: 14, halign: 'center' },
+            2:  { cellWidth: 14, halign: 'center' },
+            3:  { cellWidth: 14, halign: 'center' },
+            4:  { cellWidth: 14, halign: 'center' },
+            5:  { cellWidth: 14, halign: 'center' },
+            6:  { cellWidth: 14, halign: 'center' },
+            7:  { cellWidth: 14, halign: 'center' },
+            8:  { cellWidth: 14, halign: 'center' },
+            9:  { cellWidth: 14, halign: 'center' },
+            10: { cellWidth: 14, halign: 'center' },
+            11: { cellWidth: 14, halign: 'center' },
+            12: { cellWidth: 14, halign: 'center' },
+            13: { cellWidth: 'auto' },   // COMENTARIO
         },
         margin: { left: M, right: M },
         tableWidth: W - M * 2,
         willDrawCell: (hookData) => {
             if (hookData.section !== 'body') return;
             const colIdx = hookData.column.index;
-            // Month columns are 2-13
-            if (colIdx < 2 || colIdx > 13) return;
+            // Month columns are 1-12 (TEMA=0, months=1..12, COMENTARIO=13)
+            if (colIdx < 1 || colIdx > 12) return;
 
             const rowIdx = hookData.row.index;
             const fila = data.filas[rowIdx];
             if (!fila) return;
 
-            const mesIdx = colIdx - 2; // 0-based
+            const mesIdx = colIdx - 1; // 0-based index into fila.meses
             const mesInfo = fila.meses[mesIdx];
             if (!mesInfo) return;
 

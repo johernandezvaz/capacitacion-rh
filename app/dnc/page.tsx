@@ -217,15 +217,16 @@ export default function DncPage() {
                     return {
                         tipo: 'curso' as const,
                         nombre: course.name,
-                        dirigido_a: null,
                         color: COURSE_COLOR,
                         comentario: comments[course.id] || null,
                         meses: Array.from({ length: 12 }, (_, mi) => {
                             const s = getCourseCellStyle(course, mi, yr);
+                            const realMonth = parseMonthYear(course.fecha_real);
+                            const isReal = s !== null && realMonth !== null && realMonth.month === mi && realMonth.year === yr;
                             return {
                                 mes: mi + 1,
-                                tiene_real: s !== null && course.fecha_real !== null && parseMonthYear(course.fecha_real)?.month === mi,
-                                tiene_programado: s !== null && (course.fecha_real === null || parseMonthYear(course.fecha_real)?.month !== mi),
+                                tiene_real: isReal,
+                                tiene_programado: s !== null && !isReal,
                             };
                         }),
                     };
@@ -234,15 +235,16 @@ export default function DncPage() {
                     return {
                         tipo: 'deteccion' as const,
                         nombre: det.nombre,
-                        dirigido_a: det.departamentos || null,
                         color: det.color,
                         comentario: null,
                         meses: Array.from({ length: 12 }, (_, mi) => {
                             const s = getDetCellStyle(det, mi, yr);
+                            const realMonth = parseMonthYear(det.fecha_real);
+                            const isReal = s !== null && realMonth !== null && realMonth.month === mi && realMonth.year === yr;
                             return {
                                 mes: mi + 1,
-                                tiene_real: s !== null && det.fecha_real !== null && parseMonthYear(det.fecha_real)?.month === mi,
-                                tiene_programado: s !== null && (det.fecha_real === null || parseMonthYear(det.fecha_real)?.month !== mi),
+                                tiene_real: isReal,
+                                tiene_programado: s !== null && !isReal,
                             };
                         }),
                     };
