@@ -140,7 +140,8 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
         },
         margin: { left: M, right: M },
         tableWidth: W - M * 2,
-        willDrawCell: (hookData) => {
+        // didParseCell fires BEFORE styles are merged → reliable for overriding fillColor
+        didParseCell: (hookData) => {
             if (hookData.section !== 'body') return;
             const colIdx = hookData.column.index;
             // Month columns are 1-12 (TEMA=0, months=1..12, COMENTARIO=13)
@@ -157,14 +158,41 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
             const baseColor = hexToRgb(fila.color);
 
             if (mesInfo.tiene_real) {
-                const [r, g, b] = baseColor;
-                hookData.cell.styles.fillColor = [r, g, b];
+                hookData.cell.styles.fillColor = baseColor;
                 hookData.cell.styles.textColor = [255, 255, 255];
             } else if (mesInfo.tiene_programado) {
-                const [r, g, b] = withAlpha(baseColor, 0.40);
-                hookData.cell.styles.fillColor = [r, g, b];
+                hookData.cell.styles.fillColor = withAlpha(baseColor, 0.40);
                 hookData.cell.styles.textColor = [60, 60, 60];
             }
+        },
+        // willDrawCell fires just before drawing → paint rect manually to override alternateRowStyles
+        willDrawCell: (hookData) => {
+            if (hookData.section !== 'body') return;
+            const colIdx = hookData.column.index;
+            if (colIdx < 1 || colIdx > 12) return;
+
+            const rowIdx = hookData.row.index;
+            const fila = data.filas[rowIdx];
+            if (!fila) return;
+
+            const mesIdx = colIdx - 1;
+            const mesInfo = fila.meses[mesIdx];
+            if (!mesInfo || (!mesInfo.tiene_real && !mesInfo.tiene_programado)) return;
+
+            const baseColor = hexToRgb(fila.color);
+            const [r, g, b] = mesInfo.tiene_real
+                ? baseColor
+                : withAlpha(baseColor, 0.40);
+
+            // Paint the cell background rectangle directly
+            doc.setFillColor(r, g, b);
+            doc.rect(
+                hookData.cell.x,
+                hookData.cell.y,
+                hookData.cell.width,
+                hookData.cell.height,
+                'F'
+            );
         },
     });
 
