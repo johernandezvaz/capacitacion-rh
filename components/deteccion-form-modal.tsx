@@ -51,13 +51,11 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
     const [empSearch, setEmpSearch] = useState('');
     const [empsLoaded, setEmpsLoaded] = useState(false);
 
-    // Load ALL plant employees once on first open
     useEffect(() => {
         if (!open || empsLoaded) return;
         loadAllEmps();
     }, [open]);
 
-    // Pre-fill when editing
     useEffect(() => {
         if (!open) return;
         if (editingId && editingData) {
@@ -188,13 +186,11 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                 </DialogHeader>
                 <form onSubmit={handleSave}>
                     <div className="space-y-5 py-4">
-                        {/* Nombre */}
                         <div className="space-y-1.5">
                             <Label>Nombre <span className="text-red-500">*</span></Label>
                             <Input value={form.nombre} onChange={e => f('nombre', e.target.value)} placeholder="Nombre de la detección" />
                         </div>
 
-                        {/* Estado */}
                         <div className="space-y-1.5">
                             <Label>Estado</Label>
                             <div className="grid grid-cols-4 gap-2">
@@ -218,7 +214,6 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                             </div>
                         </div>
 
-                        {/* Empleados */}
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                                 <Label>Empleados</Label>
@@ -257,7 +252,6 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                             </div>
                         </div>
 
-                        {/* Campos DNC */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5"><Label>Inst. Interno</Label><Input value={form.inst_interno} onChange={e => f('inst_interno', e.target.value)} placeholder="—" /></div>
                             <div className="space-y-1.5"><Label>Proveedor Sugerido</Label><Input value={form.proveedor_sugerido} onChange={e => f('proveedor_sugerido', e.target.value)} placeholder="—" /></div>
@@ -267,7 +261,6 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                             <div className="space-y-1.5"><Label>Fecha Real</Label><Input type="date" value={form.fecha_real} onChange={e => f('fecha_real', e.target.value)} /></div>
                         </div>
 
-                        {/* Tipo de Capacitación */}
                         <div className="space-y-2">
                             <Label>Tipo de Capacitación</Label>
                             <div className="grid grid-cols-2 gap-2 pt-1">

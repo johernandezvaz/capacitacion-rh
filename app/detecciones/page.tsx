@@ -1,15 +1,15 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Pencil, FileDown, ClipboardCheck } from 'lucide-react';
+import { Plus, Pencil, FileDown, ClipboardCheck, Settings2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { supabase, Departamento } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { useTrainingYears } from '@/hooks/use-training-years';
 import { STATUS_CONFIG, fmtDate, COLORES_DETECCION } from '@/lib/detecciones-utils';
 import { DeteccionFormModal } from '@/components/deteccion-form-modal';
+import { EstadoIndividualModal } from '@/components/estado-individual-modal';
 import { generateDeteccionesPdf } from '@/lib/detecciones-pdf';
 
 export { STATUS_CONFIG, fmtDate } from '@/lib/detecciones-utils';
@@ -23,7 +23,11 @@ type DetRow = {
     prevencion_riesgos: boolean; habilidades_tecnicas: boolean;
     fecha_programada: string | null; fecha_real: string | null; duration_hours: number | null;
     dept_ids: string[]; emp_ids: string[];
+    emp_color: string | null;
+    emp_status: string | null;
+    _emp_key: string;
 };
+
 type EmpGroup = { id: string; nombre: string; puesto: string; detecciones: DetRow[] };
 type DeptGroup = { id: string | null; nombre: string; codigo: string; empleados: EmpGroup[] };
 
@@ -54,6 +58,18 @@ export default function DeteccionesPage() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingData, setEditingData] = useState<any>(null);
+    const [estadoModal, setEstadoModal] = useState<{
+        open: boolean;
+        deteccionId: string;
+        deteccionNombre: string;
+        empleadoId: string;
+        empleadoNombre: string;
+        currentColor: string;
+        empKey: string;
+    }>({
+        open: false, deteccionId: '', deteccionNombre: '',
+        empleadoId: '', empleadoNombre: '', currentColor: '', empKey: '',
+    });
 
     useEffect(() => { loadDepts(); }, [plantId]);
     useEffect(() => { if (plantId && selectedYearId) fetchData(); }, [plantId, selectedYearId]);
@@ -78,7 +94,13 @@ export default function DeteccionesPage() {
                     .select('deteccion_id, departamento_id')
                     .in('deteccion_id', ids),
                 supabase.from('deteccion_empleados')
-                    .select('deteccion_id, employee_id, employees!employee_id(id, nombre, puesto, departamento_id, departamentos!departamento_id(id, codigo, nombre_completo))')
+                    .select(`
+                        deteccion_id, employee_id, color, status,
+                        employees!employee_id(
+                            id, nombre, puesto, departamento_id,
+                            departamentos!departamento_id(id, codigo, nombre_completo)
+                        )
+                    `)
                     .in('deteccion_id', ids),
             ]);
 
@@ -98,16 +120,35 @@ export default function DeteccionesPage() {
                 ...d,
                 dept_ids: deptsByDet[d.id] || [],
                 emp_ids: empsByDet[d.id] || [],
+                emp_color: null,
+                emp_status: null,
+                _emp_key: '',
             }));
             setRawDets(dets);
 
+            const indivMap: Record<string, { color: string | null; status: string | null }> = {};
+            (empLinks || []).forEach((r: any) => {
+                indivMap[`${r.employee_id}__${r.deteccion_id}`] = {
+                    color: r.color ?? null,
+                    status: r.status ?? null,
+                };
+            });
+
             const empDetMap: Record<string, DetRow[]> = {};
             (empLinks || []).forEach((r: any) => {
-                const det = dets.find(d => d.id === r.deteccion_id);
-                if (!det) return;
+                const baseDet = dets.find(d => d.id === r.deteccion_id);
+                if (!baseDet) return;
+                const key = `${r.employee_id}__${r.deteccion_id}`;
+                const indiv = indivMap[key] ?? { color: null, status: null };
+                const detWithIndiv: DetRow = {
+                    ...baseDet,
+                    emp_color: indiv.color,
+                    emp_status: indiv.status,
+                    _emp_key: key,
+                };
                 if (!empDetMap[r.employee_id]) empDetMap[r.employee_id] = [];
-                if (!empDetMap[r.employee_id].find(d => d.id === det.id))
-                    empDetMap[r.employee_id].push(det);
+                if (!empDetMap[r.employee_id].find(d => d._emp_key === key))
+                    empDetMap[r.employee_id].push(detWithIndiv);
             });
 
             const deptGroupMap: Record<string, DeptGroup> = {};
@@ -146,6 +187,34 @@ export default function DeteccionesPage() {
     const openCreate = () => { setEditingId(null); setEditingData(null); setModalOpen(true); };
     const openEdit = (det: DetRow) => { setEditingId(det.id); setEditingData(det); setModalOpen(true); };
 
+    const openEstadoIndividual = (emp: EmpGroup, det: DetRow) => {
+        const colorActivo = det.emp_color ?? det.color;
+        setEstadoModal({
+            open: true,
+            deteccionId: det.id,
+            deteccionNombre: det.nombre,
+            empleadoId: emp.id,
+            empleadoNombre: emp.nombre,
+            currentColor: colorActivo,
+            empKey: det._emp_key,
+        });
+    };
+
+    const handleEstadoSaved = (color: string, status: string) => {
+        const { empKey } = estadoModal;
+        setGroups(prev => prev.map(grp => ({
+            ...grp,
+            empleados: grp.empleados.map(emp => ({
+                ...emp,
+                detecciones: emp.detecciones.map(det =>
+                    det._emp_key === empKey
+                        ? { ...det, emp_color: color, emp_status: status }
+                        : det
+                ),
+            })),
+        })));
+    };
+
     const filteredGroups = useMemo(() =>
         filterDeptId ? groups.filter(g => g.id === filterDeptId) : groups,
         [groups, filterDeptId]);
@@ -157,7 +226,9 @@ export default function DeteccionesPage() {
             empleados: grp.empleados.map(emp => ({
                 nombre: emp.nombre, puesto: emp.puesto,
                 detecciones: emp.detecciones.map(d => ({
-                    nombre: d.nombre, color: d.color, status: d.status,
+                    nombre: d.nombre,
+                    color: d.emp_color ?? d.color,
+                    status: d.emp_status ?? d.status,
                     inst_interno: d.inst_interno, proveedor_sugerido: d.proveedor_sugerido,
                     costo: d.costo, desarrollo_personal: d.desarrollo_personal,
                     habilidades_blandas: d.habilidades_blandas, prevencion_riesgos: d.prevencion_riesgos,
@@ -225,7 +296,7 @@ export default function DeteccionesPage() {
                     <div className="space-y-8">
                         {filteredGroups.map(grp => (
                             <div key={grp.id ?? 'sin-dept'}>
-                            <div className="rounded-t-lg px-4 py-2.5 flex items-center justify-between" style={{ background: '#192b52' }}>
+                                <div className="rounded-t-lg px-4 py-2.5 flex items-center justify-between" style={{ background: '#192b52' }}>
                                     <span className="font-bold text-sm text-white">{grp.nombre}</span>
                                     <button
                                         onClick={() => handleExportDeptPdf(grp)}
@@ -256,20 +327,21 @@ export default function DeteccionesPage() {
                                                     </thead>
                                                     <tbody>
                                                         {emp.detecciones.map((det, di) => {
-                                                            const sc = det.status ? STATUS_CONFIG[det.status] : null;
+                                                            const colorActivo = det.emp_color ?? det.color;
+                                                            const statusActivo = det.emp_status ?? det.status;
+                                                            const col = COLORES_DETECCION.find(c => c.hex === colorActivo);
+                                                            const sc = statusActivo ? STATUS_CONFIG[statusActivo] : null;
+
                                                             return (
-                                                                <tr key={det.id} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${di % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                                                                <tr key={det._emp_key || det.id} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${di % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
                                                                     <td className="py-2 px-3 min-w-[160px]">
                                                                         <div>
                                                                             <span className="font-medium block leading-snug">{det.nombre}</span>
-                                                                            {(() => {
-                                                                                const col = COLORES_DETECCION.find(c => c.hex === det.color);
-                                                                                return col ? (
-                                                                                    <span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full text-white mt-0.5" style={{ background: det.color }}>
-                                                                                        {col.label}
-                                                                                    </span>
-                                                                                ) : null;
-                                                                            })()}
+                                                                            {col && (
+                                                                                <span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full text-white mt-0.5" style={{ background: colorActivo }}>
+                                                                                    {col.label}
+                                                                                </span>
+                                                                            )}
                                                                             {sc && <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full mt-0.5 ${sc.bg}`}>{sc.label}</span>}
                                                                         </div>
                                                                     </td>
@@ -285,10 +357,24 @@ export default function DeteccionesPage() {
                                                                     <td className="py-2 px-2 text-center text-muted-foreground">{fmtDate(det.fecha_real)}</td>
                                                                     <td className="py-2 px-2 text-center text-muted-foreground">{det.duration_hours != null ? `${det.duration_hours}h` : '—'}</td>
                                                                     <td className="py-2 px-3 text-right">
-                                                                        <Button size="sm" variant="ghost" className="text-[#2166be] hover:text-[#1a5299] hover:bg-blue-50 h-7 px-2"
-                                                                            onClick={() => openEdit(det)}>
-                                                                            <Pencil className="w-3.5 h-3.5" />
-                                                                        </Button>
+                                                                        <div className="flex items-center justify-end gap-1">
+                                                                            <Button
+                                                                                size="sm" variant="ghost"
+                                                                                className="h-7 px-2 text-muted-foreground hover:text-[#192b52] hover:bg-slate-100"
+                                                                                title="Cambiar estado individual"
+                                                                                onClick={() => openEstadoIndividual(emp, det)}
+                                                                            >
+                                                                                <Settings2 className="w-3.5 h-3.5" />
+                                                                            </Button>
+                                                                            <Button
+                                                                                size="sm" variant="ghost"
+                                                                                className="h-7 px-2 text-[#2166be] hover:text-[#1a5299] hover:bg-blue-50"
+                                                                                title="Editar detección"
+                                                                                onClick={() => openEdit(det)}
+                                                                            >
+                                                                                <Pencil className="w-3.5 h-3.5" />
+                                                                            </Button>
+                                                                        </div>
                                                                     </td>
                                                                 </tr>
                                                             );
@@ -305,6 +391,7 @@ export default function DeteccionesPage() {
                 )}
             </div>
 
+            {/* Modal edición completa de detección */}
             <DeteccionFormModal
                 open={modalOpen}
                 onOpenChange={setModalOpen}
@@ -313,6 +400,18 @@ export default function DeteccionesPage() {
                 yearId={selectedYearId}
                 editingId={editingId}
                 editingData={editingData}
+            />
+
+            {/* Modal estado individual empleado */}
+            <EstadoIndividualModal
+                open={estadoModal.open}
+                onOpenChange={v => setEstadoModal(prev => ({ ...prev, open: v }))}
+                deteccionId={estadoModal.deteccionId}
+                deteccionNombre={estadoModal.deteccionNombre}
+                empleadoId={estadoModal.empleadoId}
+                empleadoNombre={estadoModal.empleadoNombre}
+                currentColor={estadoModal.currentColor}
+                onSaved={handleEstadoSaved}
             />
         </div>
     );
