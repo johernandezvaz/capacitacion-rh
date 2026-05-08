@@ -82,7 +82,7 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
     const loadAllEmps = async () => {
         const { data } = await supabase
             .from('employees')
-            .select('id, nombre, puesto, numero_empleado, departamento_id, departamentos!departamento_id(nombre_completo)')
+            .select('id, nombre, puesto, employee_number, departamento_id, departamentos!departamento_id(nombre_completo)')
             .eq('plant_id', plantId)
             .order('nombre');
         const mapped: EmpOption[] = (data || []).map((e: any) => ({
@@ -136,7 +136,6 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                 detId = data.id;
             }
 
-            // Sync employees
             await supabase.from('deteccion_empleados').delete().eq('deteccion_id', detId);
             const selectedEmpIds = Array.from(selEmps);
             if (selectedEmpIds.length > 0) {
@@ -145,7 +144,6 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                 );
             }
 
-            // Derive departments automatically from selected employees
             await supabase.from('deteccion_departamentos').delete().eq('deteccion_id', detId);
             const uniqueDeptIds = Array.from(new Set(
                 allEmps
@@ -205,9 +203,8 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                                     return (
                                         <button key={c.hex} type="button"
                                             onClick={() => { f('color', c.hex); f('status', c.status); }}
-                                            className={`flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-all ${
-                                                active ? 'border-gray-800 bg-gray-50 shadow-sm' : 'border-gray-200 hover:border-gray-400'
-                                            }`}>
+                                            className={`flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-all ${active ? 'border-gray-800 bg-gray-50 shadow-sm' : 'border-gray-200 hover:border-gray-400'
+                                                }`}>
                                             <div className="relative w-8 h-8">
                                                 <span className="w-8 h-8 rounded-full block" style={{ background: c.hex }} />
                                                 {active && (
@@ -241,9 +238,8 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                                     <p className="text-xs text-muted-foreground p-2">Sin resultados</p>
                                 ) : (
                                     filteredEmps.map(emp => (
-                                        <label key={emp.id} className={`flex items-start gap-2 cursor-pointer rounded px-2 py-1.5 text-sm transition-colors ${
-                                            selEmps.has(emp.id) ? 'bg-blue-50 text-[#2166be]' : 'hover:bg-muted/50'
-                                        }`}>
+                                        <label key={emp.id} className={`flex items-start gap-2 cursor-pointer rounded px-2 py-1.5 text-sm transition-colors ${selEmps.has(emp.id) ? 'bg-blue-50 text-[#2166be]' : 'hover:bg-muted/50'
+                                            }`}>
                                             <input type="checkbox" checked={selEmps.has(emp.id)} onChange={() => toggleEmp(emp.id)} className="w-4 h-4 rounded mt-0.5 flex-shrink-0" />
                                             <div className="min-w-0">
                                                 {emp.numero_empleado && (
