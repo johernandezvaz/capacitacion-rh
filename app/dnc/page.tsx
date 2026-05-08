@@ -1,22 +1,29 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, FileDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { useTrainingYears } from '@/hooks/use-training-years';
-import { STATUS_CONFIG, COLORES_DETECCION } from '@/lib/detecciones-utils';
+import { COLORES_DETECCION } from '@/lib/detecciones-utils';
+import { generateCalendarioPdf, type CalendarioPdfFila } from '@/lib/calendario-pdf';
 
 const MONTHS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
-const TOTAL_COLS = 15;
+const TOTAL_COLS = 14;
+
+const COURSE_COLOR = '#4A249D';
 
 type CourseRow = {
     id: string;
     name: string;
+    date: string | null;
     fecha_programada: string | null;
     fecha_real: string | null;
     comentario_dnc: string | null;
+    deteccion_id: string | null;
+    _type: 'course';
+    _sortDate: string;
 };
 
 type DeteccionRow = {
@@ -27,7 +34,11 @@ type DeteccionRow = {
     fecha_programada: string | null;
     fecha_real: string | null;
     departamentos: string;
+    _type: 'deteccion';
+    _sortDate: string;
 };
+
+type UnifiedRow = CourseRow | DeteccionRow;
 
 function parseMonthYear(dateStr: string | null): { month: number; year: number } | null {
     if (!dateStr) return null;
@@ -42,31 +53,50 @@ function hexToRgba(hex: string, alpha: number): string {
     return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function getCourseCellColor(course: CourseRow, monthIndex: number, year: number): string | null {
+function getCourseCellStyle(course: CourseRow, monthIndex: number, year: number): { bg: string; tooltip: string } | null {
     const real = parseMonthYear(course.fecha_real);
     const prog = parseMonthYear(course.fecha_programada);
-    if (real && real.month === monthIndex && real.year === year) return '#2166be';
-    if (prog && prog.month === monthIndex && prog.year === year) return '#93c5fd';
+    const dateField = parseMonthYear(course.date);
+
+    if (real && real.month === monthIndex && real.year === year) {
+        return { bg: COURSE_COLOR, tooltip: 'Realizado' };
+    }
+    if (prog && prog.month === monthIndex && prog.year === year && !course.fecha_real) {
+        return { bg: hexToRgba(COURSE_COLOR, 0.40), tooltip: 'Programado' };
+    }
+    if (dateField && dateField.month === monthIndex && dateField.year === year && !course.fecha_programada && !course.fecha_real) {
+        return { bg: hexToRgba(COURSE_COLOR, 0.40), tooltip: 'Programado' };
+    }
     return null;
 }
 
-function getDetCellColor(det: DeteccionRow, monthIndex: number, year: number): string | null {
+function getDetCellStyle(det: DeteccionRow, monthIndex: number, year: number): { bg: string; tooltip: string } | null {
     const real = parseMonthYear(det.fecha_real);
     const prog = parseMonthYear(det.fecha_programada);
     const col = det.color || '#2166be';
-    if (real && real.month === monthIndex && real.year === year) return col;
-    if (prog && prog.month === monthIndex && prog.year === year) return hexToRgba(col, 0.45);
+
+    if (real && real.month === monthIndex && real.year === year) {
+        return { bg: col, tooltip: 'Realizado' };
+    }
+    if (prog && prog.month === monthIndex && prog.year === year && !det.fecha_real) {
+        return { bg: hexToRgba(col, 0.40), tooltip: 'Programado' };
+    }
     return null;
 }
 
+function sortKey(row: UnifiedRow): string {
+    return row._sortDate || '9999-12-31';
+}
+
 export default function DncPage() {
-    const { plantId } = useAuth();
+    const { plantId, plantName } = useAuth();
     const { years, selectedYearId, setSelectedYearId, selectedYear } = useTrainingYears();
 
     const [courses, setCourses] = useState<CourseRow[]>([]);
     const [detecciones, setDetecciones] = useState<DeteccionRow[]>([]);
     const [comments, setComments] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(true);
+    const [isPdfLoading, setIsPdfLoading] = useState(false);
 
     useEffect(() => {
         if (plantId && selectedYearId) fetchData();
@@ -77,14 +107,24 @@ export default function DncPage() {
         try {
             const { data: coursesData, error: cErr } = await supabase
                 .from('courses')
-                .select('id, name, fecha_programada, fecha_real, comentario_dnc')
+                .select('id, name, date, fecha_programada, fecha_real, comentario_dnc, deteccion_id')
                 .eq('plant_id', plantId)
-                .eq('year_id', selectedYearId)
-                .order('name', { ascending: true });
+                .eq('year_id', selectedYearId);
             if (cErr) throw cErr;
 
-            const rows: CourseRow[] = coursesData || [];
+            const rows: CourseRow[] = (coursesData || []).map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                date: c.date ?? null,
+                fecha_programada: c.fecha_programada ?? null,
+                fecha_real: c.fecha_real ?? null,
+                comentario_dnc: c.comentario_dnc ?? null,
+                deteccion_id: c.deteccion_id ?? null,
+                _type: 'course' as const,
+                _sortDate: c.fecha_programada || c.fecha_real || c.date || '9999-12-31',
+            }));
             setCourses(rows);
+
             const init: Record<string, string> = {};
             rows.forEach(c => { init[c.id] = c.comentario_dnc || ''; });
             setComments(init);
@@ -93,8 +133,7 @@ export default function DncPage() {
                 .from('detecciones')
                 .select('id, nombre, color, status, fecha_programada, fecha_real')
                 .eq('plant_id', plantId)
-                .eq('year_id', selectedYearId)
-                .order('fecha_programada', { ascending: true, nullsFirst: false });
+                .eq('year_id', selectedYearId);
 
             const dets: DeteccionRow[] = [];
             if (detData && detData.length > 0) {
@@ -121,6 +160,8 @@ export default function DncPage() {
                         fecha_programada: d.fecha_programada,
                         fecha_real: d.fecha_real,
                         departamentos: (deptMap[d.id] || []).sort().join(', '),
+                        _type: 'deteccion' as const,
+                        _sortDate: d.fecha_programada || d.fecha_real || '9999-12-31',
                     });
                 }
             }
@@ -137,14 +178,91 @@ export default function DncPage() {
         await supabase.from('courses').update({ comentario_dnc: value.trim() || null }).eq('id', courseId);
     };
 
-    const hasCourses = courses.length > 0;
-    const hasDets = detecciones.length > 0;
-    const isEmpty = !hasCourses && !hasDets;
+    // IDs of detecciones that already have a linked course
+    const linkedDeteccionIds = useMemo(
+        () => new Set(courses.map(c => c.deteccion_id).filter(Boolean) as string[]),
+        [courses]
+    );
+
+    // Detecciones filtered to exclude those with a linked course
+    const visibleDetecciones = useMemo(
+        () => detecciones.filter(d => !linkedDeteccionIds.has(d.id)),
+        [detecciones, linkedDeteccionIds]
+    );
+
+    // Merge and sort all rows by fecha_programada ASC
+    const unifiedRows = useMemo<UnifiedRow[]>(() => {
+        const all: UnifiedRow[] = [...courses, ...visibleDetecciones];
+        return all.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+    }, [courses, visibleDetecciones]);
+
+    const isEmpty = unifiedRows.length === 0;
+
+    const LEGEND = [
+        { hex: COURSE_COLOR, label: 'Curso realizado' },
+        { hex: '#2166be', label: 'Actualización cada 5 años o cambios de curso' },
+        { hex: '#22c55e', label: 'Curso tomado (detección)' },
+        { hex: '#ef4444', label: 'No tomado (detección)' },
+        { hex: '#FFB433', label: 'Reprogramado (detección)' },
+    ];
+
+    const handleExportPdf = async () => {
+        if (!selectedYear || isEmpty) return;
+        setIsPdfLoading(true);
+        try {
+            const filas: CalendarioPdfFila[] = unifiedRows.map(row => {
+                const yr = selectedYear.year;
+                if (row._type === 'course') {
+                    const course = row as CourseRow;
+                    return {
+                        tipo: 'curso' as const,
+                        nombre: course.name,
+                        dirigido_a: null,
+                        color: COURSE_COLOR,
+                        comentario: comments[course.id] || null,
+                        meses: Array.from({ length: 12 }, (_, mi) => {
+                            const s = getCourseCellStyle(course, mi, yr);
+                            return {
+                                mes: mi + 1,
+                                tiene_real: s !== null && course.fecha_real !== null && parseMonthYear(course.fecha_real)?.month === mi,
+                                tiene_programado: s !== null && (course.fecha_real === null || parseMonthYear(course.fecha_real)?.month !== mi),
+                            };
+                        }),
+                    };
+                } else {
+                    const det = row as DeteccionRow;
+                    return {
+                        tipo: 'deteccion' as const,
+                        nombre: det.nombre,
+                        dirigido_a: det.departamentos || null,
+                        color: det.color,
+                        comentario: null,
+                        meses: Array.from({ length: 12 }, (_, mi) => {
+                            const s = getDetCellStyle(det, mi, yr);
+                            return {
+                                mes: mi + 1,
+                                tiene_real: s !== null && det.fecha_real !== null && parseMonthYear(det.fecha_real)?.month === mi,
+                                tiene_programado: s !== null && (det.fecha_real === null || parseMonthYear(det.fecha_real)?.month !== mi),
+                            };
+                        }),
+                    };
+                }
+            });
+
+            await generateCalendarioPdf({
+                year: selectedYear.year,
+                plant_name: plantName || '',
+                filas,
+            });
+        } finally {
+            setIsPdfLoading(false);
+        }
+    };
 
     return (
         <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 bg-slate-50">
             <div className="max-w-full">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 flex-shrink-0">
                             <CalendarDays className="w-6 h-6 text-[#2166be]" />
@@ -154,22 +272,32 @@ export default function DncPage() {
                             <p className="text-muted-foreground text-sm">Timesheet anual de capacitaciones y detecciones</p>
                         </div>
                     </div>
-                    {years.length > 0 && (
-                        <select
-                            value={selectedYearId}
-                            onChange={e => setSelectedYearId(e.target.value)}
-                            className="border border-gray-200 rounded-lg px-4 py-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2166be] w-fit"
+                    <div className="flex items-center gap-2">
+                        {years.length > 0 && (
+                            <select
+                                value={selectedYearId}
+                                onChange={e => setSelectedYearId(e.target.value)}
+                                className="border border-gray-200 rounded-lg px-4 py-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2166be] w-fit"
+                            >
+                                {years.map(y => (
+                                    <option key={y.id} value={y.id}>{y.year}</option>
+                                ))}
+                            </select>
+                        )}
+                        <button
+                            onClick={handleExportPdf}
+                            disabled={isLoading || isEmpty || isPdfLoading}
+                            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-gray-200 bg-white shadow-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-[#192b52]"
                         >
-                            {years.map(y => (
-                                <option key={y.id} value={y.id}>{y.year}</option>
-                            ))}
-                        </select>
-                    )}
+                            <FileDown className="w-4 h-4" />
+                            {isPdfLoading ? 'Generando...' : 'Exportar PDF'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Leyenda de colores */}
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4 px-1">
-                    {COLORES_DETECCION.map(c => (
+                    {LEGEND.map(c => (
                         <div key={c.hex} className="flex items-center gap-1.5">
                             <span className="w-4 h-4 rounded-sm flex-shrink-0" style={{ background: c.hex }} />
                             <span className="text-xs text-muted-foreground">{c.label}</span>
@@ -185,10 +313,6 @@ export default function DncPage() {
                                     <th className="sticky left-0 z-20 text-left px-3 py-3 text-xs font-semibold text-white border-r"
                                         style={{ width: 240, minWidth: 240, background: '#192b52', borderColor: 'rgba(255,255,255,0.15)' }}>
                                         TEMA
-                                    </th>
-                                    <th className="text-left px-3 py-3 text-xs font-semibold text-white border-r"
-                                        style={{ width: 130, minWidth: 130, borderColor: 'rgba(255,255,255,0.15)' }}>
-                                        DIRIGIDO A
                                     </th>
                                     {MONTHS.map(m => (
                                         <th key={m} className="text-center px-0 py-3 text-xs font-semibold text-white border-r"
@@ -209,11 +333,12 @@ export default function DncPage() {
                                 ) : isEmpty ? (
                                     <tr><td colSpan={TOTAL_COLS} className="text-center py-16 text-muted-foreground text-sm">No hay datos para {selectedYear?.year}</td></tr>
                                 ) : (
-                                    <>
-                                        {courses.map((course, i) => {
-                                            const rowBg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+                                    unifiedRows.map((row, i) => {
+                                        const rowBg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+                                        if (row._type === 'course') {
+                                            const course = row as CourseRow;
                                             return (
-                                                <tr key={course.id} style={{ background: rowBg }}
+                                                <tr key={`c-${course.id}`} style={{ background: rowBg }}
                                                     onMouseEnter={e => (e.currentTarget.style.background = '#f1f5f9')}
                                                     onMouseLeave={e => (e.currentTarget.style.background = rowBg)}>
                                                     <td className="sticky left-0 z-10 px-3 py-2 border-r border-b border-gray-100 text-sm"
@@ -222,14 +347,18 @@ export default function DncPage() {
                                                             className="text-[#2166be] hover:text-[#1a5299] hover:underline font-medium leading-snug">
                                                             {course.name}
                                                         </Link>
+                                                        {course.deteccion_id && (
+                                                            <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-[#4A249D] align-middle" title="Originado de detección" />
+                                                        )}
                                                     </td>
-                                                    <td className="px-3 py-2 border-r border-b border-gray-100 text-xs text-muted-foreground" style={{ width: 130 }} />
+
                                                     {MONTHS.map((_, mi) => {
-                                                        const color = getCourseCellColor(course, mi, selectedYear?.year ?? 0);
+                                                        const style = getCourseCellStyle(course, mi, selectedYear?.year ?? 0);
                                                         return (
                                                             <td key={mi} className="border-r border-b border-gray-100"
-                                                                style={{ width: 44, minWidth: 44, padding: '6px 4px' }}>
-                                                                {color && <div className="mx-auto rounded-sm" style={{ background: color, width: 30, height: 20 }} />}
+                                                                style={{ width: 44, minWidth: 44, padding: '6px 4px' }}
+                                                                title={style?.tooltip}>
+                                                                {style && <div className="mx-auto rounded-sm" style={{ background: style.bg, width: 30, height: 20 }} />}
                                                             </td>
                                                         );
                                                     })}
@@ -245,57 +374,34 @@ export default function DncPage() {
                                                     </td>
                                                 </tr>
                                             );
-                                        })}
-
-                                        {hasDets && (
-                                            <tr>
-                                                <td colSpan={TOTAL_COLS}
-                                                    style={{ background: '#374151', color: 'white', fontWeight: 700, padding: '6px 12px', fontSize: '11px', letterSpacing: '0.05em' }}>
-                                                    DETECCIONES
-                                                </td>
-                                            </tr>
-                                        )}
-
-                                        {detecciones.map((det, i) => {
-                                            const rowBg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
-                                            const statusCfg = det.status ? STATUS_CONFIG[det.status] : null;
+                                        } else {
+                                            const det = row as DeteccionRow;
+                                            const colorEntry = COLORES_DETECCION.find(c => c.hex === det.color);
                                             return (
-                                                <tr key={det.id} style={{ background: rowBg }}
+                                                <tr key={`d-${det.id}`} style={{ background: rowBg }}
                                                     onMouseEnter={e => (e.currentTarget.style.background = '#f1f5f9')}
                                                     onMouseLeave={e => (e.currentTarget.style.background = rowBg)}>
                                                     <td className="sticky left-0 z-10 px-3 py-2 border-r border-b border-gray-100 text-sm"
                                                         style={{ width: 240, minWidth: 240, background: 'inherit' }}>
-                                                        <div className="flex items-start gap-2">
-                                                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1" style={{ background: det.color }} />
-                                                            <div>
-                                                                <span className="font-medium leading-snug block">{det.nombre}</span>
-                                                                {(() => {
-                                                                    const col = COLORES_DETECCION.find(c => c.hex === det.color);
-                                                                    return col ? (
-                                                                        <span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full text-white mt-0.5" style={{ background: det.color }}>
-                                                                            {col.label}
-                                                                        </span>
-                                                                    ) : null;
-                                                                })()}
-                                                            </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-medium leading-snug">{det.nombre}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-3 py-2 border-r border-b border-gray-100 text-xs text-muted-foreground" style={{ width: 130 }}>
-                                                        {det.departamentos || '—'}
-                                                    </td>
+
                                                     {MONTHS.map((_, mi) => {
-                                                        const color = getDetCellColor(det, mi, selectedYear?.year ?? 0);
+                                                        const style = getDetCellStyle(det, mi, selectedYear?.year ?? 0);
                                                         return (
                                                             <td key={mi} className="border-r border-b border-gray-100"
-                                                                style={{ width: 44, minWidth: 44, padding: '6px 4px' }}>
-                                                                {color && <div className="mx-auto rounded-sm" style={{ background: color, width: 30, height: 20 }} />}
+                                                                style={{ width: 44, minWidth: 44, padding: '6px 4px' }}
+                                                                title={style?.tooltip}>
+                                                                {style && <div className="mx-auto rounded-sm" style={{ background: style.bg, width: 30, height: 20 }} />}
                                                             </td>
                                                         );
                                                     })}
                                                     <td className="px-3 py-2 border-b border-gray-100 text-xs" style={{ width: 180 }}>
-                                                        {statusCfg ? (
-                                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusCfg.bg}`}>
-                                                                {statusCfg.label}
+                                                        {colorEntry ? (
+                                                            <span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full text-white" style={{ background: det.color }}>
+                                                                {colorEntry.label}
                                                             </span>
                                                         ) : (
                                                             <span className="text-muted-foreground">—</span>
@@ -303,34 +409,13 @@ export default function DncPage() {
                                                     </td>
                                                 </tr>
                                             );
-                                        })}
-                                    </>
+                                        }
+                                    })
                                 )}
                             </tbody>
                         </table>
                     </div>
                 </div>
-
-                {!isLoading && !isEmpty && (
-                    <div className="flex flex-wrap items-center gap-6 mt-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-5 h-4 rounded-sm" style={{ background: '#2166be' }} />
-                            <span className="text-xs text-muted-foreground">Realizado</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-5 h-4 rounded-sm" style={{ background: '#93c5fd' }} />
-                            <span className="text-xs text-muted-foreground">Programado (curso)</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-5 h-4 rounded-sm opacity-50" style={{ background: '#FFB433' }} />
-                            <span className="text-xs text-muted-foreground">Programado (detección)</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-5 h-4 rounded-sm" style={{ background: '#FFB433' }} />
-                            <span className="text-xs text-muted-foreground">Realizado (detección)</span>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );

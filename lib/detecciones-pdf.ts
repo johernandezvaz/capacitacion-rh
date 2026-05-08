@@ -33,6 +33,8 @@ export interface DeteccionesPdfData {
     year: number;
     plant_name: string;
     departamentos: DeteccionesPdfDepartamento[];
+    /** When exporting a single department, pass its code for the filename */
+    codigo_departamento?: string;
 }
 
 const HDR: [number, number, number] = [25, 43, 82];
@@ -166,5 +168,6 @@ export async function generateDeteccionesPdf(data: DeteccionesPdfData): Promise<
     addFooters();
 
     const fecha = new Date().toISOString().split('T')[0];
-    doc.save(`Detecciones_${data.year}_${fecha}.pdf`);
+    const suffix = data.codigo_departamento ? `_${data.codigo_departamento}` : '';
+    doc.save(`Detecciones_${data.year}${suffix}_${fecha}.pdf`);
 }

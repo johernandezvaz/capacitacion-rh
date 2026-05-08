@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ChevronDown, ChevronUp, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -29,6 +29,21 @@ export interface CreateCourseModalPrefill {
   prevencionRiesgos?: boolean;
   habilidadesTecnicas?: boolean;
   comentarioDnc?: string;
+}
+
+interface DeteccionOption {
+  id: string;
+  nombre: string;
+  inst_interno: string | null;
+  proveedor_sugerido: string | null;
+  costo: number | null;
+  desarrollo_personal: boolean;
+  habilidades_blandas: boolean;
+  prevencion_riesgos: boolean;
+  habilidades_tecnicas: boolean;
+  fecha_programada: string | null;
+  fecha_real: string | null;
+  duration_hours: number | null;
 }
 
 interface CreateCourseModalProps {
@@ -67,7 +82,58 @@ export function CreateCourseModal({
   const [habilidadesTecnicas, setHabilidadesTecnicas] = useState(false);
   const [comentarioDnc, setComentarioDnc] = useState('');
 
+  // Detección link
+  const [detecciones, setDetecciones] = useState<DeteccionOption[]>([]);
+  const [selectedDeteccionId, setSelectedDeteccionId] = useState<string | null>(null);
+  const [detSearch, setDetSearch] = useState('');
+  const [detDropOpen, setDetDropOpen] = useState(false);
+  const detDropRef = useRef<HTMLDivElement>(null);
+
   const { toast } = useToast();
+
+  // Load available detecciones (without linked course) when modal opens
+  useEffect(() => {
+    if (open && plantId && yearId) {
+      loadDetecciones();
+    }
+  }, [open, plantId, yearId]);
+
+  const loadDetecciones = async () => {
+    // Get deteccion_ids already linked to courses
+    const { data: linked } = await supabase
+      .from('courses')
+      .select('deteccion_id')
+      .eq('plant_id', plantId)
+      .eq('year_id', yearId)
+      .not('deteccion_id', 'is', null);
+
+    const linkedIds = (linked || []).map((r: any) => r.deteccion_id).filter(Boolean);
+
+    let query = supabase
+      .from('detecciones')
+      .select('id, nombre, inst_interno, proveedor_sugerido, costo, desarrollo_personal, habilidades_blandas, prevencion_riesgos, habilidades_tecnicas, fecha_programada, fecha_real, duration_hours')
+      .eq('plant_id', plantId)
+      .eq('year_id', yearId)
+      .order('nombre', { ascending: true });
+
+    if (linkedIds.length > 0) {
+      query = query.not('id', 'in', `(${linkedIds.join(',')})`);
+    }
+
+    const { data } = await query;
+    setDetecciones((data as DeteccionOption[]) || []);
+  };
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (detDropRef.current && !detDropRef.current.contains(e.target as Node)) {
+        setDetDropOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   // Apply prefill whenever the modal opens with a prefill object
   useEffect(() => {
@@ -88,6 +154,39 @@ export function CreateCourseModal({
     }
   }, [open, prefill]);
 
+  const applyDeteccion = (det: DeteccionOption) => {
+    setSelectedDeteccionId(det.id);
+    setDetSearch(det.nombre);
+    setDetDropOpen(false);
+    // Auto-fill DNC fields
+    setInstInterno(det.inst_interno ?? '');
+    setProveedorSugerido(det.proveedor_sugerido ?? '');
+    setCosto(det.costo != null ? String(det.costo) : '');
+    setDesarrolloPersonal(det.desarrollo_personal);
+    setHabilidadesBlandas(det.habilidades_blandas);
+    setPrevencionRiesgos(det.prevencion_riesgos);
+    setHabilidadesTecnicas(det.habilidades_tecnicas);
+    setFechaProgramada(det.fecha_programada ?? '');
+    setFechaReal(det.fecha_real ?? '');
+    setDuration(det.duration_hours != null ? String(det.duration_hours) : duration);
+    setIsDncOpen(true);
+  };
+
+  const clearDeteccion = () => {
+    setSelectedDeteccionId(null);
+    setDetSearch('');
+    // Clear DNC fields
+    setInstInterno('');
+    setProveedorSugerido('');
+    setCosto('');
+    setDesarrolloPersonal(false);
+    setHabilidadesBlandas(false);
+    setPrevencionRiesgos(false);
+    setHabilidadesTecnicas(false);
+    setFechaProgramada('');
+    setFechaReal('');
+  };
+
   const resetForm = () => {
     setName('');
     setStartDate('');
@@ -104,6 +203,9 @@ export function CreateCourseModal({
     setPrevencionRiesgos(false);
     setHabilidadesTecnicas(false);
     setComentarioDnc('');
+    setSelectedDeteccionId(null);
+    setDetSearch('');
+    setDetDropOpen(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -163,6 +265,8 @@ export function CreateCourseModal({
           prevencion_riesgos: prevencionRiesgos,
           habilidades_tecnicas: habilidadesTecnicas,
           comentario_dnc: comentarioDnc.trim() || null,
+          // Detección link
+          deteccion_id: selectedDeteccionId || null,
         },
       ]);
 
@@ -185,6 +289,10 @@ export function CreateCourseModal({
     resetForm();
     onOpenChange(false);
   };
+
+  const filteredDetecciones = detecciones.filter(d =>
+    !detSearch || d.nombre.toLowerCase().includes(detSearch.toLowerCase())
+  );
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -244,6 +352,62 @@ export function CreateCourseModal({
                 step="any"
                 required
               />
+            </div>
+
+            {/* Detección link */}
+            <div className="space-y-2">
+              <Label htmlFor="deteccion-search">Originado de detección <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+              <div className="relative" ref={detDropRef}>
+                <div className="flex items-center gap-1.5">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                    <input
+                      id="deteccion-search"
+                      type="text"
+                      value={detSearch}
+                      onChange={e => { setDetSearch(e.target.value); setDetDropOpen(true); }}
+                      onFocus={() => setDetDropOpen(true)}
+                      placeholder="Buscar detección..."
+                      autoComplete="off"
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
+                  {selectedDeteccionId && (
+                    <button type="button" onClick={clearDeteccion}
+                      className="p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      title="Limpiar selección">
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {detDropOpen && filteredDetecciones.length > 0 && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-52 overflow-y-auto">
+                    {filteredDetecciones.map(det => (
+                      <button
+                        key={det.id}
+                        type="button"
+                        onClick={() => applyDeteccion(det)}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors ${selectedDeteccionId === det.id ? 'bg-blue-50 font-medium text-[#2166be]' : ''}`}
+                      >
+                        {det.nombre}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {detDropOpen && detSearch && filteredDetecciones.length === 0 && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg px-3 py-2 text-sm text-muted-foreground">
+                    Sin resultados
+                  </div>
+                )}
+              </div>
+              {selectedDeteccionId && (
+                <p className="text-xs text-[#4A249D] font-medium flex items-center gap-1">
+                  <span className="inline-block w-2 h-2 rounded-full bg-[#4A249D]" />
+                  Datos DNC auto-rellenados desde la detección seleccionada
+                </p>
+              )}
             </div>
 
             {/* DNC collapsible section */}

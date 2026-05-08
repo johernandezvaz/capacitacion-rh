@@ -150,11 +150,11 @@ export default function DeteccionesPage() {
         filterDeptId ? groups.filter(g => g.id === filterDeptId) : groups,
         [groups, filterDeptId]);
 
-    const handleExportPdf = async () => {
+    const handleExportDeptPdf = async (grp: DeptGroup) => {
         if (!selectedYear) return;
-        const pdfGroups = filteredGroups.map(g => ({
-            nombre_completo: g.nombre,
-            empleados: g.empleados.map(emp => ({
+        const pdfDept = {
+            nombre_completo: grp.nombre,
+            empleados: grp.empleados.map(emp => ({
                 nombre: emp.nombre, puesto: emp.puesto,
                 detecciones: emp.detecciones.map(d => ({
                     nombre: d.nombre, color: d.color, status: d.status,
@@ -165,8 +165,13 @@ export default function DeteccionesPage() {
                     fecha_real: d.fecha_real, duration_hours: d.duration_hours,
                 })),
             })),
-        }));
-        await generateDeteccionesPdf({ year: selectedYear.year, plant_name: plantName || '', departamentos: pdfGroups });
+        };
+        await generateDeteccionesPdf({
+            year: selectedYear.year,
+            plant_name: plantName || '',
+            departamentos: [pdfDept],
+            codigo_departamento: grp.codigo,
+        });
     };
 
     const deptsWithData = departamentos.filter(d => groups.some(g => g.id === d.id));
@@ -198,9 +203,6 @@ export default function DeteccionesPage() {
                                 {deptsWithData.map(d => <option key={d.id} value={d.id}>{d.nombre_completo}</option>)}
                             </select>
                         )}
-                        <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={isLoading || filteredGroups.length === 0}>
-                            <FileDown className="w-4 h-4 mr-1" />PDF
-                        </Button>
                         <Button onClick={openCreate} className="bg-[#2166be] hover:bg-[#1a5299] text-white">
                             <Plus className="w-4 h-4 mr-1" />Nueva Detección
                         </Button>
@@ -223,8 +225,16 @@ export default function DeteccionesPage() {
                     <div className="space-y-8">
                         {filteredGroups.map(grp => (
                             <div key={grp.id ?? 'sin-dept'}>
-                                <div className="rounded-t-lg px-4 py-2.5 font-bold text-sm text-white" style={{ background: '#192b52' }}>
-                                    {grp.nombre}
+                            <div className="rounded-t-lg px-4 py-2.5 flex items-center justify-between" style={{ background: '#192b52' }}>
+                                    <span className="font-bold text-sm text-white">{grp.nombre}</span>
+                                    <button
+                                        onClick={() => handleExportDeptPdf(grp)}
+                                        className="flex items-center gap-1.5 text-xs font-medium text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded px-2.5 py-1 transition-colors"
+                                        title={`Exportar PDF — ${grp.nombre}`}
+                                    >
+                                        <FileDown className="w-3.5 h-3.5" />
+                                        Exportar PDF — {grp.nombre}
+                                    </button>
                                 </div>
                                 <div className="space-y-4 border border-t-0 rounded-b-lg overflow-hidden bg-white">
                                     {grp.empleados.map(emp => (
