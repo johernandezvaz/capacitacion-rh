@@ -19,6 +19,7 @@ type EmpOption = {
     id: string;
     nombre: string;
     puesto: string;
+    numero_empleado: string | null;
     departamento_id: string | null;
     departamento: string | null;
 };
@@ -81,13 +82,14 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
     const loadAllEmps = async () => {
         const { data } = await supabase
             .from('employees')
-            .select('id, nombre, puesto, departamento_id, departamentos!departamento_id(nombre_completo)')
+            .select('id, nombre, puesto, numero_empleado, departamento_id, departamentos!departamento_id(nombre_completo)')
             .eq('plant_id', plantId)
             .order('nombre');
         const mapped: EmpOption[] = (data || []).map((e: any) => ({
             id: e.id,
             nombre: e.nombre,
             puesto: e.puesto,
+            numero_empleado: e.numero_empleado ?? null,
             departamento_id: e.departamento_id,
             departamento: e.departamentos?.nombre_completo ?? null,
         }));
@@ -164,12 +166,16 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
         } finally { setIsSaving(false); }
     };
 
-    const filteredEmps = allEmps.filter(e =>
-        !empSearch ||
-        e.nombre.toLowerCase().includes(empSearch.toLowerCase()) ||
-        e.puesto?.toLowerCase().includes(empSearch.toLowerCase()) ||
-        e.departamento?.toLowerCase().includes(empSearch.toLowerCase())
-    );
+    const filteredEmps = allEmps.filter(e => {
+        if (!empSearch) return true;
+        const q = empSearch.toLowerCase();
+        return (
+            e.nombre.toLowerCase().includes(q) ||
+            e.puesto?.toLowerCase().includes(q) ||
+            e.departamento?.toLowerCase().includes(q) ||
+            (e.numero_empleado != null && e.numero_empleado.toLowerCase().includes(q))
+        );
+    });
 
     const selectedCount = selEmps.size;
 
@@ -224,7 +230,7 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                                 )}
                             </div>
                             <Input
-                                placeholder="Buscar por nombre, puesto o departamento..."
+                                placeholder="Buscar por nombre, puesto, depto. o # empleado..."
                                 value={empSearch}
                                 onChange={e => setEmpSearch(e.target.value)}
                             />
@@ -240,6 +246,9 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                                         }`}>
                                             <input type="checkbox" checked={selEmps.has(emp.id)} onChange={() => toggleEmp(emp.id)} className="w-4 h-4 rounded mt-0.5 flex-shrink-0" />
                                             <div className="min-w-0">
+                                                {emp.numero_empleado && (
+                                                    <span className="text-[10px] font-mono text-muted-foreground mr-1.5">#{emp.numero_empleado}</span>
+                                                )}
                                                 <span className="font-medium">{emp.nombre}</span>
                                                 <span className="text-muted-foreground ml-1">— {emp.puesto}</span>
                                                 {emp.departamento && (

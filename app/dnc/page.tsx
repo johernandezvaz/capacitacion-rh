@@ -178,19 +178,15 @@ export default function DncPage() {
         await supabase.from('courses').update({ comentario_dnc: value.trim() || null }).eq('id', courseId);
     };
 
-    // IDs of detecciones that already have a linked course
     const linkedDeteccionIds = useMemo(
         () => new Set(courses.map(c => c.deteccion_id).filter(Boolean) as string[]),
         [courses]
     );
-
-    // Detecciones filtered to exclude those with a linked course
     const visibleDetecciones = useMemo(
         () => detecciones.filter(d => !linkedDeteccionIds.has(d.id)),
         [detecciones, linkedDeteccionIds]
     );
 
-    // Merge and sort all rows by fecha_programada ASC
     const unifiedRows = useMemo<UnifiedRow[]>(() => {
         const all: UnifiedRow[] = [...courses, ...visibleDetecciones];
         return all.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
