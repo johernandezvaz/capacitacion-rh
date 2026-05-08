@@ -89,7 +89,7 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
             id: e.id,
             nombre: e.nombre,
             puesto: e.puesto,
-            numero_empleado: e.numero_empleado ?? null,
+            numero_empleado: e.employee_number ?? null,
             departamento_id: e.departamento_id,
             departamento: e.departamentos?.nombre_completo ?? null,
         }));
