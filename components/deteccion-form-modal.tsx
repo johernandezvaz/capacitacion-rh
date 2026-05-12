@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
-import { COLORES_DETECCION } from '@/lib/detecciones-utils';
 
 const CB = [
     { key: 'desarrollo_personal', label: 'Desarrollo Personal' },
@@ -36,7 +35,7 @@ interface Props {
 
 const EMPTY = {
     nombre: '', color: '#2166be', status: 'actualizacion',
-    inst_interno: '', proveedor_sugerido: '', costo: '',
+    inst_interno: '', inst_externo: '', proveedor_sugerido: '', costo: '',
     fecha_programada: '', fecha_real: '', duration_hours: '',
     desarrollo_personal: false, habilidades_blandas: false,
     prevencion_riesgos: false, habilidades_tecnicas: false,
@@ -62,7 +61,8 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
             const d = editingData;
             setForm({
                 nombre: d.nombre || '', color: d.color || '#2166be', status: d.status || 'actualizacion',
-                inst_interno: d.inst_interno || '', proveedor_sugerido: d.proveedor_sugerido || '',
+                inst_interno: d.inst_interno || '', inst_externo: d.inst_externo || '',
+                proveedor_sugerido: d.proveedor_sugerido || '',
                 costo: d.costo != null ? String(d.costo) : '',
                 fecha_programada: d.fecha_programada || '', fecha_real: d.fecha_real || '',
                 duration_hours: d.duration_hours != null ? String(d.duration_hours) : '',
@@ -113,6 +113,7 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                 nombre: form.nombre.trim(), color: form.color, status: form.status || null,
                 plant_id: plantId, year_id: yearId,
                 inst_interno: form.inst_interno.trim() || null,
+                inst_externo: form.inst_externo.trim() || null,
                 proveedor_sugerido: form.proveedor_sugerido.trim() || null,
                 costo: form.costo ? parseFloat(form.costo) : null,
                 fecha_programada: form.fecha_programada || null,
@@ -192,29 +193,6 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                         </div>
 
                         <div className="space-y-1.5">
-                            <Label>Estado</Label>
-                            <div className="grid grid-cols-4 gap-2">
-                                {COLORES_DETECCION.map(c => {
-                                    const active = form.color === c.hex;
-                                    return (
-                                        <button key={c.hex} type="button"
-                                            onClick={() => { f('color', c.hex); f('status', c.status); }}
-                                            className={`flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-all ${active ? 'border-gray-800 bg-gray-50 shadow-sm' : 'border-gray-200 hover:border-gray-400'
-                                                }`}>
-                                            <div className="relative w-8 h-8">
-                                                <span className="w-8 h-8 rounded-full block" style={{ background: c.hex }} />
-                                                {active && (
-                                                    <span className="absolute inset-0 flex items-center justify-center text-white text-sm font-bold">✓</span>
-                                                )}
-                                            </div>
-                                            <span className="text-[10px] text-center leading-tight text-muted-foreground">{c.label}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                                 <Label>Empleados</Label>
                                 {selectedCount > 0 && (
@@ -254,6 +232,7 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5"><Label>Inst. Interno</Label><Input value={form.inst_interno} onChange={e => f('inst_interno', e.target.value)} placeholder="—" /></div>
+                            <div className="space-y-1.5"><Label>Inst. Externo</Label><Input value={form.inst_externo} onChange={e => f('inst_externo', e.target.value)} placeholder="—" /></div>
                             <div className="space-y-1.5"><Label>Proveedor Sugerido</Label><Input value={form.proveedor_sugerido} onChange={e => f('proveedor_sugerido', e.target.value)} placeholder="—" /></div>
                             <div className="space-y-1.5"><Label>Costo</Label><Input type="number" min="0" step="any" value={form.costo} onChange={e => f('costo', e.target.value)} placeholder="0.00" /></div>
                             <div className="space-y-1.5"><Label>Duración (hrs)</Label><Input type="number" min="0" step="0.5" value={form.duration_hours} onChange={e => f('duration_hours', e.target.value)} placeholder="0" /></div>

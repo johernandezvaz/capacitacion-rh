@@ -17,6 +17,7 @@ type CourseData = {
     name: string;
     duration_hours: number | null;
     inst_interno: string | null;
+    inst_externo: string | null;
     proveedor_sugerido: string | null;
     costo: number | null;
     fecha_programada: string | null;
@@ -51,6 +52,7 @@ export default function CourseDncPage() {
 
     const [form, setForm] = useState({
         inst_interno: '',
+        inst_externo: '',
         proveedor_sugerido: '',
         costo: '',
         fecha_programada: '',
@@ -77,7 +79,7 @@ export default function CourseDncPage() {
                 .from('courses')
                 .select(`
                     id, name, duration_hours,
-                    inst_interno, proveedor_sugerido, costo,
+                    inst_interno, inst_externo, proveedor_sugerido, costo,
                     fecha_programada, fecha_real,
                     desarrollo_personal, habilidades_blandas,
                     prevencion_riesgos, habilidades_tecnicas,
@@ -95,6 +97,7 @@ export default function CourseDncPage() {
                 name: courseData.name,
                 duration_hours: courseData.duration_hours,
                 inst_interno: courseData.inst_interno,
+                inst_externo: courseData.inst_externo,
                 proveedor_sugerido: courseData.proveedor_sugerido,
                 costo: courseData.costo,
                 fecha_programada: courseData.fecha_programada,
@@ -110,6 +113,7 @@ export default function CourseDncPage() {
 
             setForm({
                 inst_interno: c.inst_interno || '',
+                inst_externo: c.inst_externo || '',
                 proveedor_sugerido: c.proveedor_sugerido || '',
                 costo: c.costo != null ? String(c.costo) : '',
                 fecha_programada: c.fecha_programada || '',
@@ -163,6 +167,7 @@ export default function CourseDncPage() {
         try {
             const payload = {
                 inst_interno: form.inst_interno.trim() || null,
+                inst_externo: form.inst_externo.trim() || null,
                 proveedor_sugerido: form.proveedor_sugerido.trim() || null,
                 costo: form.costo ? parseFloat(form.costo) : null,
                 fecha_programada: form.fecha_programada || null,
@@ -203,6 +208,7 @@ export default function CourseDncPage() {
                 course: {
                     name: course.name,
                     inst_interno: form.inst_interno.trim() || null,
+                    inst_externo: form.inst_externo.trim() || null,
                     proveedor_sugerido: form.proveedor_sugerido.trim() || null,
                     costo: form.costo ? parseFloat(form.costo) : null,
                     desarrollo_personal: form.desarrollo_personal,
@@ -333,6 +339,17 @@ export default function CourseDncPage() {
                                     placeholder="—"
                                     value={form.inst_interno}
                                     onChange={e => setForm(f => ({ ...f, inst_interno: e.target.value }))}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label htmlFor="dnc-inst-externo" className="text-sm font-medium">Inst. Externo</Label>
+                                <Input
+                                    id="dnc-inst-externo"
+                                    type="text"
+                                    placeholder="—"
+                                    value={form.inst_externo}
+                                    onChange={e => setForm(f => ({ ...f, inst_externo: e.target.value }))}
                                 />
                             </div>
 

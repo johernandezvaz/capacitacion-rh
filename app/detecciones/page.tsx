@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Pencil, FileDown, ClipboardCheck, Settings2 } from 'lucide-react';
+import { Plus, Pencil, FileDown, ClipboardCheck, PencilLine } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase, Departamento } from '@/lib/supabase';
@@ -18,7 +18,7 @@ export { StatusCombo } from '@/lib/detecciones-utils';
 
 type DetRow = {
     id: string; nombre: string; color: string; status: string | null;
-    inst_interno: string | null; proveedor_sugerido: string | null; costo: number | null;
+    inst_interno: string | null; inst_externo: string | null; proveedor_sugerido: string | null; costo: number | null;
     desarrollo_personal: boolean; habilidades_blandas: boolean;
     prevencion_riesgos: boolean; habilidades_tecnicas: boolean;
     fecha_programada: string | null; fecha_real: string | null; duration_hours: number | null;
@@ -33,6 +33,7 @@ type DeptGroup = { id: string | null; nombre: string; codigo: string; empleados:
 
 const CB_COLS = [
     { key: 'inst_interno', label: 'Inst. Int.' },
+    { key: 'inst_externo', label: 'Inst. Ext.' },
     { key: 'proveedor_sugerido', label: 'Proveedor' },
     { key: 'costo', label: 'Costo' },
     { key: 'desarrollo_personal', label: 'Des.P', bool: true },
@@ -229,7 +230,7 @@ export default function DeteccionesPage() {
                     nombre: d.nombre,
                     color: d.emp_color ?? d.color,
                     status: d.emp_status ?? d.status,
-                    inst_interno: d.inst_interno, proveedor_sugerido: d.proveedor_sugerido,
+                    inst_interno: d.inst_interno, inst_externo: d.inst_externo, proveedor_sugerido: d.proveedor_sugerido,
                     costo: d.costo, desarrollo_personal: d.desarrollo_personal,
                     habilidades_blandas: d.habilidades_blandas, prevencion_riesgos: d.prevencion_riesgos,
                     habilidades_tecnicas: d.habilidades_tecnicas, fecha_programada: d.fecha_programada,
@@ -310,78 +311,88 @@ export default function DeteccionesPage() {
                                 <div className="space-y-4 border border-t-0 rounded-b-lg overflow-hidden bg-white">
                                     {grp.empleados.map(emp => (
                                         <div key={emp.id}>
+                                            {/* Encabezado del empleado */}
                                             <div className="px-4 py-2 text-sm font-semibold text-white flex items-center gap-3" style={{ background: '#374151' }}>
                                                 <span>{emp.nombre}</span>
                                                 <span className="font-normal opacity-75">· {emp.puesto}</span>
                                             </div>
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-xs">
-                                                    <thead>
-                                                        <tr className="border-b bg-slate-50">
-                                                            <th className="text-left py-2 px-3 font-semibold text-[#192b52] min-w-[160px]">Detección</th>
-                                                            {CB_COLS.map(c => (
-                                                                <th key={c.key} className="text-center py-2 px-2 font-semibold text-[#192b52] whitespace-nowrap">{c.label}</th>
-                                                            ))}
-                                                            <th className="text-right py-2 px-3 font-semibold text-[#192b52]">Acción</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {emp.detecciones.map((det, di) => {
-                                                            const colorActivo = det.emp_color ?? det.color;
-                                                            const statusActivo = det.emp_status ?? det.status;
-                                                            const col = COLORES_DETECCION.find(c => c.hex === colorActivo);
-                                                            const sc = statusActivo ? STATUS_CONFIG[statusActivo] : null;
 
-                                                            return (
-                                                                <tr key={det._emp_key || det.id} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${di % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                                                                    <td className="py-2 px-3 min-w-[160px]">
-                                                                        <div>
-                                                                            <span className="font-medium block leading-snug">{det.nombre}</span>
-                                                                            {col && (
-                                                                                <span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full text-white mt-0.5" style={{ background: colorActivo }}>
-                                                                                    {col.label}
-                                                                                </span>
-                                                                            )}
-                                                                            {sc && <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full mt-0.5 ${sc.bg}`}>{sc.label}</span>}
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="py-2 px-2 text-center text-muted-foreground">{det.inst_interno || '—'}</td>
-                                                                    <td className="py-2 px-2 text-center text-muted-foreground">{det.proveedor_sugerido || '—'}</td>
-                                                                    <td className="py-2 px-2 text-center text-muted-foreground">{det.costo != null ? `$${det.costo}` : '—'}</td>
-                                                                    {(['desarrollo_personal', 'habilidades_blandas', 'prevencion_riesgos', 'habilidades_tecnicas'] as const).map(k => (
-                                                                        <td key={k} className={`py-2 px-2 text-center font-semibold ${det[k] ? 'text-green-600' : 'text-muted-foreground'}`}>
-                                                                            {det[k] ? '✓' : '—'}
-                                                                        </td>
-                                                                    ))}
-                                                                    <td className="py-2 px-2 text-center text-muted-foreground">{fmtDate(det.fecha_programada)}</td>
-                                                                    <td className="py-2 px-2 text-center text-muted-foreground">{fmtDate(det.fecha_real)}</td>
-                                                                    <td className="py-2 px-2 text-center text-muted-foreground">{det.duration_hours != null ? `${det.duration_hours}h` : '—'}</td>
-                                                                    <td className="py-2 px-3 text-right">
-                                                                        <div className="flex items-center justify-end gap-1">
+                                            {/* Tabla agrupada por detección */}
+                                            {emp.detecciones.map((det, di) => {
+                                                const colorActivo = det.emp_color ?? det.color;
+                                                const statusActivo = det.emp_status ?? det.status;
+                                                const col = COLORES_DETECCION.find(c => c.hex === colorActivo);
+                                                const sc = statusActivo ? STATUS_CONFIG[statusActivo] : null;
+
+                                                return (
+                                                    <div key={det._emp_key || det.id}>
+                                                        {/* Sub-encabezado de detección con botón "Editar detección" */}
+                                                        <div className="px-4 py-1.5 flex items-center justify-between" style={{ background: '#4b5563' }}>
+                                                            <div className="flex items-center gap-2">
+                                                                {col && (
+                                                                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 inline-block" style={{ background: colorActivo }} />
+                                                                )}
+                                                                <span className="text-xs font-semibold text-white">{det.nombre}</span>
+                                                                {col && (
+                                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full text-white/90 font-medium" style={{ background: `${colorActivo}99` }}>
+                                                                        {col.label}
+                                                                    </span>
+                                                                )}
+                                                                {sc && <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${sc.bg}`}>{sc.label}</span>}
+                                                            </div>
+                                                            <Button
+                                                                size="sm" variant="ghost"
+                                                                className="h-6 px-2 text-white/70 hover:text-white hover:bg-white/10 text-[10px] flex items-center gap-1"
+                                                                title="Editar detección completa"
+                                                                onClick={() => openEdit(det)}
+                                                            >
+                                                                <Pencil className="w-3 h-3" />
+                                                                Editar detección
+                                                            </Button>
+                                                        </div>
+
+                                                        {/* Fila de datos del empleado para esta detección */}
+                                                        <div className="overflow-x-auto">
+                                                            <table className="w-full text-xs">
+                                                                <thead>
+                                                                    <tr className="border-b bg-slate-50">
+                                                                        {CB_COLS.map(c => (
+                                                                            <th key={c.key} className="text-center py-2 px-2 font-semibold text-[#192b52] whitespace-nowrap">{c.label}</th>
+                                                                        ))}
+                                                                        <th className="text-right py-2 px-3 font-semibold text-[#192b52]">Estado</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    <tr className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${di % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{det.inst_interno || '—'}</td>
+                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{det.inst_externo || '—'}</td>
+                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{det.proveedor_sugerido || '—'}</td>
+                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{det.costo != null ? `$${det.costo}` : '—'}</td>
+                                                                        {(['desarrollo_personal', 'habilidades_blandas', 'prevencion_riesgos', 'habilidades_tecnicas'] as const).map(k => (
+                                                                            <td key={k} className={`py-2 px-2 text-center font-semibold ${det[k] ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                                                                {det[k] ? '✓' : '—'}
+                                                                            </td>
+                                                                        ))}
+                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{fmtDate(det.fecha_programada)}</td>
+                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{fmtDate(det.fecha_real)}</td>
+                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{det.duration_hours != null ? `${det.duration_hours}h` : '—'}</td>
+                                                                        <td className="py-2 px-3 text-right">
                                                                             <Button
                                                                                 size="sm" variant="ghost"
                                                                                 className="h-7 px-2 text-muted-foreground hover:text-[#192b52] hover:bg-slate-100"
-                                                                                title="Cambiar estado individual"
+                                                                                title={`Estado de ${emp.nombre} — ${det.nombre}`}
                                                                                 onClick={() => openEstadoIndividual(emp, det)}
                                                                             >
-                                                                                <Settings2 className="w-3.5 h-3.5" />
+                                                                                <PencilLine className="w-3.5 h-3.5" />
                                                                             </Button>
-                                                                            <Button
-                                                                                size="sm" variant="ghost"
-                                                                                className="h-7 px-2 text-[#2166be] hover:text-[#1a5299] hover:bg-blue-50"
-                                                                                title="Editar detección"
-                                                                                onClick={() => openEdit(det)}
-                                                                            >
-                                                                                <Pencil className="w-3.5 h-3.5" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     ))}
                                 </div>

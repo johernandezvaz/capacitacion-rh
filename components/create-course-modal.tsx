@@ -35,6 +35,7 @@ interface DeteccionOption {
   id: string;
   nombre: string;
   inst_interno: string | null;
+  inst_externo: string | null;
   proveedor_sugerido: string | null;
   costo: number | null;
   desarrollo_personal: boolean;
@@ -69,9 +70,9 @@ export function CreateCourseModal({
   const [duration, setDuration] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // DNC fields
   const [isDncOpen, setIsDncOpen] = useState(false);
   const [instInterno, setInstInterno] = useState('');
+  const [instExterno, setInstExterno] = useState('');
   const [proveedorSugerido, setProveedorSugerido] = useState('');
   const [costo, setCosto] = useState('');
   const [fechaProgramada, setFechaProgramada] = useState('');
@@ -82,7 +83,6 @@ export function CreateCourseModal({
   const [habilidadesTecnicas, setHabilidadesTecnicas] = useState(false);
   const [comentarioDnc, setComentarioDnc] = useState('');
 
-  // Detección link
   const [detecciones, setDetecciones] = useState<DeteccionOption[]>([]);
   const [selectedDeteccionId, setSelectedDeteccionId] = useState<string | null>(null);
   const [detSearch, setDetSearch] = useState('');
@@ -91,7 +91,6 @@ export function CreateCourseModal({
 
   const { toast } = useToast();
 
-  // Load available detecciones (without linked course) when modal opens
   useEffect(() => {
     if (open && plantId && yearId) {
       loadDetecciones();
@@ -99,7 +98,6 @@ export function CreateCourseModal({
   }, [open, plantId, yearId]);
 
   const loadDetecciones = async () => {
-    // Get deteccion_ids already linked to courses
     const { data: linked } = await supabase
       .from('courses')
       .select('deteccion_id')
@@ -111,7 +109,7 @@ export function CreateCourseModal({
 
     let query = supabase
       .from('detecciones')
-      .select('id, nombre, inst_interno, proveedor_sugerido, costo, desarrollo_personal, habilidades_blandas, prevencion_riesgos, habilidades_tecnicas, fecha_programada, fecha_real, duration_hours')
+      .select('id, nombre, inst_interno, inst_externo, proveedor_sugerido, costo, desarrollo_personal, habilidades_blandas, prevencion_riesgos, habilidades_tecnicas, fecha_programada, fecha_real, duration_hours')
       .eq('plant_id', plantId)
       .eq('year_id', yearId)
       .order('nombre', { ascending: true });
@@ -124,7 +122,6 @@ export function CreateCourseModal({
     setDetecciones((data as DeteccionOption[]) || []);
   };
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (detDropRef.current && !detDropRef.current.contains(e.target as Node)) {
@@ -135,7 +132,6 @@ export function CreateCourseModal({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Apply prefill whenever the modal opens with a prefill object
   useEffect(() => {
     if (open && prefill) {
       setName(prefill.name ?? '');
@@ -150,7 +146,7 @@ export function CreateCourseModal({
       setPrevencionRiesgos(prefill.prevencionRiesgos ?? false);
       setHabilidadesTecnicas(prefill.habilidadesTecnicas ?? false);
       setComentarioDnc(prefill.comentarioDnc ?? '');
-      setIsDncOpen(true); // expand DNC section when prefilling from detección
+      setIsDncOpen(true);
     }
   }, [open, prefill]);
 
@@ -158,8 +154,8 @@ export function CreateCourseModal({
     setSelectedDeteccionId(det.id);
     setDetSearch(det.nombre);
     setDetDropOpen(false);
-    // Auto-fill DNC fields
     setInstInterno(det.inst_interno ?? '');
+    setInstExterno(det.inst_externo ?? '');
     setProveedorSugerido(det.proveedor_sugerido ?? '');
     setCosto(det.costo != null ? String(det.costo) : '');
     setDesarrolloPersonal(det.desarrollo_personal);
@@ -175,8 +171,8 @@ export function CreateCourseModal({
   const clearDeteccion = () => {
     setSelectedDeteccionId(null);
     setDetSearch('');
-    // Clear DNC fields
     setInstInterno('');
+    setInstExterno('');
     setProveedorSugerido('');
     setCosto('');
     setDesarrolloPersonal(false);
@@ -194,6 +190,7 @@ export function CreateCourseModal({
     setDuration('');
     setIsDncOpen(false);
     setInstInterno('');
+    setInstExterno('');
     setProveedorSugerido('');
     setCosto('');
     setFechaProgramada('');
@@ -254,8 +251,8 @@ export function CreateCourseModal({
           duration_hours: durationNumber,
           status: 'active',
           plant_id: plantId || null,
-          // DNC fields
           inst_interno: instInterno.trim() || null,
+          inst_externo: instExterno.trim() || null,
           proveedor_sugerido: proveedorSugerido.trim() || null,
           costo: costo ? parseFloat(costo) : null,
           fecha_programada: fechaProgramada || null,
@@ -265,7 +262,6 @@ export function CreateCourseModal({
           prevencion_riesgos: prevencionRiesgos,
           habilidades_tecnicas: habilidadesTecnicas,
           comentario_dnc: comentarioDnc.trim() || null,
-          // Detección link
           deteccion_id: selectedDeteccionId || null,
         },
       ]);
@@ -354,7 +350,6 @@ export function CreateCourseModal({
               />
             </div>
 
-            {/* Detección link */}
             <div className="space-y-2">
               <Label htmlFor="deteccion-search">Originado de detección <span className="text-muted-foreground font-normal">(opcional)</span></Label>
               <div className="relative" ref={detDropRef}>
@@ -410,7 +405,6 @@ export function CreateCourseModal({
               )}
             </div>
 
-            {/* DNC collapsible section */}
             <div className="border rounded-lg overflow-hidden">
               <button
                 type="button"
@@ -432,6 +426,16 @@ export function CreateCourseModal({
                         placeholder="Instructor interno"
                         value={instInterno}
                         onChange={(e) => setInstInterno(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="inst-externo">Inst. Externo</Label>
+                      <Input
+                        id="inst-externo"
+                        type="text"
+                        placeholder="Instructor externo"
+                        value={instExterno}
+                        onChange={(e) => setInstExterno(e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">

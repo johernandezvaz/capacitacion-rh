@@ -27,6 +27,7 @@ type CourseItem = {
     fecha_programada: string | null;
     fecha_real: string | null;
     inst_interno: string | null;
+    inst_externo: string | null;
     proveedor_sugerido: string | null;
     costo: number | null;
     duration_hours: number | null;
@@ -47,6 +48,7 @@ type DetItem = {
     fecha_programada: string | null;
     fecha_real: string | null;
     inst_interno: string | null;
+    inst_externo: string | null;
     proveedor_sugerido: string | null;
     costo: number | null;
     duration_hours: number | null;
@@ -61,6 +63,7 @@ type UnifiedItem = CourseItem | DetItem;
 
 const DNC_FIELDS: { key: keyof CourseItem & keyof DetItem; label: string; bool?: boolean; date?: boolean; money?: boolean }[] = [
     { key: 'inst_interno', label: 'Inst. Interno' },
+    { key: 'inst_externo', label: 'Inst. Externo' },
     { key: 'proveedor_sugerido', label: 'Proveedor' },
     { key: 'costo', label: 'Costo', money: true },
     { key: 'duration_hours', label: 'Duración' },
@@ -104,7 +107,7 @@ export default function DncGeneralPage() {
             // ── Courses ────────────────────────────────────────────────────────
             const { data: coursesRaw } = await supabase
                 .from('courses')
-                .select('id, name, date, fecha_programada, fecha_real, inst_interno, proveedor_sugerido, costo, duration_hours, desarrollo_personal, habilidades_blandas, prevencion_riesgos, habilidades_tecnicas, deteccion_id')
+                .select('id, name, date, fecha_programada, fecha_real, inst_interno, inst_externo, proveedor_sugerido, costo, duration_hours, desarrollo_personal, habilidades_blandas, prevencion_riesgos, habilidades_tecnicas, deteccion_id')
                 .eq('plant_id', plantId)
                 .eq('year_id', selectedYearId)
                 .order('date', { ascending: true, nullsFirst: false });
@@ -136,6 +139,7 @@ export default function DncGeneralPage() {
                 fecha_programada: c.fecha_programada ?? null,
                 fecha_real: c.fecha_real ?? null,
                 inst_interno: c.inst_interno ?? null,
+                inst_externo: c.inst_externo ?? null,
                 proveedor_sugerido: c.proveedor_sugerido ?? null,
                 costo: c.costo ?? null,
                 duration_hours: c.duration_hours ?? null,
@@ -154,7 +158,7 @@ export default function DncGeneralPage() {
 
             let detQuery = supabase
                 .from('detecciones')
-                .select('id, nombre, color, fecha_programada, fecha_real, inst_interno, proveedor_sugerido, costo, duration_hours, desarrollo_personal, habilidades_blandas, prevencion_riesgos, habilidades_tecnicas')
+                .select('id, nombre, color, fecha_programada, fecha_real, inst_interno, inst_externo, proveedor_sugerido, costo, duration_hours, desarrollo_personal, habilidades_blandas, prevencion_riesgos, habilidades_tecnicas')
                 .eq('plant_id', plantId)
                 .eq('year_id', selectedYearId)
                 .order('fecha_programada', { ascending: true, nullsFirst: false });
@@ -190,6 +194,7 @@ export default function DncGeneralPage() {
                 fecha_programada: d.fecha_programada ?? null,
                 fecha_real: d.fecha_real ?? null,
                 inst_interno: d.inst_interno ?? null,
+                inst_externo: d.inst_externo ?? null,
                 proveedor_sugerido: d.proveedor_sugerido ?? null,
                 costo: d.costo ?? null,
                 duration_hours: d.duration_hours ?? null,

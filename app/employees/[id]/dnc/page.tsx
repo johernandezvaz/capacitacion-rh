@@ -13,6 +13,7 @@ import { generateDncPdf } from '@/lib/dnc-pdf';
 type DncRow = {
   curso: string;
   inst_interno: string | null;
+  inst_externo: string | null;
   proveedor_sugerido: string | null;
   costo: number | null;
   desarrollo_personal: boolean;
@@ -33,9 +34,9 @@ type DeteccionRow = {
 };
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string }> = {
-  tomado:        { label: 'Tomado',        bg: 'bg-green-100 text-green-800' },
-  no_tomado:     { label: 'No tomado',     bg: 'bg-red-100 text-red-800' },
-  reprogramado:  { label: 'Reprogramado',  bg: 'bg-yellow-100 text-yellow-800' },
+  tomado: { label: 'Tomado', bg: 'bg-green-100 text-green-800' },
+  no_tomado: { label: 'No tomado', bg: 'bg-red-100 text-red-800' },
+  reprogramado: { label: 'Reprogramado', bg: 'bg-yellow-100 text-yellow-800' },
   actualizacion: { label: 'Actualización', bg: 'bg-blue-100 text-blue-800' },
 };
 
@@ -75,7 +76,6 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
       const mapped = (data as any[])
         .map(r => r.detecciones)
         .filter(Boolean) as DeteccionRow[];
-      // sort by fecha_programada desc (nulls last), then nombre
       mapped.sort((a, b) => {
         if (!a.fecha_programada && !b.fecha_programada) return a.nombre.localeCompare(b.nombre);
         if (!a.fecha_programada) return 1;
@@ -94,6 +94,7 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
         courses: rows.map((r) => ({
           name: r.curso,
           inst_interno: r.inst_interno,
+          inst_externo: r.inst_externo,
           proveedor_sugerido: r.proveedor_sugerido,
           costo: r.costo,
           desarrollo_personal: r.desarrollo_personal,
@@ -124,7 +125,7 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
           .from('course_participants')
           .select(`
             course:courses!course_id(
-              name, inst_interno, proveedor_sugerido, costo,
+              name, inst_interno, inst_externo, proveedor_sugerido, costo,
               desarrollo_personal, habilidades_blandas, prevencion_riesgos,
               habilidades_tecnicas, fecha_programada, fecha_real, duration_hours
             )
@@ -145,6 +146,7 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
         .map((row: any) => ({
           curso: row.course.name || '—',
           inst_interno: row.course.inst_interno ?? null,
+          inst_externo: row.course.inst_externo ?? null,
           proveedor_sugerido: row.course.proveedor_sugerido ?? null,
           costo: row.course.costo ?? null,
           desarrollo_personal: row.course.desarrollo_personal ?? false,
@@ -194,7 +196,6 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
           Volver al empleado
         </Button>
 
-        {/* ── DNC de cursos ── */}
         <Card className="border-none shadow-lg">
           <CardHeader>
             <div className="flex items-start justify-between gap-4">
@@ -225,6 +226,7 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
                     <tr className="border-b text-muted-foreground text-xs">
                       <th className="text-left py-2 px-3 font-medium whitespace-nowrap">Curso</th>
                       <th className="text-left py-2 px-3 font-medium whitespace-nowrap">Inst. Interno</th>
+                      <th className="text-left py-2 px-3 font-medium whitespace-nowrap">Inst. Externo</th>
                       <th className="text-left py-2 px-3 font-medium whitespace-nowrap">Proveedor Sugerido</th>
                       <th className="text-right py-2 px-3 font-medium whitespace-nowrap">Costo</th>
                       <th className="text-center py-2 px-3 font-medium whitespace-nowrap">Des. Personal</th>
@@ -241,6 +243,7 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
                       <tr key={i} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
                         <td className="py-2 px-3 font-medium">{row.curso}</td>
                         <td className="py-2 px-3 text-muted-foreground">{row.inst_interno || '—'}</td>
+                        <td className="py-2 px-3 text-muted-foreground">{row.inst_externo || '—'}</td>
                         <td className="py-2 px-3 text-muted-foreground">{row.proveedor_sugerido || '—'}</td>
                         <td className="py-2 px-3 text-right">
                           {row.costo != null ? row.costo.toLocaleString('es-MX') : '—'}
@@ -263,7 +266,6 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
           </CardContent>
         </Card>
 
-        {/* ── Detecciones asignadas ── */}
         <Card className="border-none shadow-lg mt-6">
           <CardHeader className="pb-4 border-b">
             <CardTitle className="text-lg font-semibold text-[#192b52]">Detecciones</CardTitle>

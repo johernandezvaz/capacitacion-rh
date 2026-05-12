@@ -4,6 +4,7 @@ import autoTable from 'jspdf-autotable';
 export interface DncCourse {
     name: string;
     inst_interno: string | null;
+    inst_externo: string | null;
     proveedor_sugerido: string | null;
     costo: number | null;
     desarrollo_personal: boolean;
@@ -96,7 +97,7 @@ export async function generateDncPdf(data: DncPdfData): Promise<void> {
 
     // ── Tabla de cursos ──
     const head = [[
-        'Curso', 'Inst. Interno', 'Proveedor', 'Costo',
+        'Curso', 'Inst. Interno', 'Inst. Externo', 'Proveedor', 'Costo',
         'Des.\nPersonal', 'Hab.\nBlandas', 'Prev.\nRiesgos', 'Hab.\nTécnicas',
         'F. Programada', 'F. Real', 'Duración\n(hrs)',
     ]];
@@ -104,6 +105,7 @@ export async function generateDncPdf(data: DncPdfData): Promise<void> {
     const body = data.courses.map((c) => [
         d(c.name),
         d(c.inst_interno),
+        d(c.inst_externo),
         d(c.proveedor_sugerido),
         fmtCost(c.costo),
         bool(c.desarrollo_personal),
@@ -134,17 +136,18 @@ export async function generateDncPdf(data: DncPdfData): Promise<void> {
         margin: { left: M, right: M },
         tableWidth: W - M * 2,
         columnStyles: {
-            0: { cellWidth: 45 },
-            1: { cellWidth: 22 },
-            2: { cellWidth: 25 },
-            3: { cellWidth: 18, halign: 'right' },
-            4: { cellWidth: 14, halign: 'center' },
-            5: { cellWidth: 14, halign: 'center' },
-            6: { cellWidth: 14, halign: 'center' },
-            7: { cellWidth: 14, halign: 'center' },
-            8: { cellWidth: 20, halign: 'center' },
-            9: { cellWidth: 20, halign: 'center' },
+            0: { cellWidth: 40 },
+            1: { cellWidth: 20 },
+            2: { cellWidth: 20 },
+            3: { cellWidth: 22 },
+            4: { cellWidth: 16, halign: 'right' },
+            5: { cellWidth: 13, halign: 'center' },
+            6: { cellWidth: 13, halign: 'center' },
+            7: { cellWidth: 13, halign: 'center' },
+            8: { cellWidth: 13, halign: 'center' },
+            9: { cellWidth: 18, halign: 'center' },
             10: { cellWidth: 18, halign: 'center' },
+            11: { cellWidth: 16, halign: 'center' },
         },
     });
 

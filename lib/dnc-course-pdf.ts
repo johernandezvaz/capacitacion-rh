@@ -5,6 +5,7 @@ export interface DncCoursePdfData {
     course: {
         name: string;
         inst_interno: string | null;
+        inst_externo: string | null;
         proveedor_sugerido: string | null;
         costo: number | null;
         desarrollo_personal: boolean;
@@ -88,6 +89,7 @@ export async function generateDncCoursePdf(data: DncCoursePdfData): Promise<void
 
     const dncRows: [string, string][] = [
         ['Inst. Interno', d(data.course.inst_interno)],
+        ['Inst. Externo', d(data.course.inst_externo)],
         ['Proveedor Sugerido', d(data.course.proveedor_sugerido)],
         ['Costo', fmtCost(data.course.costo)],
         ['Duración (hrs)', data.course.duration_hours != null ? `${data.course.duration_hours} hrs` : '—'],

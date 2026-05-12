@@ -7,6 +7,7 @@ export interface DeteccionesPdfDeteccion {
     color: string;
     status: string | null;
     inst_interno: string | null;
+    inst_externo: string | null;
     proveedor_sugerido: string | null;
     costo: number | null;
     desarrollo_personal: boolean;
@@ -33,7 +34,6 @@ export interface DeteccionesPdfData {
     year: number;
     plant_name: string;
     departamentos: DeteccionesPdfDepartamento[];
-    /** When exporting a single department, pass its code for the filename */
     codigo_departamento?: string;
 }
 
@@ -98,6 +98,7 @@ export async function generateDeteccionesPdf(data: DeteccionesPdfData): Promise<
             doc.setPage(i);
             doc.setFontSize(7).setFont('helvetica', 'normal').setTextColor(130, 130, 130);
             doc.text('DNC — Detección de Necesidades de Capacitación', M, H - 5);
+            doc.text('04 S10 F 23 2', W / 2, H - 5, { align: 'center' });
             doc.text(`Página ${i} de ${total}`, W - M, H - 5, { align: 'right' });
         }
     };
@@ -124,11 +125,12 @@ export async function generateDeteccionesPdf(data: DeteccionesPdfData): Promise<
 
             autoTable(doc, {
                 startY: Y,
-                head: [['Detección', 'Status', 'Inst.Int.', 'Proveedor', 'Costo', 'Des.P', 'Hab.B', 'Prev.R', 'Hab.T', 'F.Prog', 'F.Real', 'Hrs']],
+                head: [['Detección', 'Status', 'Inst.Int.', 'Inst.Ext.', 'Proveedor', 'Costo', 'Des.P', 'Hab.B', 'Prev.R', 'Hab.T', 'F.Prog', 'F.Real', 'Hrs']],
                 body: emp.detecciones.map(det => [
                     det.nombre,
                     statusLabel(det.status),
                     d(det.inst_interno),
+                    d(det.inst_externo),
                     d(det.proveedor_sugerido),
                     fmtCost(det.costo),
                     check(det.desarrollo_personal),
@@ -145,17 +147,18 @@ export async function generateDeteccionesPdf(data: DeteccionesPdfData): Promise<
                 alternateRowStyles: { fillColor: ALT },
                 columnStyles: {
                     0: { cellWidth: 'auto' },
-                    1: { cellWidth: 22, halign: 'center' },
-                    2: { cellWidth: 22 },
-                    3: { cellWidth: 22 },
-                    4: { cellWidth: 18, halign: 'right' },
-                    5: { cellWidth: 12, halign: 'center' },
-                    6: { cellWidth: 12, halign: 'center' },
-                    7: { cellWidth: 12, halign: 'center' },
-                    8: { cellWidth: 12, halign: 'center' },
-                    9: { cellWidth: 20, halign: 'center' },
-                    10: { cellWidth: 20, halign: 'center' },
-                    11: { cellWidth: 14, halign: 'center' },
+                    1: { cellWidth: 20, halign: 'center' },
+                    2: { cellWidth: 20 },
+                    3: { cellWidth: 20 },
+                    4: { cellWidth: 20 },
+                    5: { cellWidth: 16, halign: 'right' },
+                    6: { cellWidth: 11, halign: 'center' },
+                    7: { cellWidth: 11, halign: 'center' },
+                    8: { cellWidth: 11, halign: 'center' },
+                    9: { cellWidth: 11, halign: 'center' },
+                    10: { cellWidth: 18, halign: 'center' },
+                    11: { cellWidth: 18, halign: 'center' },
+                    12: { cellWidth: 12, halign: 'center' },
                 },
                 margin: { left: M, right: M },
                 tableWidth: W - M * 2,
