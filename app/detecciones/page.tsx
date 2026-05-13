@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Pencil, FileDown, ClipboardCheck, PencilLine } from 'lucide-react';
+import { Plus, Pencil, FileDown, ClipboardCheck, PencilLine, Trash2, UserMinus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase, Departamento } from '@/lib/supabase';
@@ -185,6 +185,40 @@ export default function DeteccionesPage() {
         } catch (err) { console.error(err); } finally { setIsLoading(false); }
     };
 
+    const [confirmDeleteDet, setConfirmDeleteDet] = useState<string | null>(null);
+    const [confirmRemoveEmp, setConfirmRemoveEmp] = useState<{ detId: string; empId: string; empKey: string } | null>(null);
+
+    const handleDeleteDeteccion = async (detId: string) => {
+        try {
+            await supabase.from('deteccion_empleados').delete().eq('deteccion_id', detId);
+            await supabase.from('deteccion_departamentos').delete().eq('deteccion_id', detId);
+            await supabase.from('detecciones').delete().eq('id', detId);
+            setConfirmDeleteDet(null);
+            toast({ title: 'Detección eliminada' });
+            fetchData();
+        } catch (err: any) {
+            toast({ title: 'Error', description: err.message || 'No se pudo eliminar', variant: 'destructive' });
+        }
+    };
+
+    const handleRemoveEmpleado = async (detId: string, empId: string, empKey: string) => {
+        try {
+            await supabase.from('deteccion_empleados').delete().eq('deteccion_id', detId).eq('employee_id', empId);
+            setConfirmRemoveEmp(null);
+            setGroups(prev =>
+                prev.map(grp => ({
+                    ...grp,
+                    empleados: grp.empleados
+                        .map(emp => ({ ...emp, detecciones: emp.detecciones.filter(d => d._emp_key !== empKey) }))
+                        .filter(emp => emp.detecciones.length > 0),
+                })).filter(grp => grp.empleados.length > 0)
+            );
+            toast({ title: 'Empleado quitado de la detección' });
+        } catch (err: any) {
+            toast({ title: 'Error', description: err.message || 'No se pudo quitar', variant: 'destructive' });
+        }
+    };
+
     const openCreate = () => { setEditingId(null); setEditingData(null); setModalOpen(true); };
     const openEdit = (det: DetRow) => { setEditingId(det.id); setEditingData(det); setModalOpen(true); };
 
@@ -337,15 +371,65 @@ export default function DeteccionesPage() {
                                                                 )}
                                                                 {sc && <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${sc.bg}`}>{sc.label}</span>}
                                                             </div>
-                                                            <Button
-                                                                size="sm" variant="ghost"
-                                                                className="h-6 px-2 text-white/70 hover:text-white hover:bg-white/10 text-[10px] flex items-center gap-1"
-                                                                title="Editar detección completa"
-                                                                onClick={() => openEdit(det)}
-                                                            >
-                                                                <Pencil className="w-3 h-3" />
-                                                                Editar detección
-                                                            </Button>
+                                                            <div className="flex items-center gap-1">
+                                                                <Button
+                                                                    size="sm" variant="ghost"
+                                                                    className="h-6 px-2 text-white/70 hover:text-white hover:bg-white/10 text-[10px] flex items-center gap-1"
+                                                                    title="Editar detección completa"
+                                                                    onClick={() => { setConfirmDeleteDet(null); setConfirmRemoveEmp(null); openEdit(det); }}
+                                                                >
+                                                                    <Pencil className="w-3 h-3" />
+                                                                    Editar
+                                                                </Button>
+
+                                                                {/* Quitar empleado de esta detección */}
+                                                                {confirmRemoveEmp?.empKey === det._emp_key ? (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <button
+                                                                            className="h-6 px-2 text-[10px] rounded bg-orange-500 hover:bg-orange-600 text-white font-semibold"
+                                                                            onClick={() => handleRemoveEmpleado(det.id, emp.id, det._emp_key)}
+                                                                        >¿Quitar?</button>
+                                                                        <button
+                                                                            className="h-6 px-2 text-[10px] rounded bg-white/20 hover:bg-white/30 text-white"
+                                                                            onClick={() => setConfirmRemoveEmp(null)}
+                                                                        >Cancelar</button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <Button
+                                                                        size="sm" variant="ghost"
+                                                                        className="h-6 px-2 text-white/70 hover:text-orange-300 hover:bg-white/10 text-[10px] flex items-center gap-1"
+                                                                        title={`Quitar ${emp.nombre} de esta detección`}
+                                                                        onClick={() => { setConfirmDeleteDet(null); setConfirmRemoveEmp({ detId: det.id, empId: emp.id, empKey: det._emp_key }); }}
+                                                                    >
+                                                                        <UserMinus className="w-3 h-3" />
+                                                                        Quitar empleado
+                                                                    </Button>
+                                                                )}
+
+                                                                {/* Eliminar detección completa */}
+                                                                {confirmDeleteDet === det.id ? (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <button
+                                                                            className="h-6 px-2 text-[10px] rounded bg-red-500 hover:bg-red-600 text-white font-semibold"
+                                                                            onClick={() => handleDeleteDeteccion(det.id)}
+                                                                        >¿Eliminar?</button>
+                                                                        <button
+                                                                            className="h-6 px-2 text-[10px] rounded bg-white/20 hover:bg-white/30 text-white"
+                                                                            onClick={() => setConfirmDeleteDet(null)}
+                                                                        >Cancelar</button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <Button
+                                                                        size="sm" variant="ghost"
+                                                                        className="h-6 px-2 text-white/70 hover:text-red-300 hover:bg-white/10 text-[10px] flex items-center gap-1"
+                                                                        title="Eliminar detección completa"
+                                                                        onClick={() => { setConfirmRemoveEmp(null); setConfirmDeleteDet(det.id); }}
+                                                                    >
+                                                                        <Trash2 className="w-3 h-3" />
+                                                                        Eliminar
+                                                                    </Button>
+                                                                )}
+                                                            </div>
                                                         </div>
 
                                                         <div className="overflow-x-auto">
