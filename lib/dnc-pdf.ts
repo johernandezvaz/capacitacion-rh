@@ -97,13 +97,12 @@ export async function generateDncPdf(data: DncPdfData): Promise<void> {
     Y = (doc as any).lastAutoTable.finalY + 6;
 
     const head = [[
-        'Tipo', 'Nombre', 'Inst. Interno', 'Inst. Externo', 'Proveedor', 'Costo',
+        'Nombre', 'Inst. Interno', 'Inst. Externo', 'Proveedor', 'Costo',
         'Des.\nPersonal', 'Hab.\nBlandas', 'Prev.\nRiesgos', 'Hab.\nTécnicas',
         'F. Programada', 'F. Real', 'Duración\n(hrs)',
     ]];
 
     const body = data.items.map((c) => [
-        c.tipo === 'curso' ? 'Curso' : 'Detección',
         d(c.nombre),
         d(c.inst_interno),
         d(c.inst_externo),
@@ -137,19 +136,18 @@ export async function generateDncPdf(data: DncPdfData): Promise<void> {
         margin: { left: M, right: M },
         tableWidth: W - M * 2,
         columnStyles: {
-            0: { cellWidth: 18, halign: 'center' },
-            1: { cellWidth: 38 },
-            2: { cellWidth: 18 },
-            3: { cellWidth: 18 },
-            4: { cellWidth: 20 },
-            5: { cellWidth: 14, halign: 'right' },
-            6: { cellWidth: 12, halign: 'center' },
-            7: { cellWidth: 12, halign: 'center' },
-            8: { cellWidth: 12, halign: 'center' },
-            9: { cellWidth: 12, halign: 'center' },
+            0: { cellWidth: 42 },
+            1: { cellWidth: 20 },
+            2: { cellWidth: 20 },
+            3: { cellWidth: 22 },
+            4: { cellWidth: 16, halign: 'right' },
+            5: { cellWidth: 13, halign: 'center' },
+            6: { cellWidth: 13, halign: 'center' },
+            7: { cellWidth: 13, halign: 'center' },
+            8: { cellWidth: 13, halign: 'center' },
+            9: { cellWidth: 18, halign: 'center' },
             10: { cellWidth: 18, halign: 'center' },
-            11: { cellWidth: 18, halign: 'center' },
-            12: { cellWidth: 14, halign: 'center' },
+            11: { cellWidth: 16, halign: 'center' },
         },
     });
 

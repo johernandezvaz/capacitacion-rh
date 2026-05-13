@@ -219,7 +219,6 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="border-b text-muted-foreground text-xs">
-                      <th className="text-left py-2 px-3 font-medium whitespace-nowrap">Tipo</th>
                       <th className="text-left py-2 px-3 font-medium whitespace-nowrap">Nombre</th>
                       <th className="text-left py-2 px-3 font-medium whitespace-nowrap">Inst. Interno</th>
                       <th className="text-left py-2 px-3 font-medium whitespace-nowrap">Inst. Externo</th>
@@ -237,14 +236,6 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
                   <tbody>
                     {rows.map((row, i) => (
                       <tr key={i} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
-                        <td className="py-2 px-3">
-                          <span
-                            className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold text-white whitespace-nowrap"
-                            style={{ background: row.color }}
-                          >
-                            {row.tipo === 'curso' ? 'Curso' : 'Detección'}
-                          </span>
-                        </td>
                         <td className="py-2 px-3 font-medium">{row.nombre}</td>
                         <td className="py-2 px-3 text-muted-foreground">{row.inst_interno || '—'}</td>
                         <td className="py-2 px-3 text-muted-foreground">{row.inst_externo || '—'}</td>
