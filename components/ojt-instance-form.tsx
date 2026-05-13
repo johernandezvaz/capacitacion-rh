@@ -88,12 +88,19 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
   const [sigUrls, setSigUrls] = useState({ empleado: '', jefe_directo: '', recursos_humanos: '' });
 
   useEffect(() => {
-    supabase.from('employees').select('id, nombre, puesto, employee_number, area, evaluador, created_at').order('nombre')
-      .then(({ data }) => setEmployees(data || []));
+    console.log('[OjtInstanceForm] mount — isPublic:', isPublic, 'plantId:', plantId);
+    supabase.from('employees')
+      .select('id, nombre, puesto, employee_number, area, evaluador, created_at')
+      .order('nombre')
+      .then(({ data, error }) => {
+        console.log('[OjtInstanceForm] employees loaded:', data?.length, 'error:', error?.message);
+        setEmployees(data || []);
+      });
   }, []);
 
   useEffect(() => {
     if (!instanceId || !templateId) return;
+    console.log('[OjtInstanceForm] loading instance — instanceId:', instanceId, 'templateId:', templateId, 'plantId:', plantId, 'isPublic:', isPublic);
     (async () => {
       setIsLoading(true);
       try {
@@ -179,7 +186,11 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
         setSigNames(names);
         setSigDates(dates);
         setSigUrls(urls);
+        console.log('[OjtInstanceForm] data loaded OK');
+      } catch (err: any) {
+        console.error('[OjtInstanceForm] load error:', err);
       } finally {
+        console.log('[OjtInstanceForm] setIsLoading(false)');
         setIsLoading(false);
       }
     })();

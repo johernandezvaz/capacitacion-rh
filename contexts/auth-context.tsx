@@ -89,9 +89,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRole(null);
   };
 
-  // Efecto 1: inicializar sesión y escuchar cambios de auth.
-  // REGLA: onAuthStateChange solo actualiza `user` (state puro).
-  // NUNCA llamar queries de Supabase dentro de este callback — deadlock con locks internos.
   useEffect(() => {
     let mounted = true;
 
@@ -109,7 +106,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       setUser(session.user);
-      // isLoading se apaga en el efecto de plantData cuando termina
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -130,7 +126,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (event === 'INITIAL_SESSION') return;
 
-      // SIGNED_IN, TOKEN_REFRESHED, USER_UPDATED: solo actualizar user
       setUser(session?.user ?? null);
     });
 
@@ -165,8 +160,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [router]);
 
-  // Efecto 2: cargar datos de planta cuando cambia el user.id.
-  // Separado del efecto de auth para no bloquear el cliente de Supabase.
   useEffect(() => {
     if (user === null) {
       setPlantId(null);
