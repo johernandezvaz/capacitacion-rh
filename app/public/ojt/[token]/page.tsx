@@ -20,7 +20,6 @@ export default function PublicOjtPage({
 
   useEffect(() => {
     const load = async () => {
-      // Paso 1: obtener la instancia por public_token
       const { data: instance, error } = await supabase
         .from('ojt_instances')
         .select('id, template_id')
@@ -32,7 +31,6 @@ export default function PublicOjtPage({
         return;
       }
 
-      // Paso 2: obtener plant_id desde ojt_records
       const { data: record } = await supabase
         .from('ojt_records')
         .select('plant_id')

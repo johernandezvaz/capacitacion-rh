@@ -442,7 +442,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
                         row.procedimientos_internos, row.metodo_entrenamiento, row.duracion,
                       ].map((val, ci) => {
                         const rawVal = val || '';
-                        
+
                         if (ci === 2 && rawVal) {
                           const urlRegex = /(https?:\/\/[^\s]+)/g;
                           const parts = rawVal.split(urlRegex);
