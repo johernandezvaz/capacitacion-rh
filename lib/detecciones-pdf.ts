@@ -25,16 +25,16 @@ export interface DeteccionesPdfEmpleado {
     detecciones: DeteccionesPdfDeteccion[];
 }
 
-export interface DeteccionesPdfDepartamento {
-    nombre_completo: string;
+export interface DeteccionesPdfArea {
+    area: string;
     empleados: DeteccionesPdfEmpleado[];
 }
 
 export interface DeteccionesPdfData {
     year: number;
     plant_name: string;
-    departamentos: DeteccionesPdfDepartamento[];
-    codigo_departamento?: string;
+    areas: DeteccionesPdfArea[];
+    codigo_area?: string;
 }
 
 const HDR: [number, number, number] = [25, 43, 82];
@@ -103,10 +103,10 @@ export async function generateDeteccionesPdf(data: DeteccionesPdfData): Promise<
         }
     };
 
-    for (const dept of data.departamentos) {
+    for (const dept of data.areas) {
         autoTable(doc, {
             startY: Y,
-            body: [[{ content: dept.nombre_completo, colSpan: 11, styles: { fillColor: HDR, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 } }]],
+            body: [[{ content: dept.area, colSpan: 11, styles: { fillColor: HDR, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 } }]],
             theme: 'plain',
             margin: { left: M, right: M },
             tableWidth: W - M * 2,
@@ -171,6 +171,6 @@ export async function generateDeteccionesPdf(data: DeteccionesPdfData): Promise<
     addFooters();
 
     const fecha = new Date().toISOString().split('T')[0];
-    const suffix = data.codigo_departamento ? `_${data.codigo_departamento}` : '';
+    const suffix = data.codigo_area ? `_${data.codigo_area.replace(/[^a-zA-Z0-9_\-]/g, '_')}` : '';
     doc.save(`Detecciones_${data.year}${suffix}_${fecha}.pdf`);
 }

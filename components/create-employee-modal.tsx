@@ -12,16 +12,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { supabase, Departamento } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
-import { DepartmentCombobox } from '@/components/department-combobox';
 
 interface CreateEmployeeModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSuccess: (employeeId: string) => void;
     plantId: string;
-    departamentos?: Departamento[];
 }
 
 export function CreateEmployeeModal({
@@ -29,7 +27,6 @@ export function CreateEmployeeModal({
     onOpenChange,
     onSuccess,
     plantId,
-    departamentos = [],
 }: CreateEmployeeModalProps) {
     const [formData, setFormData] = useState({
         employee_number: '',
@@ -37,7 +34,6 @@ export function CreateEmployeeModal({
         area: '',
         puesto: '',
         evaluador: '',
-        departamento_id: null as string | null,
     });
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -87,7 +83,6 @@ export function CreateEmployeeModal({
                     area: formData.area.trim(),
                     puesto: formData.puesto.trim(),
                     evaluador: formData.evaluador.trim(),
-                    departamento_id: formData.departamento_id || null,
                     plant_id: plantId || null,
                 }])
                 .select()
@@ -107,15 +102,7 @@ export function CreateEmployeeModal({
                 description: 'El empleado fue creado exitosamente',
             });
 
-            setFormData({
-                employee_number: '',
-                nombre: '',
-                area: '',
-                puesto: '',
-                evaluador: '',
-                departamento_id: null,
-            });
-
+            setFormData({ employee_number: '', nombre: '', area: '', puesto: '', evaluador: '' });
             onSuccess(data.id);
         } catch (error) {
             toast({
@@ -129,14 +116,7 @@ export function CreateEmployeeModal({
     };
 
     const handleClose = () => {
-        setFormData({
-            employee_number: '',
-            nombre: '',
-            area: '',
-            puesto: '',
-            evaluador: '',
-            departamento_id: null,
-        });
+        setFormData({ employee_number: '', nombre: '', area: '', puesto: '', evaluador: '' });
         setErrors({});
         onOpenChange(false);
     };
@@ -196,15 +176,6 @@ export function CreateEmployeeModal({
                             {errors.area && (
                                 <p className="text-sm text-destructive">{errors.area}</p>
                             )}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Departamento</Label>
-                            <DepartmentCombobox
-                                departamentos={departamentos}
-                                value={formData.departamento_id}
-                                onChange={(id) => setFormData(prev => ({ ...prev, departamento_id: id }))}
-                            />
                         </div>
 
                         <div className="space-y-2">

@@ -33,7 +33,7 @@ type DeteccionRow = {
     status: string | null;
     fecha_programada: string | null;
     fecha_real: string | null;
-    departamentos: string;
+    areas: string;
     _type: 'deteccion';
     _sortDate: string;
 };
@@ -135,36 +135,17 @@ export default function DncPage() {
                 .eq('plant_id', plantId)
                 .eq('year_id', selectedYearId);
 
-            const dets: DeteccionRow[] = [];
-            if (detData && detData.length > 0) {
-                const detIds = detData.map((d: any) => d.id);
-                const { data: deptLinks } = await supabase
-                    .from('deteccion_departamentos')
-                    .select('deteccion_id, departamentos!departamento_id(codigo)')
-                    .in('deteccion_id', detIds);
-
-                const deptMap: Record<string, string[]> = {};
-                (deptLinks || []).forEach((row: any) => {
-                    const codigo = row.departamentos?.codigo;
-                    if (!codigo) return;
-                    if (!deptMap[row.deteccion_id]) deptMap[row.deteccion_id] = [];
-                    deptMap[row.deteccion_id].push(codigo);
-                });
-
-                for (const d of detData as any[]) {
-                    dets.push({
-                        id: d.id,
-                        nombre: d.nombre,
-                        color: d.color || '#2166be',
-                        status: d.status,
-                        fecha_programada: d.fecha_programada,
-                        fecha_real: d.fecha_real,
-                        departamentos: (deptMap[d.id] || []).sort().join(', '),
-                        _type: 'deteccion' as const,
-                        _sortDate: d.fecha_programada || d.fecha_real || '9999-12-31',
-                    });
-                }
-            }
+            const dets: DeteccionRow[] = (detData || []).map((d: any) => ({
+                id: d.id,
+                nombre: d.nombre,
+                color: d.color || '#2166be',
+                status: d.status,
+                fecha_programada: d.fecha_programada,
+                fecha_real: d.fecha_real,
+                areas: '',
+                _type: 'deteccion' as const,
+                _sortDate: d.fecha_programada || d.fecha_real || '9999-12-31',
+            }));
             setDetecciones(dets);
         } catch (err) {
             console.error('Error fetching DNC data:', err);

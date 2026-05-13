@@ -21,7 +21,6 @@ export interface DncCoursePdfData {
         nombre: string;
         puesto: string;
         area: string;
-        departamento: string | null;
     }>;
 }
 
@@ -130,8 +129,8 @@ export async function generateDncCoursePdf(data: DncCoursePdfData): Promise<void
     } else {
         autoTable(doc, {
             startY: Y,
-            head: [['Nombre', 'Puesto', 'Área', 'Departamento']],
-            body: data.participants.map(p => [p.nombre, p.puesto, p.area, p.departamento || '—']),
+            head: [['Nombre', 'Puesto', 'Área']],
+            body: data.participants.map(p => [p.nombre, p.puesto, p.area]),
             theme: 'grid',
             headStyles: {
                 fillColor: HDR,
@@ -149,9 +148,8 @@ export async function generateDncCoursePdf(data: DncCoursePdfData): Promise<void
             tableWidth: W - M * 2,
             columnStyles: {
                 0: { cellWidth: 'auto' },
-                1: { cellWidth: 45 },
-                2: { cellWidth: 30 },
-                3: { cellWidth: 35 },
+                1: { cellWidth: 50 },
+                2: { cellWidth: 40 },
             },
         });
     }

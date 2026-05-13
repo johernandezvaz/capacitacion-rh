@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Pencil, Trash2, BarChart2 } from 'lucide-react';
 import Link from 'next/link';
@@ -8,11 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { supabase, Employee, Departamento } from '@/lib/supabase';
+import { supabase, Employee } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { CreateEmployeeModal } from '@/components/create-employee-modal';
-import { DepartmentCombobox } from '@/components/department-combobox';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function EmployeesPage() {
@@ -20,13 +19,10 @@ export default function EmployeesPage() {
     const { toast } = useToast();
     const { plantId } = useAuth();
     const [employees, setEmployees] = useState<Employee[]>([]);
-    const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterDeptId, setFilterDeptId] = useState<string>('');
+    const [filterArea, setFilterArea] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
-    const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
 
     const [deleteDialog, setDeleteDialog] = useState<{
         open: boolean;
@@ -43,18 +39,10 @@ export default function EmployeesPage() {
     const [savingAreaId, setSavingAreaId] = useState<string | null>(null);
     const areaInputRef = useRef<HTMLInputElement>(null);
 
-    const [editingDeptId, setEditingDeptId] = useState<string | null>(null);
-    const [savingDeptId, setSavingDeptId] = useState<string | null>(null);
-
     useEffect(() => {
         if (!plantId) return;
-        fetchDepartamentos();
         fetchEmployees();
     }, [plantId]);
-
-    useEffect(() => {
-        filterEmployees();
-    }, [searchQuery, filterDeptId, employees]);
 
     useEffect(() => {
         if (editingAreaId && areaInputRef.current) {
@@ -63,31 +51,17 @@ export default function EmployeesPage() {
         }
     }, [editingAreaId]);
 
-    const fetchDepartamentos = async () => {
-        const { data } = await supabase
-            .from('departamentos')
-            .select('id, codigo, nombre, nombre_completo')
-            .order('codigo');
-        setDepartamentos(data || []);
-    };
-
     const fetchEmployees = async () => {
         setIsLoading(true);
         try {
             const { data, error } = await supabase
                 .from('employees')
-                .select('*, departamentos!departamento_id(nombre_completo)')
+                .select('*')
                 .eq('plant_id', plantId)
                 .order('nombre');
 
             if (error) throw error;
-
-            const mapped: Employee[] = (data || []).map((row: any) => ({
-                ...row,
-                departamento_nombre: row.departamentos?.nombre_completo ?? null,
-                departamentos: undefined,
-            }));
-            setEmployees(mapped);
+            setEmployees(data || []);
         } catch (error) {
             console.error('Error fetching employees:', error);
             toast({
@@ -100,9 +74,13 @@ export default function EmployeesPage() {
         }
     };
 
-    const filterEmployees = () => {
-        let result = employees;
+    const uniqueAreas = useMemo(() => {
+        const areas = Array.from(new Set(employees.map(e => e.area).filter(Boolean))).sort();
+        return areas;
+    }, [employees]);
 
+    const filteredEmployees = useMemo(() => {
+        let result = employees;
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
             result = result.filter(
@@ -113,17 +91,11 @@ export default function EmployeesPage() {
                     emp.puesto.toLowerCase().includes(q)
             );
         }
-
-        if (filterDeptId) {
-            result = result.filter(emp => emp.departamento_id === filterDeptId);
+        if (filterArea) {
+            result = result.filter(emp => emp.area === filterArea);
         }
-
-        setFilteredEmployees(result);
-    };
-
-    const deptosConEmpleados = departamentos.filter(d =>
-        employees.some(e => e.departamento_id === d.id)
-    );
+        return result;
+    }, [employees, searchQuery, filterArea]);
 
     const startEditArea = (employee: Employee) => {
         setEditingAreaId(employee.id);
@@ -156,7 +128,6 @@ export default function EmployeesPage() {
             setEditingAreaId(null);
             setEditingAreaValue('');
         } catch (error: any) {
-            console.error('Error updating area:', error);
             toast({
                 title: 'Error',
                 description: error.message || 'No se pudo actualizar el área',
@@ -171,43 +142,6 @@ export default function EmployeesPage() {
     const handleAreaKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, employeeId: string) => {
         if (e.key === 'Enter') { e.preventDefault(); saveEditArea(employeeId); }
         else if (e.key === 'Escape') { e.preventDefault(); cancelEditArea(); }
-    };
-
-    const saveEditDept = async (employeeId: string, newDeptId: string | null) => {
-        const original = employees.find(e => e.id === employeeId);
-        if (!original) return;
-        if (newDeptId === (original.departamento_id ?? null)) {
-            setEditingDeptId(null);
-            return;
-        }
-
-        setSavingDeptId(employeeId);
-        try {
-            const { error } = await supabase
-                .from('employees')
-                .update({ departamento_id: newDeptId })
-                .eq('id', employeeId);
-
-            if (error) throw error;
-
-            const dept = newDeptId ? departamentos.find(d => d.id === newDeptId) : null;
-            setEmployees(prev =>
-                prev.map(e => e.id === employeeId
-                    ? { ...e, departamento_id: newDeptId, departamento_nombre: dept?.nombre_completo ?? null }
-                    : e
-                )
-            );
-            setEditingDeptId(null);
-        } catch (error: any) {
-            console.error('Error updating departamento:', error);
-            toast({
-                title: 'Error',
-                description: error.message || 'No se pudo actualizar el departamento',
-                variant: 'destructive',
-            });
-        } finally {
-            setSavingDeptId(null);
-        }
     };
 
     const handleDeleteClick = async (employee: Employee) => {
@@ -237,7 +171,6 @@ export default function EmployeesPage() {
             toast({ title: 'Éxito', description: 'Empleado eliminado correctamente' });
             fetchEmployees();
         } catch (error: any) {
-            console.error('Error deleting employee:', error);
             toast({
                 title: 'Error',
                 description: error.message || 'No se pudo eliminar el empleado',
@@ -289,7 +222,6 @@ export default function EmployeesPage() {
                     </Button>
                 </div>
 
-                {/* ── Barra de búsqueda + filtro departamento ── */}
                 <Card className="mb-6 border-none shadow-lg">
                     <CardHeader>
                         <CardTitle>Buscar Empleados</CardTitle>
@@ -308,15 +240,15 @@ export default function EmployeesPage() {
                                     className="pl-10"
                                 />
                             </div>
-                            {deptosConEmpleados.length > 0 && (
+                            {uniqueAreas.length > 0 && (
                                 <select
-                                    value={filterDeptId}
-                                    onChange={e => setFilterDeptId(e.target.value)}
+                                    value={filterArea}
+                                    onChange={e => setFilterArea(e.target.value)}
                                     className="border border-gray-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#2166be] sm:min-w-[220px]"
                                 >
-                                    <option value="">Todos los departamentos</option>
-                                    {deptosConEmpleados.map(d => (
-                                        <option key={d.id} value={d.id}>{d.nombre_completo}</option>
+                                    <option value="">Todas las áreas</option>
+                                    {uniqueAreas.map(a => (
+                                        <option key={a} value={a}>{a}</option>
                                     ))}
                                 </select>
                             )}
@@ -337,11 +269,12 @@ export default function EmployeesPage() {
                         {filteredEmployees.length === 0 ? (
                             <div className="text-center py-12">
                                 <p className="text-muted-foreground text-sm sm:text-base">
-                                    {searchQuery || filterDeptId ? 'No se encontraron empleados' : 'No hay empleados registrados'}
+                                    {searchQuery || filterArea ? 'No se encontraron empleados' : 'No hay empleados registrados'}
                                 </p>
                             </div>
                         ) : (
                             <>
+                                {/* ── Vista desktop ── */}
                                 <div className="hidden lg:block overflow-x-auto">
                                     <table className="w-full">
                                         <thead>
@@ -350,10 +283,6 @@ export default function EmployeesPage() {
                                                 <th className="text-left py-3 px-4 font-semibold text-sm">Nombre</th>
                                                 <th className="text-left py-3 px-4 font-semibold text-sm">
                                                     Área
-                                                    <span className="ml-1 text-xs font-normal text-muted-foreground">(click para editar)</span>
-                                                </th>
-                                                <th className="text-left py-3 px-4 font-semibold text-sm">
-                                                    Departamento
                                                     <span className="ml-1 text-xs font-normal text-muted-foreground">(click para editar)</span>
                                                 </th>
                                                 <th className="text-left py-3 px-4 font-semibold text-sm">Puesto</th>
@@ -391,27 +320,6 @@ export default function EmployeesPage() {
                                                         ) : (
                                                             <span className="cursor-pointer rounded px-1 -mx-1 py-0.5 hover:bg-blue-50 hover:text-[#2166be] transition-colors">
                                                                 {employee.area || <span className="text-muted-foreground italic">—</span>}
-                                                            </span>
-                                                        )}
-                                                    </td>
-
-                                                    <td className="py-2 px-4 text-sm min-w-[200px]">
-                                                        {editingDeptId === employee.id ? (
-                                                            <DepartmentCombobox
-                                                                departamentos={departamentos}
-                                                                value={employee.departamento_id ?? null}
-                                                                onChange={(id) => saveEditDept(employee.id, id)}
-                                                                disabled={savingDeptId === employee.id}
-                                                            />
-                                                        ) : (
-                                                            <span
-                                                                className="cursor-pointer rounded px-1 -mx-1 py-0.5 hover:bg-blue-50 hover:text-[#2166be] transition-colors"
-                                                                onClick={() => {
-                                                                    setEditingAreaId(null);
-                                                                    setEditingDeptId(employee.id);
-                                                                }}
-                                                            >
-                                                                {employee.departamento_nombre || <span className="text-muted-foreground italic">—</span>}
                                                             </span>
                                                         )}
                                                     </td>
@@ -490,31 +398,6 @@ export default function EmployeesPage() {
                                                                 </span>
                                                             )}
                                                         </p>
-
-                                                        <div className="flex items-start gap-1">
-                                                            <span className="font-medium mt-1.5">Departamento:</span>
-                                                            {editingDeptId === employee.id ? (
-                                                                <div className="flex-1">
-                                                                    <DepartmentCombobox
-                                                                        departamentos={departamentos}
-                                                                        value={employee.departamento_id ?? null}
-                                                                        onChange={(id) => saveEditDept(employee.id, id)}
-                                                                        disabled={savingDeptId === employee.id}
-                                                                    />
-                                                                </div>
-                                                            ) : (
-                                                                <span
-                                                                    className="cursor-pointer rounded px-1 -mx-1 py-0.5 hover:bg-blue-50 hover:text-[#2166be] transition-colors"
-                                                                    onClick={() => {
-                                                                        setEditingAreaId(null);
-                                                                        setEditingDeptId(employee.id);
-                                                                    }}
-                                                                >
-                                                                    {employee.departamento_nombre || <span className="italic">—</span>}
-                                                                </span>
-                                                            )}
-                                                        </div>
-
                                                         <p><span className="font-medium">Puesto:</span> {employee.puesto}</p>
                                                         <p><span className="font-medium">Evaluador:</span> {employee.evaluador}</p>
                                                     </div>
@@ -560,7 +443,6 @@ export default function EmployeesPage() {
                 onOpenChange={setIsCreateModalOpen}
                 onSuccess={handleEmployeeCreated}
                 plantId={plantId || ''}
-                departamentos={departamentos}
             />
 
             <ConfirmDialog

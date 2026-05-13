@@ -9,9 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { supabase, Employee, Departamento } from '@/lib/supabase';
+import { supabase, Employee } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
-import { DepartmentCombobox } from '@/components/department-combobox';
 import { STATUS_CONFIG, fmtDate } from '@/lib/detecciones-utils';
 
 export default function EmployeeEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -23,8 +22,6 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
-    const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
-
     type DetRow = { id: string; nombre: string; status: string | null; fecha_programada: string | null; fecha_real: string | null; };
     const [detecciones, setDetecciones] = useState<DetRow[]>([]);
 
@@ -34,7 +31,6 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
         area: '',
         puesto: '',
         evaluador: '',
-        departamento_id: null as string | null,
     });
 
     const [errors, setErrors] = useState({
@@ -54,18 +50,9 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
         if (data) setDetecciones((data as any[]).map(r => r.detecciones).filter(Boolean));
     };
 
-    const fetchDepartamentos = async () => {
-        const { data } = await supabase
-            .from('departamentos')
-            .select('id, codigo, nombre, nombre_completo')
-            .order('codigo');
-        setDepartamentos(data || []);
-    };
-
     useEffect(() => {
         fetchEmployee();
         fetchDetecciones();
-        fetchDepartamentos();
     }, [resolvedParams.id]);
 
     const fetchEmployee = async () => {
@@ -94,7 +81,6 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
                 area: data.area,
                 puesto: data.puesto,
                 evaluador: data.evaluador,
-                departamento_id: data.departamento_id ?? null,
             });
         } catch (error) {
             console.error('Error fetching employee:', error);
@@ -167,7 +153,6 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
                     area: formData.area.trim(),
                     puesto: formData.puesto.trim(),
                     evaluador: formData.evaluador.trim(),
-                    departamento_id: formData.departamento_id || null,
                 })
                 .eq('id', resolvedParams.id);
 
@@ -282,17 +267,6 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
                             {errors.area && (
                                 <p className="text-sm text-red-600">{errors.area}</p>
                             )}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Departamento</Label>
-                            <DepartmentCombobox
-                                departamentos={departamentos}
-                                value={formData.departamento_id}
-                                onChange={(id) =>
-                                    setFormData({ ...formData, departamento_id: id })
-                                }
-                            />
                         </div>
 
                         <div className="space-y-2">

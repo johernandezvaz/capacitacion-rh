@@ -19,8 +19,7 @@ type EmpOption = {
     nombre: string;
     puesto: string;
     numero_empleado: string | null;
-    departamento_id: string | null;
-    departamento: string | null;
+    area: string | null;
 };
 
 interface Props {
@@ -80,7 +79,7 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
     const loadAllEmps = async () => {
         const { data } = await supabase
             .from('employees')
-            .select('id, nombre, puesto, employee_number, departamento_id, departamentos!departamento_id(nombre_completo)')
+            .select('id, nombre, puesto, employee_number, area')
             .eq('plant_id', plantId)
             .order('nombre');
         const mapped: EmpOption[] = (data || []).map((e: any) => ({
@@ -88,8 +87,7 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
             nombre: e.nombre,
             puesto: e.puesto,
             numero_empleado: e.employee_number ?? null,
-            departamento_id: e.departamento_id,
-            departamento: e.departamentos?.nombre_completo ?? null,
+            area: e.area ?? null,
         }));
         setAllEmps(mapped);
         setEmpsLoaded(true);
@@ -143,18 +141,6 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                 );
             }
 
-            await supabase.from('deteccion_departamentos').delete().eq('deteccion_id', detId);
-            const uniqueDeptIds = Array.from(new Set(
-                allEmps
-                    .filter(emp => selEmps.has(emp.id) && emp.departamento_id)
-                    .map(emp => emp.departamento_id as string)
-            ));
-            if (uniqueDeptIds.length > 0) {
-                await supabase.from('deteccion_departamentos').insert(
-                    uniqueDeptIds.map(did => ({ deteccion_id: detId, departamento_id: did }))
-                );
-            }
-
             toast({ title: 'Éxito', description: editingId ? 'Detección actualizada' : 'Detección creada' });
             onSaved();
             onOpenChange(false);
@@ -169,7 +155,7 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
         return (
             e.nombre.toLowerCase().includes(q) ||
             e.puesto?.toLowerCase().includes(q) ||
-            e.departamento?.toLowerCase().includes(q) ||
+            e.area?.toLowerCase().includes(q) ||
             (e.numero_empleado != null && e.numero_empleado.toLowerCase().includes(q))
         );
     });
@@ -200,7 +186,7 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                                 )}
                             </div>
                             <Input
-                                placeholder="Buscar por nombre, puesto, depto. o # empleado..."
+                                placeholder="Buscar por nombre, puesto, área o # empleado..."
                                 value={empSearch}
                                 onChange={e => setEmpSearch(e.target.value)}
                             />
@@ -220,8 +206,8 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                                                 )}
                                                 <span className="font-medium">{emp.nombre}</span>
                                                 <span className="text-muted-foreground ml-1">— {emp.puesto}</span>
-                                                {emp.departamento && (
-                                                    <span className="text-muted-foreground"> | {emp.departamento}</span>
+                                                {emp.area && (
+                                                    <span className="text-muted-foreground"> | {emp.area}</span>
                                                 )}
                                             </div>
                                         </label>

@@ -103,20 +103,11 @@ export type Course = {
   comentario_dnc?: string | null;
 };
 
-export type Departamento = {
-  id: string;
-  codigo: string;
-  nombre: string;
-  nombre_completo: string;
-};
-
 export type Employee = {
   id: string;
   employee_number: string;
   nombre: string;
   area: string;
-  departamento_id?: string | null;
-  departamento_nombre?: string | null;
   puesto: string;
   evaluador: string;
   created_at: string;

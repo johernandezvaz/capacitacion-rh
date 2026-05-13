@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Plus, Pencil, FileDown, ClipboardCheck, PencilLine, Trash2, UserMinus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { supabase, Departamento } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { useTrainingYears } from '@/hooks/use-training-years';
@@ -29,7 +29,7 @@ type DetRow = {
 };
 
 type EmpGroup = { id: string; nombre: string; puesto: string; detecciones: DetRow[] };
-type DeptGroup = { id: string | null; nombre: string; codigo: string; empleados: EmpGroup[] };
+type AreaGroup = { area: string; empleados: EmpGroup[] };
 
 const CB_COLS = [
     { key: 'inst_interno', label: 'Inst. Int.' },
@@ -50,11 +50,10 @@ export default function DeteccionesPage() {
     const { toast } = useToast();
     const { years, selectedYearId, setSelectedYearId, selectedYear } = useTrainingYears();
 
-    const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
-    const [groups, setGroups] = useState<DeptGroup[]>([]);
+    const [groups, setGroups] = useState<AreaGroup[]>([]);
     const [rawDets, setRawDets] = useState<DetRow[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [filterDeptId, setFilterDeptId] = useState('');
+    const [filterArea, setFilterArea] = useState('');
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -72,14 +71,7 @@ export default function DeteccionesPage() {
         empleadoId: '', empleadoNombre: '', currentColor: '', empKey: '',
     });
 
-    useEffect(() => { loadDepts(); }, [plantId]);
     useEffect(() => { if (plantId && selectedYearId) fetchData(); }, [plantId, selectedYearId]);
-
-    const loadDepts = async () => {
-        if (!plantId) return;
-        const { data } = await supabase.from('departamentos').select('id, codigo, nombre, nombre_completo').order('codigo');
-        setDepartamentos(data || []);
-    };
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -90,26 +82,13 @@ export default function DeteccionesPage() {
 
             const ids = detData.map((d: any) => d.id);
 
-            const [{ data: deptLinks }, { data: empLinks }] = await Promise.all([
-                supabase.from('deteccion_departamentos')
-                    .select('deteccion_id, departamento_id')
-                    .in('deteccion_id', ids),
-                supabase.from('deteccion_empleados')
-                    .select(`
-                        deteccion_id, employee_id, color, status,
-                        employees!employee_id(
-                            id, nombre, puesto, departamento_id,
-                            departamentos!departamento_id(id, codigo, nombre_completo)
-                        )
-                    `)
-                    .in('deteccion_id', ids),
-            ]);
-
-            const deptsByDet: Record<string, string[]> = {};
-            (deptLinks || []).forEach((r: any) => {
-                if (!deptsByDet[r.deteccion_id]) deptsByDet[r.deteccion_id] = [];
-                deptsByDet[r.deteccion_id].push(r.departamento_id);
-            });
+            const { data: empLinks } = await supabase
+                .from('deteccion_empleados')
+                .select(`
+                    deteccion_id, employee_id, color, status,
+                    employees!employee_id(id, nombre, puesto, area)
+                `)
+                .in('deteccion_id', ids);
 
             const empsByDet: Record<string, string[]> = {};
             (empLinks || []).forEach((r: any) => {
@@ -119,7 +98,7 @@ export default function DeteccionesPage() {
 
             const dets: DetRow[] = detData.map((d: any) => ({
                 ...d,
-                dept_ids: deptsByDet[d.id] || [],
+                dept_ids: [],
                 emp_ids: empsByDet[d.id] || [],
                 emp_color: null,
                 emp_status: null,
@@ -152,8 +131,7 @@ export default function DeteccionesPage() {
                     empDetMap[r.employee_id].push(detWithIndiv);
             });
 
-            const deptGroupMap: Record<string, DeptGroup> = {};
-            let sinDept: DeptGroup | null = null;
+            const areaGroupMap: Record<string, AreaGroup> = {};
 
             const processedEmps = new Set<string>();
             (empLinks || []).forEach((r: any) => {
@@ -161,26 +139,19 @@ export default function DeteccionesPage() {
                 if (!emp || processedEmps.has(emp.id)) return;
                 processedEmps.add(emp.id);
 
-                const deptId = emp.departamento_id;
-                const deptInfo = emp.departamentos;
+                const area: string = emp.area || 'Sin Área';
                 const empGroup: EmpGroup = {
                     id: emp.id, nombre: emp.nombre, puesto: emp.puesto,
                     detecciones: empDetMap[emp.id] || [],
                 };
 
-                if (!deptId || !deptInfo) {
-                    if (!sinDept) sinDept = { id: null, nombre: 'Sin Departamento', codigo: 'ZZZ', empleados: [] };
-                    sinDept.empleados.push(empGroup);
-                } else {
-                    if (!deptGroupMap[deptId]) {
-                        deptGroupMap[deptId] = { id: deptId, nombre: deptInfo.nombre_completo, codigo: deptInfo.codigo, empleados: [] };
-                    }
-                    deptGroupMap[deptId].empleados.push(empGroup);
+                if (!areaGroupMap[area]) {
+                    areaGroupMap[area] = { area, empleados: [] };
                 }
+                areaGroupMap[area].empleados.push(empGroup);
             });
 
-            const sorted = Object.values(deptGroupMap).sort((a, b) => a.codigo.localeCompare(b.codigo));
-            if (sinDept) sorted.push(sinDept);
+            const sorted = Object.values(areaGroupMap).sort((a, b) => a.area.localeCompare(b.area));
             setGroups(sorted);
         } catch (err) { console.error(err); } finally { setIsLoading(false); }
     };
@@ -251,13 +222,13 @@ export default function DeteccionesPage() {
     };
 
     const filteredGroups = useMemo(() =>
-        filterDeptId ? groups.filter(g => g.id === filterDeptId) : groups,
-        [groups, filterDeptId]);
+        filterArea ? groups.filter(g => g.area === filterArea) : groups,
+        [groups, filterArea]);
 
-    const handleExportDeptPdf = async (grp: DeptGroup) => {
+    const handleExportAreaPdf = async (grp: AreaGroup) => {
         if (!selectedYear) return;
-        const pdfDept = {
-            nombre_completo: grp.nombre,
+        const pdfArea = {
+            area: grp.area,
             empleados: grp.empleados.map(emp => ({
                 nombre: emp.nombre, puesto: emp.puesto,
                 detecciones: emp.detecciones.map(d => ({
@@ -275,12 +246,10 @@ export default function DeteccionesPage() {
         await generateDeteccionesPdf({
             year: selectedYear.year,
             plant_name: plantName || '',
-            departamentos: [pdfDept],
-            codigo_departamento: grp.codigo,
+            areas: [pdfArea],
+            codigo_area: grp.area,
         });
     };
-
-    const deptsWithData = departamentos.filter(d => groups.some(g => g.id === d.id));
 
     return (
         <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 bg-slate-50">
@@ -302,11 +271,11 @@ export default function DeteccionesPage() {
                                 {years.map(y => <option key={y.id} value={y.id}>{y.year}</option>)}
                             </select>
                         )}
-                        {deptsWithData.length > 0 && (
-                            <select value={filterDeptId} onChange={e => setFilterDeptId(e.target.value)}
+                        {groups.length > 0 && (
+                            <select value={filterArea} onChange={e => setFilterArea(e.target.value)}
                                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2166be]">
-                                <option value="">Todos los departamentos</option>
-                                {deptsWithData.map(d => <option key={d.id} value={d.id}>{d.nombre_completo}</option>)}
+                                <option value="">Todas las áreas</option>
+                                {groups.map(g => <option key={g.area} value={g.area}>{g.area}</option>)}
                             </select>
                         )}
                         <Button onClick={openCreate} className="bg-[#2166be] hover:bg-[#1a5299] text-white">
@@ -330,16 +299,16 @@ export default function DeteccionesPage() {
                 ) : (
                     <div className="space-y-8">
                         {filteredGroups.map(grp => (
-                            <div key={grp.id ?? 'sin-dept'}>
+                            <div key={grp.area}>
                                 <div className="rounded-t-lg px-4 py-2.5 flex items-center justify-between" style={{ background: '#192b52' }}>
-                                    <span className="font-bold text-sm text-white">{grp.nombre}</span>
+                                    <span className="font-bold text-sm text-white">{grp.area}</span>
                                     <button
-                                        onClick={() => handleExportDeptPdf(grp)}
+                                        onClick={() => handleExportAreaPdf(grp)}
                                         className="flex items-center gap-1.5 text-xs font-medium text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded px-2.5 py-1 transition-colors"
-                                        title={`Exportar PDF — ${grp.nombre}`}
+                                        title={`Exportar PDF — ${grp.area}`}
                                     >
                                         <FileDown className="w-3.5 h-3.5" />
-                                        Exportar PDF — {grp.nombre}
+                                        Exportar PDF — {grp.area}
                                     </button>
                                 </div>
                                 <div className="space-y-4 border border-t-0 rounded-b-lg overflow-hidden bg-white">

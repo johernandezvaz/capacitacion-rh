@@ -35,7 +35,6 @@ type Participant = {
     nombre: string;
     puesto: string;
     area: string;
-    departamento: string | null;
 };
 
 export default function CourseDncPage() {
@@ -66,7 +65,7 @@ export default function CourseDncPage() {
     });
 
     const [searchName, setSearchName] = useState('');
-    const [filterDept, setFilterDept] = useState('');
+    const [filterArea, setFilterArea] = useState('');
 
     useEffect(() => {
         fetchData();
@@ -128,7 +127,7 @@ export default function CourseDncPage() {
 
             const { data: pData, error: pError } = await supabase
                 .from('course_participants')
-                .select('employees!employee_id(id, nombre, puesto, area, departamentos!departamento_id(nombre_completo))')
+                .select('employees!employee_id(id, nombre, puesto, area)')
                 .eq('course_id', courseId)
                 .order('employees(nombre)', { ascending: true });
 
@@ -143,7 +142,6 @@ export default function CourseDncPage() {
                         nombre: emp.nombre,
                         puesto: emp.puesto,
                         area: emp.area,
-                        departamento: emp.departamentos?.nombre_completo ?? null,
                     };
                 })
                 .filter(Boolean) as Participant[])
