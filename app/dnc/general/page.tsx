@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { useTrainingYears } from '@/hooks/use-training-years';
-import { fmtDate } from '@/lib/detecciones-utils';
+import { fmtDate, COLORES_DETECCION } from '@/lib/detecciones-utils';
 
 const COURSE_COLOR = '#4A249D';
 
@@ -316,6 +316,20 @@ export default function DncGeneralPage() {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Color legend */}
+                <div className="flex flex-wrap gap-x-5 gap-y-2 mb-6 text-xs text-[#192b52]">
+                    <span className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: COURSE_COLOR }} />
+                        Curso realizado
+                    </span>
+                    {COLORES_DETECCION.map(c => (
+                        <span key={c.valor} className="flex items-center gap-1.5">
+                            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: c.hex }} />
+                            {c.label}
+                        </span>
+                    ))}
+                </div>
 
                 {/* Unified month-grouped list */}
                 {isLoading ? (

@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { generateDncPdf } from '@/lib/dnc-pdf';
+import { fmtDate } from '@/lib/detecciones-utils';
 
 type DncRow = {
   curso: string;
@@ -38,12 +39,6 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string }> = {
   no_tomado: { label: 'No tomado', bg: 'bg-red-100 text-red-800' },
   reprogramado: { label: 'Reprogramado', bg: 'bg-yellow-100 text-yellow-800' },
   actualizacion: { label: 'Actualización', bg: 'bg-blue-100 text-blue-800' },
-};
-
-const fmtDate = (v: string | null | undefined) => {
-  if (!v) return '—';
-  const [y, m, d] = v.split('-');
-  return `${d}/${m}/${y}`;
 };
 
 const fmtBool = (v: boolean) => (v ? '✓' : '—');

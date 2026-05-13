@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +40,8 @@ const EMPTY = {
     prevencion_riesgos: false, habilidades_tecnicas: false,
 };
 
+type Suggestion = { id: string; nombre: string; color: string };
+
 export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearId, editingId, editingData }: Props) {
     const { toast } = useToast();
     const [form, setForm] = useState({ ...EMPTY });
@@ -48,6 +50,12 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
     const [isSaving, setIsSaving] = useState(false);
     const [empSearch, setEmpSearch] = useState('');
     const [empsLoaded, setEmpsLoaded] = useState(false);
+    const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [isEditingExisting, setIsEditingExisting] = useState(false);
+    const [suggestionEditId, setSuggestionEditId] = useState<string | null>(null);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const blurRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         if (!open || empsLoaded) return;
@@ -56,6 +64,10 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
 
     useEffect(() => {
         if (!open) return;
+        setSuggestions([]);
+        setShowSuggestions(false);
+        setSuggestionEditId(null);
+        setIsEditingExisting(false);
         if (editingId && editingData) {
             const d = editingData;
             setForm({
@@ -99,6 +111,57 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
 
     const f = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
 
+    const searchSuggestions = async (term: string) => {
+        const { data } = await supabase
+            .from('detecciones')
+            .select('id, nombre, color')
+            .ilike('nombre', `%${term}%`)
+            .eq('plant_id', plantId)
+            .limit(5);
+        if (data && data.length > 0) {
+            setSuggestions(data as Suggestion[]);
+            setShowSuggestions(true);
+        } else {
+            setSuggestions([]);
+            setShowSuggestions(false);
+        }
+    };
+
+    const handleNombreChange = (val: string) => {
+        f('nombre', val);
+        if (editingId || isEditingExisting) return;
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        if (val.trim().length >= 3) {
+            debounceRef.current = setTimeout(() => searchSuggestions(val.trim()), 400);
+        } else {
+            setSuggestions([]);
+            setShowSuggestions(false);
+        }
+    };
+
+    const handleSelectSuggestion = async (sug: Suggestion) => {
+        setShowSuggestions(false);
+        const { data } = await supabase.from('detecciones').select('*').eq('id', sug.id).maybeSingle();
+        if (!data) return;
+        setForm({
+            nombre: data.nombre || '', color: data.color || '#2166be', status: data.status || 'actualizacion',
+            inst_interno: data.inst_interno || '', inst_externo: data.inst_externo || '',
+            proveedor_sugerido: data.proveedor_sugerido || '',
+            costo: data.costo != null ? String(data.costo) : '',
+            fecha_programada: data.fecha_programada || '', fecha_real: data.fecha_real || '',
+            duration_hours: data.duration_hours != null ? String(data.duration_hours) : '',
+            desarrollo_personal: !!data.desarrollo_personal, habilidades_blandas: !!data.habilidades_blandas,
+            prevencion_riesgos: !!data.prevencion_riesgos, habilidades_tecnicas: !!data.habilidades_tecnicas,
+        });
+        const { data: empData } = await supabase
+            .from('deteccion_empleados')
+            .select('employee_id')
+            .eq('deteccion_id', sug.id);
+        setSelEmps(new Set((empData || []).map((r: any) => r.employee_id)));
+        setSuggestionEditId(sug.id);
+        setIsEditingExisting(true);
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!form.nombre.trim()) {
@@ -106,6 +169,7 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
             return;
         }
         setIsSaving(true);
+        const activeEditingId = suggestionEditId || editingId;
         try {
             const payload = {
                 nombre: form.nombre.trim(), color: form.color, status: form.status || null,
@@ -123,9 +187,9 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                 habilidades_tecnicas: form.habilidades_tecnicas,
             };
 
-            let detId = editingId;
-            if (editingId) {
-                const { error } = await supabase.from('detecciones').update(payload).eq('id', editingId);
+            let detId = activeEditingId;
+            if (activeEditingId) {
+                const { error } = await supabase.from('detecciones').update(payload).eq('id', activeEditingId);
                 if (error) throw error;
             } else {
                 const { data, error } = await supabase.from('detecciones').insert([payload]).select().single();
@@ -141,7 +205,7 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                 );
             }
 
-            toast({ title: 'Éxito', description: editingId ? 'Detección actualizada' : 'Detección creada' });
+            toast({ title: 'Éxito', description: activeEditingId ? 'Detección actualizada' : 'Detección creada' });
             onSaved();
             onOpenChange(false);
         } catch (err: any) {
@@ -169,13 +233,52 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
         }}>
             <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
                 <DialogHeader>
-                    <DialogTitle>{editingId ? 'Editar Detección' : 'Nueva Detección'}</DialogTitle>
+                    <DialogTitle>{(editingId || isEditingExisting) ? 'Editar Detección' : 'Nueva Detección'}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSave}>
                     <div className="space-y-5 py-4">
+                        {isEditingExisting && (
+                            <div className="flex items-center justify-between gap-2 bg-yellow-50 border border-yellow-300 rounded-md px-3 py-2 text-sm text-yellow-800">
+                                <span className="font-medium truncate">Editando detección existente: {form.nombre}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => { setSuggestionEditId(null); setIsEditingExisting(false); }}
+                                    className="flex-shrink-0 text-yellow-700 hover:text-yellow-900 font-semibold"
+                                >
+                                    ✕ Crear nueva en su lugar
+                                </button>
+                            </div>
+                        )}
+
                         <div className="space-y-1.5">
                             <Label>Nombre <span className="text-red-500">*</span></Label>
-                            <Input value={form.nombre} onChange={e => f('nombre', e.target.value)} placeholder="Nombre de la detección" />
+                            <div
+                                className="relative"
+                                onBlur={() => { blurRef.current = setTimeout(() => setShowSuggestions(false), 150); }}
+                                onFocus={() => { if (blurRef.current) clearTimeout(blurRef.current); }}
+                            >
+                                <Input
+                                    value={form.nombre}
+                                    onChange={e => handleNombreChange(e.target.value)}
+                                    placeholder="Nombre de la detección"
+                                />
+                                {showSuggestions && suggestions.length > 0 && (
+                                    <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden">
+                                        {suggestions.map(sug => (
+                                            <button
+                                                key={sug.id}
+                                                type="button"
+                                                onMouseDown={e => { e.preventDefault(); handleSelectSuggestion(sug); }}
+                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 text-left transition-colors border-b last:border-0"
+                                            >
+                                                <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: sug.color || '#2166be' }} />
+                                                <span className="flex-1 font-medium text-[#192b52] truncate">{sug.nombre}</span>
+                                                <span className="text-xs text-muted-foreground flex-shrink-0">Detección existente — click para editar</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="space-y-1.5">

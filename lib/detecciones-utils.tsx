@@ -14,10 +14,16 @@ export const COLORES_DETECCION = [
     { valor: 'amarillo', hex: '#FFB433', label: 'Reprogramado', status: 'reprogramado' },
 ] as const;
 
+const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
 export function fmtDate(v: string | null | undefined): string {
     if (!v) return '—';
-    const [y, m, d] = v.split('-');
-    return `${d}/${m}/${y}`;
+    try {
+        const [y, m, d] = v.split('T')[0].split('-');
+        return `${d}/${MESES[parseInt(m, 10) - 1]}/${y}`;
+    } catch {
+        return v;
+    }
 }
 
 export function StatusCombo({

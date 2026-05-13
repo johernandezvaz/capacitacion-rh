@@ -15,6 +15,7 @@ import { OjtEmployeeSelect } from '@/components/ojt-employee-select';
 import { supabase, Employee, OjtInstance, OjtRecord } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
+import { fmtDate } from '@/lib/detecciones-utils';
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Borrador', in_progress: 'En Progreso', completed: 'Completado', locked: 'Bloqueado',
@@ -26,10 +27,6 @@ const STATUS_CLASS: Record<string, string> = {
   locked: 'bg-red-100 text-red-800 border-red-200',
 };
 
-function fmtDate(v: string | null) {
-  if (!v) return '—';
-  try { const [y, m, d] = v.split('-'); return `${d}/${m}/${y}`; } catch { return v; }
-}
 
 export default function OjtInstanciasPage() {
   const params = useParams();
