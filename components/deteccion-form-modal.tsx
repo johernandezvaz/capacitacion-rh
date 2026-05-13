@@ -181,7 +181,7 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
             if (!v) { setForm({ ...EMPTY }); setSelEmps(new Set()); }
             onOpenChange(v);
         }}>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
                 <DialogHeader>
                     <DialogTitle>{editingId ? 'Editar Detección' : 'Nueva Detección'}</DialogTitle>
                 </DialogHeader>

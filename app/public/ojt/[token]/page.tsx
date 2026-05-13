@@ -21,7 +21,7 @@ export default function PublicOjtPage({
     supabase
       .from('ojt_instances')
       .select('id, template_id')
-      .eq('id', resolvedParams.token)
+      .eq('public_token', resolvedParams.token)
       .maybeSingle()
       .then(({ data, error }) => {
         if (error || !data) {

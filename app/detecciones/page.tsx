@@ -311,13 +311,11 @@ export default function DeteccionesPage() {
                                 <div className="space-y-4 border border-t-0 rounded-b-lg overflow-hidden bg-white">
                                     {grp.empleados.map(emp => (
                                         <div key={emp.id}>
-                                            {/* Encabezado del empleado */}
                                             <div className="px-4 py-2 text-sm font-semibold text-white flex items-center gap-3" style={{ background: '#374151' }}>
                                                 <span>{emp.nombre}</span>
                                                 <span className="font-normal opacity-75">· {emp.puesto}</span>
                                             </div>
 
-                                            {/* Tabla agrupada por detección */}
                                             {emp.detecciones.map((det, di) => {
                                                 const colorActivo = det.emp_color ?? det.color;
                                                 const statusActivo = det.emp_status ?? det.status;
@@ -326,7 +324,6 @@ export default function DeteccionesPage() {
 
                                                 return (
                                                     <div key={det._emp_key || det.id}>
-                                                        {/* Sub-encabezado de detección con botón "Editar detección" */}
                                                         <div className="px-4 py-1.5 flex items-center justify-between" style={{ background: '#4b5563' }}>
                                                             <div className="flex items-center gap-2">
                                                                 {col && (
@@ -351,7 +348,6 @@ export default function DeteccionesPage() {
                                                             </Button>
                                                         </div>
 
-                                                        {/* Fila de datos del empleado para esta detección */}
                                                         <div className="overflow-x-auto">
                                                             <table className="w-full text-xs">
                                                                 <thead>
@@ -402,7 +398,6 @@ export default function DeteccionesPage() {
                 )}
             </div>
 
-            {/* Modal edición completa de detección */}
             <DeteccionFormModal
                 open={modalOpen}
                 onOpenChange={setModalOpen}
@@ -413,7 +408,6 @@ export default function DeteccionesPage() {
                 editingData={editingData}
             />
 
-            {/* Modal estado individual empleado */}
             <EstadoIndividualModal
                 open={estadoModal.open}
                 onOpenChange={v => setEstadoModal(prev => ({ ...prev, open: v }))}

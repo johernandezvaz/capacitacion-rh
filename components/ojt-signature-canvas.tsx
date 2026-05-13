@@ -131,7 +131,7 @@ export function OjtSignatureCanvas({ currentUrl, instanceId, fieldKey, onSave, d
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Capturar Firma</DialogTitle>
           </DialogHeader>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -14,10 +14,18 @@ export default function OjtInstancePage() {
   const templateId = params.id as string;
   const instanceId = params.instanceId as string;
   const [templateTitle, setTemplateTitle] = useState('');
+  const [publicToken, setPublicToken] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from('ojt_records').select('titulo').eq('id', templateId).maybeSingle()
       .then(({ data }) => setTemplateTitle(data?.titulo ?? 'Plantilla'));
+    
+    supabase.from('ojt_instances').select('public_token').eq('id', instanceId).maybeSingle()
+      .then(({ data }) => {
+        if (data?.public_token) {
+          setPublicToken(data.public_token);
+        }
+      });
   }, [templateId, instanceId]);
 
   return (
@@ -47,7 +55,11 @@ export default function OjtInstancePage() {
               size="sm"
               className="gap-2 text-[#2166be] border-[#2166be] hover:bg-[#2166be]/5 shrink-0"
               onClick={() => {
-                const url = `${window.location.origin}/public/ojt/${instanceId}`;
+                if (!publicToken) {
+                  toast.error('No se pudo obtener el enlace público');
+                  return;
+                }
+                const url = `${window.location.origin}/public/ojt/${publicToken}`;
                 navigator.clipboard.writeText(url);
                 toast.success('Enlace copiado al portapapeles');
               }}
