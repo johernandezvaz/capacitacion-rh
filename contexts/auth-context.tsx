@@ -20,7 +20,7 @@ const AuthContext = createContext<AuthContextValue>({
   plantId: null,
   plantName: null,
   role: null,
-  isLoading: true,
+  isLoading: false,
   signOut: async () => { },
 });
 
