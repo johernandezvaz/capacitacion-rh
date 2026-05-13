@@ -11,6 +11,7 @@ import {
   supabase, Employee, OjtRecord, OjtInstanceSignature,
 } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
 import { generateOjtInstancePdf } from '@/lib/ojt-pdf';
 
 type InstanceEntryRow = {
@@ -57,10 +58,14 @@ const PILOTO_LABELS: Record<string, string> = {
 interface OjtInstanceFormProps {
   instanceId: string;
   templateId: string;
+  plantId?: string | null;
+  isPublic?: boolean;
 }
 
-export function OjtInstanceForm({ instanceId, templateId }: OjtInstanceFormProps) {
+export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, isPublic }: OjtInstanceFormProps) {
   const { toast } = useToast();
+  const { plantId: authPlantId } = useAuth();
+  const plantId = propPlantId ?? authPlantId;
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [template, setTemplate] = useState<OjtRecord | null>(null);

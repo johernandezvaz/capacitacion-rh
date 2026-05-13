@@ -19,19 +19,36 @@ export default function PublicOjtPage({
   }>({ templateId: null, instanceId: null, plantId: null, notFound: false, loading: true });
 
   useEffect(() => {
-    supabase
-      .from('ojt_instances')
-      .select('id, template_id, ojt_records!template_id(plant_id)')
-      .eq('public_token', resolvedParams.token)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error || !data) {
-          setState({ templateId: null, instanceId: null, plantId: null, notFound: true, loading: false });
-          return;
-        }
-        const plantId = (data as any).ojt_records?.plant_id ?? null;
-        setState({ templateId: data.template_id, instanceId: data.id, plantId, notFound: false, loading: false });
+    const load = async () => {
+      // Paso 1: obtener la instancia por public_token
+      const { data: instance, error } = await supabase
+        .from('ojt_instances')
+        .select('id, template_id')
+        .eq('public_token', resolvedParams.token)
+        .maybeSingle();
+
+      if (error || !instance) {
+        setState({ templateId: null, instanceId: null, plantId: null, notFound: true, loading: false });
+        return;
+      }
+
+      // Paso 2: obtener plant_id desde ojt_records
+      const { data: record } = await supabase
+        .from('ojt_records')
+        .select('plant_id')
+        .eq('id', instance.template_id)
+        .maybeSingle();
+
+      setState({
+        templateId: instance.template_id,
+        instanceId: instance.id,
+        plantId: record?.plant_id ?? null,
+        notFound: false,
+        loading: false,
       });
+    };
+
+    load();
   }, [resolvedParams.token]);
 
   if (state.loading) {
@@ -65,6 +82,8 @@ export default function PublicOjtPage({
         <OjtInstanceForm
           instanceId={state.instanceId}
           templateId={state.templateId}
+          plantId={state.plantId}
+          isPublic={true}
         />
       </div>
     </div>
