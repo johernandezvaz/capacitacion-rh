@@ -1,8 +1,9 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-export interface DncCourse {
-    name: string;
+export interface DncItem {
+    tipo: 'curso' | 'deteccion';
+    nombre: string;
     inst_interno: string | null;
     inst_externo: string | null;
     proveedor_sugerido: string | null;
@@ -18,11 +19,13 @@ export interface DncCourse {
 
 export interface DncPdfData {
     employee: { nombre: string; puesto: string };
-    courses: DncCourse[];
+    items: DncItem[];
 }
 
-const HDR: [number, number, number] = [25, 43, 82];    // #192b52
-const ALT: [number, number, number] = [248, 250, 252];  // ~#f8fafc
+const HDR: [number, number, number] = [25, 43, 82];
+const ALT: [number, number, number] = [248, 250, 252];
+
+const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 function d(v: string | null | undefined): string {
     return v?.trim() || '—';
@@ -31,8 +34,8 @@ function d(v: string | null | undefined): string {
 function fmtDate(v: string | null | undefined): string {
     if (!v) return '—';
     try {
-        const [y, m, dd] = v.split('-');
-        return `${dd}/${m}/${y}`;
+        const [y, m, dd] = v.split('T')[0].split('-');
+        return `${dd}/${MESES[parseInt(m, 10) - 1]}/${y}`;
     } catch {
         return v;
     }
@@ -68,7 +71,6 @@ export async function generateDncPdf(data: DncPdfData): Promise<void> {
 
     const logoB64 = await loadB64('/safe-demo_logo-blc-Photoroom.png');
 
-    // ── Encabezado ──
     if (logoB64) {
         doc.addImage(logoB64, 'PNG', M, 8, 38, 16);
     }
@@ -81,7 +83,6 @@ export async function generateDncPdf(data: DncPdfData): Promise<void> {
     let Y = 31;
     const hs = { fillColor: HDR, textColor: 255 as any, fontStyle: 'bold' as const, fontSize: 8 };
 
-    // ── Datos del empleado ──
     autoTable(doc, {
         startY: Y,
         head: [['Nombre', 'Puesto']],
@@ -95,15 +96,15 @@ export async function generateDncPdf(data: DncPdfData): Promise<void> {
     });
     Y = (doc as any).lastAutoTable.finalY + 6;
 
-    // ── Tabla de cursos ──
     const head = [[
-        'Curso', 'Inst. Interno', 'Inst. Externo', 'Proveedor', 'Costo',
+        'Tipo', 'Nombre', 'Inst. Interno', 'Inst. Externo', 'Proveedor', 'Costo',
         'Des.\nPersonal', 'Hab.\nBlandas', 'Prev.\nRiesgos', 'Hab.\nTécnicas',
         'F. Programada', 'F. Real', 'Duración\n(hrs)',
     ]];
 
-    const body = data.courses.map((c) => [
-        d(c.name),
+    const body = data.items.map((c) => [
+        c.tipo === 'curso' ? 'Curso' : 'Detección',
+        d(c.nombre),
         d(c.inst_interno),
         d(c.inst_externo),
         d(c.proveedor_sugerido),
@@ -136,22 +137,22 @@ export async function generateDncPdf(data: DncPdfData): Promise<void> {
         margin: { left: M, right: M },
         tableWidth: W - M * 2,
         columnStyles: {
-            0: { cellWidth: 40 },
-            1: { cellWidth: 20 },
-            2: { cellWidth: 20 },
-            3: { cellWidth: 22 },
-            4: { cellWidth: 16, halign: 'right' },
-            5: { cellWidth: 13, halign: 'center' },
-            6: { cellWidth: 13, halign: 'center' },
-            7: { cellWidth: 13, halign: 'center' },
-            8: { cellWidth: 13, halign: 'center' },
-            9: { cellWidth: 18, halign: 'center' },
+            0: { cellWidth: 18, halign: 'center' },
+            1: { cellWidth: 38 },
+            2: { cellWidth: 18 },
+            3: { cellWidth: 18 },
+            4: { cellWidth: 20 },
+            5: { cellWidth: 14, halign: 'right' },
+            6: { cellWidth: 12, halign: 'center' },
+            7: { cellWidth: 12, halign: 'center' },
+            8: { cellWidth: 12, halign: 'center' },
+            9: { cellWidth: 12, halign: 'center' },
             10: { cellWidth: 18, halign: 'center' },
-            11: { cellWidth: 16, halign: 'center' },
+            11: { cellWidth: 18, halign: 'center' },
+            12: { cellWidth: 14, halign: 'center' },
         },
     });
 
-    // ── Pie de página en todas las hojas ──
     const total = (doc.internal as any).getNumberOfPages();
     for (let i = 1; i <= total; i++) {
         doc.setPage(i);
@@ -160,7 +161,6 @@ export async function generateDncPdf(data: DncPdfData): Promise<void> {
         doc.text(`Página ${i} de ${total}`, W - M, H - 6, { align: 'right' });
     }
 
-    // ── Guardar ──
     const safeName = data.employee.nombre.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
     doc.save(`DNC_${safeName}_${new Date().toISOString().split('T')[0]}.pdf`);
 }
