@@ -20,22 +20,29 @@ export default function PublicOjtPage({
 
   useEffect(() => {
     const load = async () => {
+      console.log('[PublicOjtPage] loading token:', resolvedParams.token);
+
       const { data: instance, error } = await supabase
         .from('ojt_instances')
         .select('id, template_id')
         .eq('public_token', resolvedParams.token)
         .maybeSingle();
 
+      console.log('[PublicOjtPage] ojt_instances result — data:', instance, 'error:', error?.message, 'code:', error?.code);
+
       if (error || !instance) {
+        console.warn('[PublicOjtPage] instance not found or error — showing notFound');
         setState({ templateId: null, instanceId: null, plantId: null, notFound: true, loading: false });
         return;
       }
 
-      const { data: record } = await supabase
+      const { data: record, error: recErr } = await supabase
         .from('ojt_records')
         .select('plant_id')
         .eq('id', instance.template_id)
         .maybeSingle();
+
+      console.log('[PublicOjtPage] ojt_records result — data:', record, 'error:', recErr?.message);
 
       setState({
         templateId: instance.template_id,
