@@ -33,7 +33,7 @@ interface Props {
 }
 
 const EMPTY = {
-    nombre: '', color: '#2166be', status: 'actualizacion',
+    nombre: '', color: '#ef4444', status: 'no_tomado',
     inst_interno: '', inst_externo: '', proveedor_sugerido: '', costo: '',
     fecha_programada: '', fecha_real: '', duration_hours: '',
     desarrollo_personal: false, habilidades_blandas: false,
