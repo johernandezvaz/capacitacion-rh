@@ -13,22 +13,24 @@ export default function PublicOjtPage({
   const [state, setState] = useState<{
     templateId: string | null;
     instanceId: string | null;
+    plantId: string | null;
     notFound: boolean;
     loading: boolean;
-  }>({ templateId: null, instanceId: null, notFound: false, loading: true });
+  }>({ templateId: null, instanceId: null, plantId: null, notFound: false, loading: true });
 
   useEffect(() => {
     supabase
       .from('ojt_instances')
-      .select('id, template_id')
+      .select('id, template_id, ojt_records!template_id(plant_id)')
       .eq('public_token', resolvedParams.token)
       .maybeSingle()
       .then(({ data, error }) => {
         if (error || !data) {
-          setState({ templateId: null, instanceId: null, notFound: true, loading: false });
+          setState({ templateId: null, instanceId: null, plantId: null, notFound: true, loading: false });
           return;
         }
-        setState({ templateId: data.template_id, instanceId: data.id, notFound: false, loading: false });
+        const plantId = (data as any).ojt_records?.plant_id ?? null;
+        setState({ templateId: data.template_id, instanceId: data.id, plantId, notFound: false, loading: false });
       });
   }, [resolvedParams.token]);
 
