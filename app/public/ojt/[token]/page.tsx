@@ -30,7 +30,20 @@ export default function PublicOjtPage({
 
       console.log('[PublicOjtPage] ojt_instances result — data:', instance, 'error:', error?.message, 'code:', error?.code);
 
-      if (error || !instance) {
+      let resolved = instance;
+      if (!resolved && !error) {
+        // Fallback: token may be the instance ID itself
+        console.log('[PublicOjtPage] fallback — querying by id:', resolvedParams.token);
+        const { data: byId, error: errById } = await supabase
+          .from('ojt_instances')
+          .select('id, template_id')
+          .eq('id', resolvedParams.token)
+          .maybeSingle();
+        console.log('[PublicOjtPage] fallback by id — data:', byId, 'error:', errById?.message);
+        resolved = byId;
+      }
+
+      if (error || !resolved) {
         console.warn('[PublicOjtPage] instance not found or error — showing notFound');
         setState({ templateId: null, instanceId: null, plantId: null, notFound: true, loading: false });
         return;
@@ -39,14 +52,14 @@ export default function PublicOjtPage({
       const { data: record, error: recErr } = await supabase
         .from('ojt_records')
         .select('plant_id')
-        .eq('id', instance.template_id)
+        .eq('id', resolved.template_id)
         .maybeSingle();
 
       console.log('[PublicOjtPage] ojt_records result — data:', record, 'error:', recErr?.message);
 
       setState({
-        templateId: instance.template_id,
-        instanceId: instance.id,
+        templateId: resolved.template_id,
+        instanceId: resolved.id,
         plantId: record?.plant_id ?? null,
         notFound: false,
         loading: false,

@@ -21,9 +21,13 @@ export default function OjtInstancePage() {
       .then(({ data }) => setTemplateTitle(data?.titulo ?? 'Plantilla'));
     
     supabase.from('ojt_instances').select('public_token').eq('id', instanceId).maybeSingle()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (data?.public_token) {
           setPublicToken(data.public_token);
+        } else {
+          const token = instanceId; // use instance ID as stable public token
+          await supabase.from('ojt_instances').update({ public_token: token }).eq('id', instanceId);
+          setPublicToken(token);
         }
       });
   }, [templateId, instanceId]);
