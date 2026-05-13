@@ -222,7 +222,6 @@ export default function CourseDncPage() {
                     nombre: p.nombre,
                     puesto: p.puesto,
                     area: p.area,
-                    departamento: p.departamento,
                 })),
             });
         } catch (error: any) {
@@ -236,12 +235,12 @@ export default function CourseDncPage() {
         }
     };
 
-    const uniqueDepts = Array.from(new Set(participants.map(p => p.departamento).filter(Boolean))).sort() as string[];
+    const uniqueAreas = Array.from(new Set(participants.map(p => p.area).filter(Boolean))).sort();
 
     const filteredParticipants = participants.filter(p => {
         const matchName = !searchName || p.nombre.toLowerCase().includes(searchName.toLowerCase());
-        const matchDept = !filterDept || p.departamento === filterDept;
-        return matchName && matchDept;
+        const matchArea = !filterArea || p.area === filterArea;
+        return matchName && matchArea;
     });
 
     const checkboxFields = [
@@ -465,15 +464,15 @@ export default function CourseDncPage() {
                                         className="pl-9"
                                     />
                                 </div>
-                                {uniqueDepts.length > 1 && (
+                                {uniqueAreas.length > 1 && (
                                     <select
-                                        value={filterDept}
-                                        onChange={e => setFilterDept(e.target.value)}
+                                        value={filterArea}
+                                        onChange={e => setFilterArea(e.target.value)}
                                         className="border border-gray-200 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#2166be] min-w-[180px]"
                                     >
-                                        <option value="">Todos los departamentos</option>
-                                        {uniqueDepts.map(d => (
-                                            <option key={d} value={d}>{d}</option>
+                                        <option value="">Todas las áreas</option>
+                                        {uniqueAreas.map(a => (
+                                            <option key={a} value={a}>{a}</option>
                                         ))}
                                     </select>
                                 )}
@@ -499,7 +498,6 @@ export default function CourseDncPage() {
                                             <th className="text-left py-3 px-4 text-sm font-semibold text-[#192b52]">Nombre</th>
                                             <th className="text-left py-3 px-4 text-sm font-semibold text-[#192b52]">Puesto</th>
                                             <th className="text-left py-3 px-4 text-sm font-semibold text-[#192b52]">Área</th>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-[#192b52]">Departamento</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -511,7 +509,6 @@ export default function CourseDncPage() {
                                                 <td className="py-3 px-4 text-sm font-medium">{p.nombre}</td>
                                                 <td className="py-3 px-4 text-sm text-muted-foreground">{p.puesto}</td>
                                                 <td className="py-3 px-4 text-sm text-muted-foreground">{p.area}</td>
-                                                <td className="py-3 px-4 text-sm text-muted-foreground">{p.departamento || '—'}</td>
                                             </tr>
                                         ))}
                                     </tbody>

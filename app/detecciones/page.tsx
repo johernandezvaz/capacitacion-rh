@@ -162,7 +162,6 @@ export default function DeteccionesPage() {
     const handleDeleteDeteccion = async (detId: string) => {
         try {
             await supabase.from('deteccion_empleados').delete().eq('deteccion_id', detId);
-            await supabase.from('deteccion_departamentos').delete().eq('deteccion_id', detId);
             await supabase.from('detecciones').delete().eq('id', detId);
             setConfirmDeleteDet(null);
             toast({ title: 'Detección eliminada' });
@@ -261,7 +260,7 @@ export default function DeteccionesPage() {
                         </div>
                         <div>
                             <h1 className="text-2xl sm:text-3xl font-bold text-[#192b52]">Detecciones</h1>
-                            <p className="text-muted-foreground text-sm">Necesidades de capacitación por departamento</p>
+                            <p className="text-muted-foreground text-sm">Necesidades de capacitación por área</p>
                         </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
