@@ -10,11 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { useTrainingYears } from '@/hooks/use-training-years';
-import { fmtDate, COLORES_DETECCION } from '@/lib/detecciones-utils';
+import { fmtDate } from '@/lib/detecciones-utils';
 
 const COURSE_COLOR = '#4A249D';
 
-// ── Types ──────────────────────────────────────────────────────────────────────
 
 type Empleado = { nombre: string; puesto: string };
 
@@ -84,7 +83,6 @@ function fmtField(item: UnifiedItem, col: typeof DNC_FIELDS[number]): string {
     return val ?? '—';
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function DncGeneralPage() {
     const router = useRouter();
@@ -104,7 +102,6 @@ export default function DncGeneralPage() {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            // ── Courses ────────────────────────────────────────────────────────
             const { data: coursesRaw } = await supabase
                 .from('courses')
                 .select('id, name, date, fecha_programada, fecha_real, inst_interno, inst_externo, proveedor_sugerido, costo, duration_hours, desarrollo_personal, habilidades_blandas, prevencion_riesgos, habilidades_tecnicas, deteccion_id')
@@ -114,7 +111,6 @@ export default function DncGeneralPage() {
 
             const courseIds = (coursesRaw || []).map((c: any) => c.id);
 
-            // Participants for each course
             let partMap: Record<string, Empleado[]> = {};
             if (courseIds.length > 0) {
                 const { data: partData } = await supabase
@@ -151,7 +147,6 @@ export default function DncGeneralPage() {
                 empleados: partMap[c.id] || [],
             })));
 
-            // ── Detecciones (excluding those with a linked course) ─────────────
             const linkedIds = (coursesRaw || [])
                 .map((c: any) => c.deteccion_id)
                 .filter(Boolean) as string[];
@@ -211,7 +206,6 @@ export default function DncGeneralPage() {
         }
     };
 
-    // Group by month from fecha_programada, respecting sort direction
     const groupedItems = useMemo(() => {
         const q = searchName.toLowerCase();
         const all: UnifiedItem[] = [...courseItems, ...detItems];
@@ -221,15 +215,13 @@ export default function DncGeneralPage() {
                 item._type === 'course'
                     ? item.name.toLowerCase().includes(q)
                     : item.nombre.toLowerCase().includes(q)
-              )
+            )
             : all;
 
         const groups: Record<string, { label: string; sortKey: string; items: UnifiedItem[] }> = {};
         const noDate: UnifiedItem[] = [];
 
         filtered.forEach(item => {
-            // Use date (courses) or fecha_programada (detecciones) as the grouping key
-            // — same logic as year/[id]/page.tsx
             const dateStr = item._type === 'course'
                 ? (item as CourseItem).date || item.fecha_programada || item.fecha_real
                 : item.fecha_programada || item.fecha_real;
@@ -250,7 +242,6 @@ export default function DncGeneralPage() {
             sortAsc ? a.sortKey.localeCompare(b.sortKey) : b.sortKey.localeCompare(a.sortKey)
         );
 
-        // Sort items within each group by their date
         sorted.forEach(g => {
             g.items.sort((a, b) =>
                 sortAsc
@@ -269,7 +260,6 @@ export default function DncGeneralPage() {
     return (
         <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 bg-slate-50">
             <div className="max-w-5xl mx-auto">
-                {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 flex-shrink-0">
@@ -291,7 +281,6 @@ export default function DncGeneralPage() {
                     )}
                 </div>
 
-                {/* Search + sort */}
                 <Card className="border-none shadow-md mb-6">
                     <CardContent className="pt-5 pb-4">
                         <div className="flex gap-2">
@@ -317,21 +306,6 @@ export default function DncGeneralPage() {
                     </CardContent>
                 </Card>
 
-                {/* Color legend */}
-                <div className="flex flex-wrap gap-x-5 gap-y-2 mb-6 text-xs text-[#192b52]">
-                    <span className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: COURSE_COLOR }} />
-                        Curso realizado
-                    </span>
-                    {COLORES_DETECCION.map(c => (
-                        <span key={c.valor} className="flex items-center gap-1.5">
-                            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: c.hex }} />
-                            {c.label}
-                        </span>
-                    ))}
-                </div>
-
-                {/* Unified month-grouped list */}
                 {isLoading ? (
                     <div className="animate-pulse space-y-4">
                         {[...Array(4)].map((_, i) => <div key={i} className="h-32 bg-muted rounded-lg" />)}
@@ -349,91 +323,88 @@ export default function DncGeneralPage() {
                     <div className="space-y-8">
                         {groupedItems.map(group => (
                             <div key={group.sortKey} className="space-y-3">
-                                {/* Month header */}
                                 <h2 className="text-base font-semibold text-[#192b52] border-b border-gray-200 pb-2">
                                     {group.label}
                                     <span className="ml-2 text-xs font-normal text-muted-foreground">({group.items.length})</span>
                                 </h2>
                                 <div className="space-y-3">
                                     {group.items.map(item => {
-                            const isCourse = item._type === 'course';
-                            const dotColor = isCourse ? COURSE_COLOR : (item as DetItem).color;
-                            const displayName = isCourse ? (item as CourseItem).name : (item as DetItem).nombre;
-                            const href = isCourse
-                                ? `/course/${item.id}/dnc`
-                                : `/detecciones/${item.id}`;
+                                        const isCourse = item._type === 'course';
+                                        const dotColor = isCourse ? COURSE_COLOR : (item as DetItem).color;
+                                        const displayName = isCourse ? (item as CourseItem).name : (item as DetItem).nombre;
+                                        const href = isCourse
+                                            ? `/course/${item.id}/dnc`
+                                            : `/detecciones/${item.id}`;
 
-                            return (
-                                <div key={`${item._type}-${item.id}`} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
-                                    {/* Header row */}
-                                    <div className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b">
-                                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                            <span
-                                                className="w-3.5 h-3.5 rounded-full flex-shrink-0"
-                                                style={{ background: dotColor }}
-                                            />
-                                            <span className="font-semibold text-sm text-[#192b52] truncate">
-                                                {displayName}
-                                            </span>
-                                            {isCourse && (item as CourseItem).deteccion_id && (
-                                                <span
-                                                    className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full text-white font-semibold"
-                                                    style={{ background: COURSE_COLOR }}
-                                                    title="Promovido desde detección"
-                                                >
-                                                    Detección
-                                                </span>
-                                            )}
-                                            <Badge variant="secondary" className="flex-shrink-0 text-[10px]">
-                                                {isCourse ? 'Curso' : 'Detección'}
-                                            </Badge>
-                                        </div>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="border-[#2166be] text-[#2166be] hover:bg-[#2166be] hover:text-white flex-shrink-0"
-                                            onClick={() => router.push(href)}
-                                        >
-                                            <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                                            Ver
-                                        </Button>
-                                    </div>
+                                        return (
+                                            <div key={`${item._type}-${item.id}`} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
 
-                                    {/* DNC fields */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 px-4 py-3 text-xs border-b">
-                                        {DNC_FIELDS.map(col => {
-                                            const val = fmtField(item, col);
-                                            const isBool = col.bool;
-                                            return (
-                                                <div key={col.key}>
-                                                    <span className="text-muted-foreground">{col.label}:</span>
-                                                    <br />
-                                                    <span className={`font-medium ${isBool && val === '✓' ? 'text-green-600' : isBool ? 'text-muted-foreground' : ''}`}>
-                                                        {val}
-                                                    </span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {/* Employees / participants */}
-                                    {item.empleados.length > 0 && (
-                                        <div className="px-4 py-3">
-                                            <p className="text-xs font-semibold text-muted-foreground mb-2">
-                                                {isCourse ? 'PARTICIPANTES' : 'EMPLEADOS'} ({item.empleados.length})
-                                            </p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {item.empleados.map((emp, ei) => (
-                                                    <div key={ei} className="bg-blue-50 border border-blue-100 rounded-md px-2 py-1 text-xs">
-                                                        <span className="font-medium text-[#192b52]">{emp.nombre}</span>
-                                                        <span className="text-muted-foreground ml-1">· {emp.puesto}</span>
+                                                <div className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b">
+                                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                        <span
+                                                            className="w-3.5 h-3.5 rounded-full flex-shrink-0"
+                                                            style={{ background: dotColor }}
+                                                        />
+                                                        <span className="font-semibold text-sm text-[#192b52] truncate">
+                                                            {displayName}
+                                                        </span>
+                                                        {isCourse && (item as CourseItem).deteccion_id && (
+                                                            <span
+                                                                className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full text-white font-semibold"
+                                                                style={{ background: COURSE_COLOR }}
+                                                                title="Promovido desde detección"
+                                                            >
+                                                                Detección
+                                                            </span>
+                                                        )}
+                                                        <Badge variant="secondary" className="flex-shrink-0 text-[10px]">
+                                                            {isCourse ? 'Curso' : 'Detección'}
+                                                        </Badge>
                                                     </div>
-                                                ))}
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="border-[#2166be] text-[#2166be] hover:bg-[#2166be] hover:text-white flex-shrink-0"
+                                                        onClick={() => router.push(href)}
+                                                    >
+                                                        <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                                                        Ver
+                                                    </Button>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 px-4 py-3 text-xs border-b">
+                                                    {DNC_FIELDS.map(col => {
+                                                        const val = fmtField(item, col);
+                                                        const isBool = col.bool;
+                                                        return (
+                                                            <div key={col.key}>
+                                                                <span className="text-muted-foreground">{col.label}:</span>
+                                                                <br />
+                                                                <span className={`font-medium ${isBool && val === '✓' ? 'text-green-600' : isBool ? 'text-muted-foreground' : ''}`}>
+                                                                    {val}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {item.empleados.length > 0 && (
+                                                    <div className="px-4 py-3">
+                                                        <p className="text-xs font-semibold text-muted-foreground mb-2">
+                                                            {isCourse ? 'PARTICIPANTES' : 'EMPLEADOS'} ({item.empleados.length})
+                                                        </p>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {item.empleados.map((emp, ei) => (
+                                                                <div key={ei} className="bg-blue-50 border border-blue-100 rounded-md px-2 py-1 text-xs">
+                                                                    <span className="font-medium text-[#192b52]">{emp.nombre}</span>
+                                                                    <span className="text-muted-foreground ml-1">· {emp.puesto}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
-                            );
+                                        );
                                     })}
                                 </div>
                             </div>

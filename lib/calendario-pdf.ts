@@ -9,7 +9,7 @@ export interface CalendarioPdfFila {
     color: string;
     comentario: string | null;
     meses: Array<{
-        mes: number;           // 1-12
+        mes: number;
         tiene_programado: boolean;
         tiene_real: boolean;
     }>;
@@ -31,7 +31,6 @@ function hexToRgb(hex: string): [number, number, number] {
 }
 
 function withAlpha(rgb: [number, number, number], alpha: number): [number, number, number] {
-    // Blend with white background
     return [
         Math.round(rgb[0] * alpha + 255 * (1 - alpha)),
         Math.round(rgb[1] * alpha + 255 * (1 - alpha)),
@@ -56,7 +55,6 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
     const H = doc.internal.pageSize.getHeight();
     const M = 12;
 
-    // ── Header ────────────────────────────────────────────────────────────────
     const logoB64 = await loadB64('/safe-demo_logo-blc-Photoroom.png');
     if (logoB64) doc.addImage(logoB64, 'PNG', M, 5, 32, 13);
 
@@ -68,7 +66,6 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
 
     let Y = 24;
 
-    // ── Leyenda ───────────────────────────────────────────────────────────────
     const LEGEND = [
         { color: '#4A249D', label: 'Curso realizado' },
         { color: '#2166be', label: 'Actualización cada 5 años' },
@@ -89,17 +86,14 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
     }
     Y += 8;
 
-    // ── Table ─────────────────────────────────────────────────────────────────
     const HDR: [number, number, number] = [25, 43, 82];
     const ALT: [number, number, number] = [248, 250, 252];
 
-    // Build head row
     const head = [['TEMA', ...MONTHS_SHORT, 'COMENTARIO']];
 
-    // Build body rows (text content — colours applied via willDrawCell)
     const body = data.filas.map(fila => [
         fila.nombre,
-        ...fila.meses.map(() => ''),   // placeholder — cells coloured below
+        ...fila.meses.map(() => ''),
         fila.comentario || '',
     ]);
 
@@ -122,36 +116,33 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
         },
         alternateRowStyles: { fillColor: ALT },
         columnStyles: {
-            0: { cellWidth: 65 },    // TEMA (wider now that DIRIGIDO A is gone)
-            // cols 1-12: months
-            1:  { cellWidth: 14, halign: 'center' },
-            2:  { cellWidth: 14, halign: 'center' },
-            3:  { cellWidth: 14, halign: 'center' },
-            4:  { cellWidth: 14, halign: 'center' },
-            5:  { cellWidth: 14, halign: 'center' },
-            6:  { cellWidth: 14, halign: 'center' },
-            7:  { cellWidth: 14, halign: 'center' },
-            8:  { cellWidth: 14, halign: 'center' },
-            9:  { cellWidth: 14, halign: 'center' },
+            0: { cellWidth: 65 },
+            1: { cellWidth: 14, halign: 'center' },
+            2: { cellWidth: 14, halign: 'center' },
+            3: { cellWidth: 14, halign: 'center' },
+            4: { cellWidth: 14, halign: 'center' },
+            5: { cellWidth: 14, halign: 'center' },
+            6: { cellWidth: 14, halign: 'center' },
+            7: { cellWidth: 14, halign: 'center' },
+            8: { cellWidth: 14, halign: 'center' },
+            9: { cellWidth: 14, halign: 'center' },
             10: { cellWidth: 14, halign: 'center' },
             11: { cellWidth: 14, halign: 'center' },
             12: { cellWidth: 14, halign: 'center' },
-            13: { cellWidth: 'auto' },   // COMENTARIO
+            13: { cellWidth: 'auto' },
         },
         margin: { left: M, right: M },
         tableWidth: W - M * 2,
-        // didParseCell fires BEFORE styles are merged → reliable for overriding fillColor
         didParseCell: (hookData) => {
             if (hookData.section !== 'body') return;
             const colIdx = hookData.column.index;
-            // Month columns are 1-12 (TEMA=0, months=1..12, COMENTARIO=13)
             if (colIdx < 1 || colIdx > 12) return;
 
             const rowIdx = hookData.row.index;
             const fila = data.filas[rowIdx];
             if (!fila) return;
 
-            const mesIdx = colIdx - 1; // 0-based index into fila.meses
+            const mesIdx = colIdx - 1;
             const mesInfo = fila.meses[mesIdx];
             if (!mesInfo) return;
 
@@ -165,7 +156,6 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
                 hookData.cell.styles.textColor = [60, 60, 60];
             }
         },
-        // willDrawCell fires just before drawing → paint rect manually to override alternateRowStyles
         willDrawCell: (hookData) => {
             if (hookData.section !== 'body') return;
             const colIdx = hookData.column.index;
@@ -184,7 +174,6 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
                 ? baseColor
                 : withAlpha(baseColor, 0.40);
 
-            // Paint the cell background rectangle directly
             doc.setFillColor(r, g, b);
             doc.rect(
                 hookData.cell.x,
@@ -196,7 +185,6 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
         },
     });
 
-    // ── Footers ───────────────────────────────────────────────────────────────
     const total = (doc.internal as any).getNumberOfPages();
     for (let i = 1; i <= total; i++) {
         doc.setPage(i);

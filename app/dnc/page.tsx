@@ -107,7 +107,7 @@ export default function DncPage() {
         try {
             const { data: coursesData, error: cErr } = await supabase
                 .from('courses')
-                .select('id, name, date, fecha_programada, fecha_real, comentario_dnc, deteccion_id')
+                .select('id, name, date, start_date, fecha_programada, fecha_real, comentario_dnc, deteccion_id')
                 .eq('plant_id', plantId)
                 .eq('year_id', selectedYearId);
             if (cErr) throw cErr;
@@ -121,7 +121,7 @@ export default function DncPage() {
                 comentario_dnc: c.comentario_dnc ?? null,
                 deteccion_id: c.deteccion_id ?? null,
                 _type: 'course' as const,
-                _sortDate: c.fecha_programada || c.fecha_real || c.date || '9999-12-31',
+                _sortDate: c.start_date || c.date || '9999-12-31',
             }));
             setCourses(rows);
 
@@ -144,7 +144,7 @@ export default function DncPage() {
                 fecha_real: d.fecha_real,
                 areas: '',
                 _type: 'deteccion' as const,
-                _sortDate: d.fecha_programada || d.fecha_real || '9999-12-31',
+                _sortDate: d.fecha_programada || '9999-12-31',
             }));
             setDetecciones(dets);
         } catch (err) {
