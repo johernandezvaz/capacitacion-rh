@@ -144,7 +144,7 @@ export default function DncPage() {
                 fecha_real: d.fecha_real,
                 areas: '',
                 _type: 'deteccion' as const,
-                _sortDate: d.fecha_programada || '9999-12-31',
+                _sortDate: d.fecha_real || d.fecha_programada || '9999-12-31',
             }));
             setDetecciones(dets);
         } catch (err) {
@@ -273,8 +273,6 @@ export default function DncPage() {
                         </button>
                     </div>
                 </div>
-
-                {/* Leyenda de colores */}
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4 px-1">
                     {LEGEND.map(c => (
                         <div key={c.hex} className="flex items-center gap-1.5">
