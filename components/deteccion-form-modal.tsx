@@ -131,7 +131,7 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
         f('nombre', val);
         if (editingId || isEditingExisting) return;
         if (debounceRef.current) clearTimeout(debounceRef.current);
-        if (val.trim().length >= 3) {
+        if (val.trim().length >= 2) {
             debounceRef.current = setTimeout(() => searchSuggestions(val.trim()), 400);
         } else {
             setSuggestions([]);
