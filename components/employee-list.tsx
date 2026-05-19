@@ -141,6 +141,22 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
 
             if (participantError) throw participantError;
 
+            const courseId = deleteDialog.employee.course_id;
+            if (courseId) {
+                const { data: courseLink } = await supabase
+                    .from('courses')
+                    .select('deteccion_id')
+                    .eq('id', courseId)
+                    .maybeSingle();
+
+                if (courseLink?.deteccion_id) {
+                    await supabase.from('deteccion_empleados')
+                        .delete()
+                        .eq('deteccion_id', courseLink.deteccion_id)
+                        .eq('employee_id', deleteDialog.employee.id);
+                }
+            }
+
             toast({
                 title: 'Éxito',
                 description: 'Participante eliminado del curso',

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
+import { Search, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,6 +42,7 @@ const EMPTY = {
 };
 
 type Suggestion = { id: string; nombre: string; color: string };
+type CourseOption = { id: string; name: string; year: number | null };
 
 export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearId, editingId, editingData }: Props) {
     const { toast } = useToast();
@@ -54,8 +56,15 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isEditingExisting, setIsEditingExisting] = useState(false);
     const [suggestionEditId, setSuggestionEditId] = useState<string | null>(null);
+    const [linkedCourseId, setLinkedCourseId] = useState<string | null>(null);
+    const [courseSearch, setCourseSearch] = useState('');
+    const [courseSuggestions, setCourseSuggestions] = useState<CourseOption[]>([]);
+    const [showCourseSuggestions, setShowCourseSuggestions] = useState(false);
+    const [selectedCourseName, setSelectedCourseName] = useState('');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const blurRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const courseBlurRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const courseDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         if (!open || empsLoaded) return;
@@ -68,6 +77,11 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
         setShowSuggestions(false);
         setSuggestionEditId(null);
         setIsEditingExisting(false);
+        setLinkedCourseId(null);
+        setCourseSearch('');
+        setSelectedCourseName('');
+        setCourseSuggestions([]);
+        setShowCourseSuggestions(false);
         if (editingId && editingData) {
             const d = editingData;
             setForm({
@@ -125,6 +139,51 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
             setSuggestions([]);
             setShowSuggestions(false);
         }
+    };
+
+    const searchCourses = async (term: string) => {
+        const { data } = await supabase
+            .from('courses')
+            .select('id, name, year_id, training_years!year_id(year)')
+            .eq('plant_id', plantId)
+            .ilike('name', `%${term}%`)
+            .limit(8);
+        const opts: CourseOption[] = (data || []).map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            year: c.training_years?.year ?? null,
+        }));
+        setCourseSuggestions(opts);
+        setShowCourseSuggestions(opts.length > 0);
+    };
+
+    const handleCourseSearchChange = (val: string) => {
+        setCourseSearch(val);
+        if (!val.trim()) {
+            setLinkedCourseId(null);
+            setSelectedCourseName('');
+            setCourseSuggestions([]);
+            setShowCourseSuggestions(false);
+            return;
+        }
+        if (courseDebounceRef.current) clearTimeout(courseDebounceRef.current);
+        courseDebounceRef.current = setTimeout(() => searchCourses(val.trim()), 350);
+    };
+
+    const handleSelectCourse = (opt: CourseOption) => {
+        setLinkedCourseId(opt.id);
+        setSelectedCourseName(opt.name);
+        setCourseSearch(opt.year ? `${opt.name} (${opt.year})` : opt.name);
+        setCourseSuggestions([]);
+        setShowCourseSuggestions(false);
+    };
+
+    const clearCourse = () => {
+        setLinkedCourseId(null);
+        setSelectedCourseName('');
+        setCourseSearch('');
+        setCourseSuggestions([]);
+        setShowCourseSuggestions(false);
     };
 
     const handleNombreChange = (val: string) => {
@@ -205,6 +264,23 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                 );
             }
 
+            if (linkedCourseId && detId) {
+                await supabase.from('courses').update({
+                    deteccion_id: detId,
+                    inst_interno: form.inst_interno.trim() || null,
+                    inst_externo: form.inst_externo.trim() || null,
+                    proveedor_sugerido: form.proveedor_sugerido.trim() || null,
+                    costo: form.costo ? parseFloat(form.costo) : null,
+                    desarrollo_personal: form.desarrollo_personal,
+                    habilidades_blandas: form.habilidades_blandas,
+                    prevencion_riesgos: form.prevencion_riesgos,
+                    habilidades_tecnicas: form.habilidades_tecnicas,
+                    fecha_programada: form.fecha_programada || null,
+                    fecha_real: form.fecha_real || null,
+                    duration_hours: form.duration_hours ? parseFloat(form.duration_hours) : null,
+                }).eq('id', linkedCourseId);
+            }
+
             toast({ title: 'Éxito', description: activeEditingId ? 'Detección actualizada' : 'Detección creada' });
             onSaved();
             onOpenChange(false);
@@ -279,6 +355,53 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                                     </div>
                                 )}
                             </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label>Vincular a curso existente <span className="text-muted-foreground font-normal text-xs">(opcional)</span></Label>
+                            <div
+                                className="relative"
+                                onBlur={() => { courseBlurRef.current = setTimeout(() => setShowCourseSuggestions(false), 150); }}
+                                onFocus={() => { if (courseBlurRef.current) clearTimeout(courseBlurRef.current); }}
+                            >
+                                <div className="flex items-center gap-1.5">
+                                    <div className="relative flex-1">
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                                        <Input
+                                            value={courseSearch}
+                                            onChange={e => handleCourseSearchChange(e.target.value)}
+                                            placeholder="Buscar curso por nombre..."
+                                            className="pl-8"
+                                        />
+                                    </div>
+                                    {linkedCourseId && (
+                                        <button type="button" onClick={clearCourse} className="p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Limpiar">
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+                                {showCourseSuggestions && courseSuggestions.length > 0 && (
+                                    <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden">
+                                        {courseSuggestions.map(opt => (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onMouseDown={e => { e.preventDefault(); handleSelectCourse(opt); }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 text-left transition-colors border-b last:border-0"
+                                            >
+                                                <span className="flex-1 font-medium text-[#192b52] truncate">{opt.name}</span>
+                                                {opt.year && <span className="text-xs text-muted-foreground flex-shrink-0">{opt.year}</span>}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            {linkedCourseId && (
+                                <p className="text-xs text-[#22c55e] font-medium flex items-center gap-1">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-[#22c55e]" />
+                                    Curso vinculado: {selectedCourseName}
+                                </p>
+                            )}
                         </div>
 
                         <div className="space-y-1.5">

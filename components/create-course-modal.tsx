@@ -241,7 +241,7 @@ export function CreateCourseModal({
     try {
       const dateValue = startDate || new Date().toISOString().split('T')[0];
 
-      const { error: insertError } = await supabase.from('courses').insert([
+      const { data: insertedCourse, error: insertError } = await supabase.from('courses').insert([
         {
           year_id: yearId,
           name: name.trim(),
@@ -264,9 +264,40 @@ export function CreateCourseModal({
           comentario_dnc: comentarioDnc.trim() || null,
           deteccion_id: selectedDeteccionId || null,
         },
-      ]);
+      ]).select('id').single();
 
       if (insertError) throw insertError;
+
+      if (insertedCourse?.id && !selectedDeteccionId) {
+        const { data: det } = await supabase
+          .from('detecciones')
+          .insert([{
+            nombre: name.trim(),
+            plant_id: plantId,
+            year_id: yearId,
+            color: '#ef4444',
+            status: 'no_tomado',
+            inst_interno: instInterno.trim() || null,
+            inst_externo: instExterno.trim() || null,
+            proveedor_sugerido: proveedorSugerido.trim() || null,
+            costo: costo ? parseFloat(costo) : null,
+            desarrollo_personal: desarrolloPersonal,
+            habilidades_blandas: habilidadesBlandas,
+            prevencion_riesgos: prevencionRiesgos,
+            habilidades_tecnicas: habilidadesTecnicas,
+            fecha_programada: fechaProgramada || null,
+            fecha_real: fechaReal || null,
+            duration_hours: durationNumber || null,
+          }])
+          .select()
+          .single();
+
+        if (det?.id) {
+          await supabase.from('courses')
+            .update({ deteccion_id: det.id })
+            .eq('id', insertedCourse.id);
+        }
+      }
 
       resetForm();
       onSuccess();
@@ -398,8 +429,8 @@ export function CreateCourseModal({
                 )}
               </div>
               {selectedDeteccionId && (
-                <p className="text-xs text-[#4A249D] font-medium flex items-center gap-1">
-                  <span className="inline-block w-2 h-2 rounded-full bg-[#4A249D]" />
+                <p className="text-xs text-[#22c55e] font-medium flex items-center gap-1">
+                  <span className="inline-block w-2 h-2 rounded-full bg-[#22c55e]" />
                   Datos DNC auto-rellenados desde la detección seleccionada
                 </p>
               )}

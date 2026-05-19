@@ -12,7 +12,6 @@ import { useAuth } from '@/contexts/auth-context';
 import { useTrainingYears } from '@/hooks/use-training-years';
 import { fmtDate } from '@/lib/detecciones-utils';
 
-const COURSE_COLOR = '#4A249D';
 
 
 type Empleado = { nombre: string; puesto: string };
@@ -330,7 +329,10 @@ export default function DncGeneralPage() {
                                 <div className="space-y-3">
                                     {group.items.map(item => {
                                         const isCourse = item._type === 'course';
-                                        const dotColor = isCourse ? COURSE_COLOR : (item as DetItem).color;
+                                        const today = new Date().toISOString().split('T')[0];
+                                        const dotColor = isCourse
+                                            ? (((item as CourseItem).fecha_real && (item as CourseItem).fecha_real! < today) ? '#22c55e' : '#ef4444')
+                                            : (item as DetItem).color;
                                         const displayName = isCourse ? (item as CourseItem).name : (item as DetItem).nombre;
                                         const href = isCourse
                                             ? `/course/${item.id}/dnc`
@@ -351,7 +353,7 @@ export default function DncGeneralPage() {
                                                         {isCourse && (item as CourseItem).deteccion_id && (
                                                             <span
                                                                 className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full text-white font-semibold"
-                                                                style={{ background: COURSE_COLOR }}
+                                                                style={{ background: '#22c55e' }}
                                                                 title="Promovido desde detección"
                                                             >
                                                                 Detección

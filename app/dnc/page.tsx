@@ -12,7 +12,6 @@ import { generateCalendarioPdf, type CalendarioPdfFila } from '@/lib/calendario-
 const MONTHS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 const TOTAL_COLS = 14;
 
-const COURSE_COLOR = '#4A249D';
 
 type CourseRow = {
     id: string;
@@ -22,6 +21,7 @@ type CourseRow = {
     fecha_real: string | null;
     comentario_dnc: string | null;
     deteccion_id: string | null;
+    color: string;
     _type: 'course';
     _sortDate: string;
 };
@@ -57,15 +57,16 @@ function getCourseCellStyle(course: CourseRow, monthIndex: number, year: number)
     const real = parseMonthYear(course.fecha_real);
     const prog = parseMonthYear(course.fecha_programada);
     const dateField = parseMonthYear(course.date);
+    const col = course.color;
 
     if (real && real.month === monthIndex && real.year === year) {
-        return { bg: COURSE_COLOR, tooltip: 'Realizado' };
+        return { bg: col, tooltip: 'Tomado' };
     }
     if (prog && prog.month === monthIndex && prog.year === year && !course.fecha_real) {
-        return { bg: hexToRgba(COURSE_COLOR, 0.40), tooltip: 'Programado' };
+        return { bg: hexToRgba(col, 0.40), tooltip: 'Programado' };
     }
     if (dateField && dateField.month === monthIndex && dateField.year === year && !course.fecha_programada && !course.fecha_real) {
-        return { bg: hexToRgba(COURSE_COLOR, 0.40), tooltip: 'Programado' };
+        return { bg: hexToRgba(col, 0.40), tooltip: 'Programado' };
     }
     return null;
 }
@@ -107,11 +108,12 @@ export default function DncPage() {
         try {
             const { data: coursesData, error: cErr } = await supabase
                 .from('courses')
-                .select('id, name, date, start_date, fecha_programada, fecha_real, comentario_dnc, deteccion_id')
+                .select('id, name, date, start_date, end_date, fecha_programada, fecha_real, comentario_dnc, deteccion_id')
                 .eq('plant_id', plantId)
                 .eq('year_id', selectedYearId);
             if (cErr) throw cErr;
 
+            const today = new Date().toISOString().split('T')[0];
             const rows: CourseRow[] = (coursesData || []).map((c: any) => ({
                 id: c.id,
                 name: c.name,
@@ -120,6 +122,7 @@ export default function DncPage() {
                 fecha_real: c.fecha_real ?? null,
                 comentario_dnc: c.comentario_dnc ?? null,
                 deteccion_id: c.deteccion_id ?? null,
+                color: (c.end_date && c.end_date < today) ? '#22c55e' : '#ef4444',
                 _type: 'course' as const,
                 _sortDate: c.start_date || c.date || '9999-12-31',
             }));
@@ -176,11 +179,10 @@ export default function DncPage() {
     const isEmpty = unifiedRows.length === 0;
 
     const LEGEND = [
-        { hex: COURSE_COLOR, label: 'Curso realizado' },
+        { hex: '#22c55e', label: 'Tomado' },
+        { hex: '#ef4444', label: 'No tomado' },
+        { hex: '#FFB433', label: 'Reprogramado' },
         { hex: '#2166be', label: 'Actualización cada 5 años o cambios de curso' },
-        { hex: '#22c55e', label: 'Curso tomado (detección)' },
-        { hex: '#ef4444', label: 'No tomado (detección)' },
-        { hex: '#FFB433', label: 'Reprogramado (detección)' },
     ];
 
     const handleExportPdf = async () => {
@@ -194,7 +196,7 @@ export default function DncPage() {
                     return {
                         tipo: 'curso' as const,
                         nombre: course.name,
-                        color: COURSE_COLOR,
+                        color: course.color,
                         comentario: comments[course.id] || null,
                         meses: Array.from({ length: 12 }, (_, mi) => {
                             const s = getCourseCellStyle(course, mi, yr);
@@ -325,7 +327,7 @@ export default function DncPage() {
                                                             {course.name}
                                                         </Link>
                                                         {course.deteccion_id && (
-                                                            <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-[#4A249D] align-middle" title="Originado de detección" />
+                                                            <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-[#22c55e] align-middle" title="Originado de detección" />
                                                         )}
                                                     </td>
 

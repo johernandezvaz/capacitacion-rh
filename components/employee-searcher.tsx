@@ -108,6 +108,19 @@ export function EmployeeSearcher({ courseId, onEmployeeAdded, existingEmployeeId
                 }
             }
 
+            const { data: courseLink } = await supabase
+                .from('courses')
+                .select('deteccion_id')
+                .eq('id', courseId)
+                .maybeSingle();
+
+            if (courseLink?.deteccion_id) {
+                await supabase.from('deteccion_empleados').upsert(
+                    [{ deteccion_id: courseLink.deteccion_id, employee_id: employeeId, color: '#ef4444', status: 'no_tomado' }],
+                    { onConflict: 'deteccion_id,employee_id', ignoreDuplicates: true }
+                );
+            }
+
             toast({
                 title: 'Empleado agregado',
                 description: 'El empleado fue inscrito exitosamente y sus cuestionarios fueron creados',

@@ -45,6 +45,16 @@ const CB_COLS = [
     { key: 'duration_hours', label: 'Hrs' },
 ] as const;
 
+function getRowColor(hex: string) {
+    const map: Record<string, { bg: string; text: string }> = {
+        '#22c55e': { bg: '#408A71', text: '#091413' },
+        '#ef4444': { bg: '#F05454', text: '#121212' },
+        '#FFB433': { bg: '#FFC947', text: '#0A1931' },
+        '#2166be': { bg: '#1D546D', text: '#F3F4F4' },
+    };
+    return map[hex] ?? { bg: '#ffffff', text: '#000000' };
+}
+
 export default function DeteccionesPage() {
     const { plantId, plantName } = useAuth();
     const { toast } = useToast();
@@ -411,30 +421,37 @@ export default function DeteccionesPage() {
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
-                                                                    <tr className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${di % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{det.inst_interno || '—'}</td>
-                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{det.inst_externo || '—'}</td>
-                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{det.proveedor_sugerido || '—'}</td>
-                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{det.costo != null ? `$${det.costo}` : '—'}</td>
-                                                                        {(['desarrollo_personal', 'habilidades_blandas', 'prevencion_riesgos', 'habilidades_tecnicas'] as const).map(k => (
-                                                                            <td key={k} className={`py-2 px-2 text-center font-semibold ${det[k] ? 'text-green-600' : 'text-muted-foreground'}`}>
-                                                                                {det[k] ? '✓' : '—'}
-                                                                            </td>
-                                                                        ))}
-                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{fmtDate(det.fecha_programada)}</td>
-                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{fmtDate(det.fecha_real)}</td>
-                                                                        <td className="py-2 px-2 text-center text-muted-foreground">{det.duration_hours != null ? `${det.duration_hours}h` : '—'}</td>
-                                                                        <td className="py-2 px-3 text-right">
-                                                                            <Button
-                                                                                size="sm" variant="ghost"
-                                                                                className="h-7 px-2 text-muted-foreground hover:text-[#192b52] hover:bg-slate-100"
-                                                                                title={`Estado de ${emp.nombre} — ${det.nombre}`}
-                                                                                onClick={() => openEstadoIndividual(emp, det)}
-                                                                            >
-                                                                                <PencilLine className="w-3.5 h-3.5" />
-                                                                            </Button>
-                                                                        </td>
-                                                                    </tr>
+                                                                    {(() => {
+                                                                        const emp_color = det.emp_color ?? det.color;
+                                                                        const rowColor = getRowColor(emp_color);
+                                                                        return (
+                                                                            <tr style={{ background: rowColor.bg, color: rowColor.text, fontWeight: 'bold' }}>
+                                                                                <td className="py-2 px-2 text-center">{det.inst_interno || '—'}</td>
+                                                                                <td className="py-2 px-2 text-center">{det.inst_externo || '—'}</td>
+                                                                                <td className="py-2 px-2 text-center">{det.proveedor_sugerido || '—'}</td>
+                                                                                <td className="py-2 px-2 text-center">{det.costo != null ? `$${det.costo}` : '—'}</td>
+                                                                                {(['desarrollo_personal', 'habilidades_blandas', 'prevencion_riesgos', 'habilidades_tecnicas'] as const).map(k => (
+                                                                                    <td key={k} className={`py-2 px-2 text-center font-semibold ${det[k] ? 'text-green-600' : 'opacity-60'}`}>
+                                                                                        {det[k] ? '✓' : '—'}
+                                                                                    </td>
+                                                                                ))}
+                                                                                <td className="py-2 px-2 text-center">{fmtDate(det.fecha_programada)}</td>
+                                                                                <td className="py-2 px-2 text-center">{fmtDate(det.fecha_real)}</td>
+                                                                                <td className="py-2 px-2 text-center">{det.duration_hours != null ? `${det.duration_hours}h` : '—'}</td>
+                                                                                <td className="py-2 px-3 text-right">
+                                                                                    <Button
+                                                                                        size="sm" variant="ghost"
+                                                                                        className="h-7 px-2 hover:bg-black/10"
+                                                                                        style={{ color: rowColor.text }}
+                                                                                        title={`Estado de ${emp.nombre} — ${det.nombre}`}
+                                                                                        onClick={() => openEstadoIndividual(emp, det)}
+                                                                                    >
+                                                                                        <PencilLine className="w-3.5 h-3.5" />
+                                                                                    </Button>
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    })()}
                                                                 </tbody>
                                                             </table>
                                                         </div>

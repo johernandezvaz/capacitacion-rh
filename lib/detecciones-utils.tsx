@@ -8,10 +8,10 @@ export const STATUS_CONFIG: Record<string, { label: string; color: string; bg: s
 };
 
 export const COLORES_DETECCION = [
-    { valor: 'azul', hex: '#2166be', label: 'Actualización cada 5 años o cambios de curso', status: 'actualizacion' },
-    { valor: 'verde', hex: '#22c55e', label: 'Curso tomado', status: 'tomado' },
+    { valor: 'verde', hex: '#22c55e', label: 'Tomado', status: 'tomado' },
     { valor: 'rojo', hex: '#ef4444', label: 'No tomado', status: 'no_tomado' },
     { valor: 'amarillo', hex: '#FFB433', label: 'Reprogramado', status: 'reprogramado' },
+    { valor: 'azul', hex: '#2166be', label: 'Actualización', status: 'actualizacion' },
 ] as const;
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
