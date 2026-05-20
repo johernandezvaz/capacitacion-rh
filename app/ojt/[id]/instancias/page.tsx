@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -16,6 +16,7 @@ import { supabase, Employee, OjtInstance, OjtRecord } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { fmtDate } from '@/lib/detecciones-utils';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Borrador', in_progress: 'En Progreso', completed: 'Completado', locked: 'Bloqueado',
@@ -40,6 +41,10 @@ export default function OjtInstanciasPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    instanceId: string | null;
+  }>({ open: false, instanceId: null });
 
   const [newEmployeeId, setNewEmployeeId] = useState<string | null>(null);
   const [newEmployeeLabel, setNewEmployeeLabel] = useState('');
@@ -126,11 +131,14 @@ export default function OjtInstanciasPage() {
   };
 
   const handleDeleteInstance = async (instanceId: string) => {
-    if (!window.confirm("¿Estás seguro? Esta acción no se puede deshacer")) return;
     try {
-      const { error } = await supabase.from('ojt_instances').delete().eq('id', instanceId);
+      const { error } = await supabase
+        .from('ojt_instances')
+        .delete()
+        .eq('id', instanceId);
       if (error) throw error;
       toast({ title: 'Instancia eliminada', description: 'La instancia se ha eliminado correctamente.' });
+      setDeleteDialog({ open: false, instanceId: null });
       fetchData();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'No se pudo eliminar la instancia', variant: 'destructive' });
@@ -226,7 +234,7 @@ export default function OjtInstanciasPage() {
                     size="sm"
                     variant="destructive"
                     className="w-full sm:w-auto gap-2"
-                    onClick={() => handleDeleteInstance(inst.id)}
+                    onClick={() => setDeleteDialog({ open: true, instanceId: inst.id })}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     Eliminar
@@ -237,6 +245,20 @@ export default function OjtInstanciasPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) =>
+          setDeleteDialog({ open, instanceId: deleteDialog.instanceId })}
+        title="¿Eliminar instancia?"
+        description="Esta acción eliminará permanentemente la instancia y todos sus datos de evaluación y firmas. Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        onConfirm={() => {
+          if (deleteDialog.instanceId)
+            handleDeleteInstance(deleteDialog.instanceId);
+        }}
+        variant="destructive"
+      />
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="sm:max-w-md">
