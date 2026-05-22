@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -366,8 +366,28 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                                 <Button
                                     onClick={() => {
                                         const url = `${window.location.origin}/public/questionnaire/${questionnaire.id}`;
-                                        navigator.clipboard.writeText(url);
-                                        toast.success('Enlace copiado al portapapeles');
+                                        if (navigator.clipboard) {
+                                            navigator.clipboard.writeText(url).then(() => {
+                                                toast.success('Enlace copiado al portapapeles');
+                                            }).catch(() => {
+                                                toast.error('No se pudo copiar el enlace');
+                                            });
+                                        } else {
+                                            const ta = document.createElement('textarea');
+                                            ta.value = url;
+                                            ta.style.position = 'fixed';
+                                            ta.style.opacity = '0';
+                                            document.body.appendChild(ta);
+                                            ta.focus();
+                                            ta.select();
+                                            try {
+                                                document.execCommand('copy');
+                                                toast.success('Enlace copiado al portapapeles');
+                                            } catch {
+                                                toast.error('No se pudo copiar el enlace');
+                                            }
+                                            document.body.removeChild(ta);
+                                        }
                                     }}
                                     variant="outline"
                                     size="sm"
