@@ -19,7 +19,7 @@ export default function OjtInstancePage() {
   useEffect(() => {
     supabase.from('ojt_records').select('titulo').eq('id', templateId).maybeSingle()
       .then(({ data }) => setTemplateTitle(data?.titulo ?? 'Plantilla'));
-    
+
     supabase.from('ojt_instances').select('public_token').eq('id', instanceId).maybeSingle()
       .then(async ({ data }) => {
         if (data?.public_token) {
@@ -54,24 +54,38 @@ export default function OjtInstancePage() {
               Los cambios en la tabla se guardan automáticamente al salir de cada campo
             </p>
           </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 text-[#2166be] border-[#2166be] hover:bg-[#2166be]/5 shrink-0"
-              onClick={() => {
-                if (!publicToken) {
-                  toast.error('No se pudo obtener el enlace público');
-                  return;
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-[#2166be] border-[#2166be] hover:bg-[#2166be]/5 shrink-0"
+            onClick={() => {
+              if (!publicToken) {
+                toast.error('No se pudo obtener el enlace público');
+                return;
+              }
+              const url = `${window.location.origin}/public/ojt/${publicToken}`;
+              const copyToClipboard = (text: string) => {
+                if (navigator.clipboard?.writeText) {
+                  return navigator.clipboard.writeText(text);
                 }
-                const url = `${window.location.origin}/public/ojt/${publicToken}`;
-                navigator.clipboard.writeText(url);
-                toast.success('Enlace copiado al portapapeles');
-              }}
-              title="Copiar enlace público de esta instancia"
-            >
-              <LinkIcon className="w-4 h-4" />
-              Compartir
-            </Button>
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                return Promise.resolve();
+              };
+              copyToClipboard(url)
+                .then(() => toast.success('Enlace copiado al portapapeles'))
+                .catch(() => toast.error('No se pudo copiar el enlace'));
+            }}
+            title="Copiar enlace público de esta instancia"
+          >
+            <LinkIcon className="w-4 h-4" />
+            Compartir
+          </Button>
         </div>
 
         <OjtInstanceForm instanceId={instanceId} templateId={templateId} />
