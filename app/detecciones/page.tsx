@@ -321,9 +321,9 @@ export default function DeteccionesPage() {
                                     </button>
                                 </div>
                                 <div className="space-y-4 border border-t-0 rounded-b-lg overflow-hidden bg-white">
-                                    {grp.empleados.map(emp => (
+                                    {grp.empleados.map((emp, empIdx) => (
                                         <div key={emp.id}>
-                                            <div className="px-4 py-2 text-sm font-semibold text-white flex items-center gap-3" style={{ background: '#374151' }}>
+                                            <div className="px-4 py-2 text-sm font-semibold text-white flex items-center gap-3" style={{ background: empIdx % 2 === 0 ? '#0833a2' : '#0833a2' }}>
                                                 <span>{emp.nombre}</span>
                                                 <span className="font-normal opacity-75">· {emp.puesto}</span>
                                             </div>
