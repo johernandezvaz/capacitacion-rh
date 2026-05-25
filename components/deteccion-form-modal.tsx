@@ -66,7 +66,7 @@ type CourseOption = { id: string; name: string; year: number | null };
 
 function newEmptyTab(n: number): TabForm {
     return {
-        id: crypto.randomUUID(),
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); }),
         nombre: '',
         inst_interno: false,
         inst_externo: false,
