@@ -4,8 +4,8 @@ import autoTable from 'jspdf-autotable';
 export interface DncItem {
     tipo: 'curso' | 'deteccion';
     nombre: string;
-    inst_interno: string | null;
-    inst_externo: string | null;
+    inst_interno: boolean;
+    inst_externo: boolean;
     proveedor_sugerido: string | null;
     costo: number | null;
     desarrollo_personal: boolean;
@@ -104,8 +104,8 @@ export async function generateDncPdf(data: DncPdfData): Promise<void> {
 
     const body = data.items.map((c) => [
         d(c.nombre),
-        d(c.inst_interno),
-        d(c.inst_externo),
+        bool(c.inst_interno),
+        bool(c.inst_externo),
         d(c.proveedor_sugerido),
         fmtCost(c.costo),
         bool(c.desarrollo_personal),

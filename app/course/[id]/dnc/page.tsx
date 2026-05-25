@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { generateDncCoursePdf } from '@/lib/dnc-course-pdf';
@@ -16,8 +17,8 @@ type CourseData = {
     id: string;
     name: string;
     duration_hours: number | null;
-    inst_interno: string | null;
-    inst_externo: string | null;
+    inst_interno: boolean;
+    inst_externo: boolean;
     proveedor_sugerido: string | null;
     costo: number | null;
     fecha_programada: string | null;
@@ -50,8 +51,8 @@ export default function CourseDncPage() {
     const [isExporting, setIsExporting] = useState(false);
 
     const [form, setForm] = useState({
-        inst_interno: '',
-        inst_externo: '',
+        inst_interno: false as boolean,
+        inst_externo: false as boolean,
         proveedor_sugerido: '',
         costo: '',
         fecha_programada: '',
@@ -95,8 +96,8 @@ export default function CourseDncPage() {
                 id: courseData.id,
                 name: courseData.name,
                 duration_hours: courseData.duration_hours,
-                inst_interno: courseData.inst_interno,
-                inst_externo: courseData.inst_externo,
+                inst_interno: courseData.inst_interno ?? false,
+                inst_externo: courseData.inst_externo ?? false,
                 proveedor_sugerido: courseData.proveedor_sugerido,
                 costo: courseData.costo,
                 fecha_programada: courseData.fecha_programada,
@@ -111,8 +112,8 @@ export default function CourseDncPage() {
             setCourse(c);
 
             setForm({
-                inst_interno: c.inst_interno || '',
-                inst_externo: c.inst_externo || '',
+                inst_interno: c.inst_interno ?? false,
+                inst_externo: c.inst_externo ?? false,
                 proveedor_sugerido: c.proveedor_sugerido || '',
                 costo: c.costo != null ? String(c.costo) : '',
                 fecha_programada: c.fecha_programada || '',
@@ -164,8 +165,8 @@ export default function CourseDncPage() {
         setIsSaving(true);
         try {
             const payload = {
-                inst_interno: form.inst_interno.trim() || null,
-                inst_externo: form.inst_externo.trim() || null,
+                inst_interno: form.inst_interno,
+                inst_externo: form.inst_externo,
                 proveedor_sugerido: form.proveedor_sugerido.trim() || null,
                 costo: form.costo ? parseFloat(form.costo) : null,
                 fecha_programada: form.fecha_programada || null,
@@ -205,8 +206,8 @@ export default function CourseDncPage() {
             await generateDncCoursePdf({
                 course: {
                     name: course.name,
-                    inst_interno: form.inst_interno.trim() || null,
-                    inst_externo: form.inst_externo.trim() || null,
+                    inst_interno: form.inst_interno,
+                    inst_externo: form.inst_externo,
                     proveedor_sugerido: form.proveedor_sugerido.trim() || null,
                     costo: form.costo ? parseFloat(form.costo) : null,
                     desarrollo_personal: form.desarrollo_personal,
@@ -328,26 +329,22 @@ export default function CourseDncPage() {
                     <CardContent className="pt-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
 
-                            <div className="space-y-1.5">
-                                <Label htmlFor="dnc-inst-interno" className="text-sm font-medium">Inst. Interno</Label>
-                                <Input
+                            <div className="flex items-center gap-3">
+                                <Checkbox
                                     id="dnc-inst-interno"
-                                    type="text"
-                                    placeholder="—"
-                                    value={form.inst_interno}
-                                    onChange={e => setForm(f => ({ ...f, inst_interno: e.target.value }))}
+                                    checked={form.inst_interno}
+                                    onCheckedChange={v => setForm(f => ({ ...f, inst_interno: !!v }))}
                                 />
+                                <Label htmlFor="dnc-inst-interno" className="text-sm font-medium cursor-pointer">Inst. Interno</Label>
                             </div>
 
-                            <div className="space-y-1.5">
-                                <Label htmlFor="dnc-inst-externo" className="text-sm font-medium">Inst. Externo</Label>
-                                <Input
+                            <div className="flex items-center gap-3">
+                                <Checkbox
                                     id="dnc-inst-externo"
-                                    type="text"
-                                    placeholder="—"
-                                    value={form.inst_externo}
-                                    onChange={e => setForm(f => ({ ...f, inst_externo: e.target.value }))}
+                                    checked={form.inst_externo}
+                                    onCheckedChange={v => setForm(f => ({ ...f, inst_externo: !!v }))}
                                 />
+                                <Label htmlFor="dnc-inst-externo" className="text-sm font-medium cursor-pointer">Inst. Externo</Label>
                             </div>
 
                             <div className="space-y-1.5">

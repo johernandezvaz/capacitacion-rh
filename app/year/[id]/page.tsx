@@ -471,7 +471,7 @@ export default function YearDetailPage() {
         plantId={plantId || ''}
         prefill={createFromDet ? {
           name: createFromDet.nombre,
-          instInterno: createFromDet.inst_interno || '',
+          instInterno: !!createFromDet.inst_interno,
           proveedorSugerido: createFromDet.proveedor_sugerido || '',
           costo: createFromDet.costo != null ? String(createFromDet.costo) : '',
           fechaProgramada: createFromDet.fecha_programada || '',

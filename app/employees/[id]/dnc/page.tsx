@@ -16,8 +16,8 @@ type UnifiedRow = {
   tipo: 'curso' | 'deteccion';
   nombre: string;
   color: string;
-  inst_interno: string | null;
-  inst_externo: string | null;
+  inst_interno: boolean;
+  inst_externo: boolean;
   proveedor_sugerido: string | null;
   costo: number | null;
   desarrollo_personal: boolean;
@@ -89,8 +89,8 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
           tipo: 'curso' as const,
           nombre: r.course.name || '—',
           color: COURSE_COLOR,
-          inst_interno: r.course.inst_interno ?? null,
-          inst_externo: r.course.inst_externo ?? null,
+          inst_interno: !!r.course.inst_interno,
+          inst_externo: !!r.course.inst_externo,
           proveedor_sugerido: r.course.proveedor_sugerido ?? null,
           costo: r.course.costo ?? null,
           desarrollo_personal: r.course.desarrollo_personal ?? false,
@@ -109,8 +109,8 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
           tipo: 'deteccion' as const,
           nombre: d.nombre || '—',
           color: d.color || '#2166be',
-          inst_interno: d.inst_interno ?? null,
-          inst_externo: d.inst_externo ?? null,
+          inst_interno: !!d.inst_interno,
+          inst_externo: !!d.inst_externo,
           proveedor_sugerido: d.proveedor_sugerido ?? null,
           costo: d.costo ?? null,
           desarrollo_personal: d.desarrollo_personal ?? false,
@@ -237,8 +237,8 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
                     {rows.map((row, i) => (
                       <tr key={i} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
                         <td className="py-2 px-3 font-medium">{row.nombre}</td>
-                        <td className="py-2 px-3 text-muted-foreground">{row.inst_interno || '—'}</td>
-                        <td className="py-2 px-3 text-muted-foreground">{row.inst_externo || '—'}</td>
+                        <td className="py-2 px-3 text-center">{fmtBool(row.inst_interno)}</td>
+                        <td className="py-2 px-3 text-center">{fmtBool(row.inst_externo)}</td>
                         <td className="py-2 px-3 text-muted-foreground">{row.proveedor_sugerido || '—'}</td>
                         <td className="py-2 px-3 text-right">
                           {row.costo != null ? row.costo.toLocaleString('es-MX') : '—'}

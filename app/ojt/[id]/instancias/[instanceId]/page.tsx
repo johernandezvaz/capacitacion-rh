@@ -25,7 +25,7 @@ export default function OjtInstancePage() {
         if (data?.public_token) {
           setPublicToken(data.public_token);
         } else {
-          const token = instanceId; // use instance ID as stable public token
+          const token = instanceId;
           await supabase.from('ojt_instances').update({ public_token: token }).eq('id', instanceId);
           setPublicToken(token);
         }

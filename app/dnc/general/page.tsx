@@ -24,8 +24,8 @@ type CourseItem = {
     date: string | null;
     fecha_programada: string | null;
     fecha_real: string | null;
-    inst_interno: string | null;
-    inst_externo: string | null;
+    inst_interno: boolean;
+    inst_externo: boolean;
     proveedor_sugerido: string | null;
     costo: number | null;
     duration_hours: number | null;
@@ -45,8 +45,8 @@ type DetItem = {
     color: string;
     fecha_programada: string | null;
     fecha_real: string | null;
-    inst_interno: string | null;
-    inst_externo: string | null;
+    inst_interno: boolean;
+    inst_externo: boolean;
     proveedor_sugerido: string | null;
     costo: number | null;
     duration_hours: number | null;
@@ -60,8 +60,8 @@ type DetItem = {
 type UnifiedItem = CourseItem | DetItem;
 
 const DNC_FIELDS: { key: keyof CourseItem & keyof DetItem; label: string; bool?: boolean; date?: boolean; money?: boolean }[] = [
-    { key: 'inst_interno', label: 'Inst. Interno' },
-    { key: 'inst_externo', label: 'Inst. Externo' },
+    { key: 'inst_interno', label: 'Inst. Interno', bool: true },
+    { key: 'inst_externo', label: 'Inst. Externo', bool: true },
     { key: 'proveedor_sugerido', label: 'Proveedor' },
     { key: 'costo', label: 'Costo', money: true },
     { key: 'duration_hours', label: 'Duración' },
@@ -133,8 +133,8 @@ export default function DncGeneralPage() {
                 date: c.date ?? null,
                 fecha_programada: c.fecha_programada ?? null,
                 fecha_real: c.fecha_real ?? null,
-                inst_interno: c.inst_interno ?? null,
-                inst_externo: c.inst_externo ?? null,
+                inst_interno: !!c.inst_interno,
+                inst_externo: !!c.inst_externo,
                 proveedor_sugerido: c.proveedor_sugerido ?? null,
                 costo: c.costo ?? null,
                 duration_hours: c.duration_hours ?? null,
@@ -187,8 +187,8 @@ export default function DncGeneralPage() {
                 color: d.color || '#2166be',
                 fecha_programada: d.fecha_programada ?? null,
                 fecha_real: d.fecha_real ?? null,
-                inst_interno: d.inst_interno ?? null,
-                inst_externo: d.inst_externo ?? null,
+                inst_interno: !!d.inst_interno,
+                inst_externo: !!d.inst_externo,
                 proveedor_sugerido: d.proveedor_sugerido ?? null,
                 costo: d.costo ?? null,
                 duration_hours: d.duration_hours ?? null,

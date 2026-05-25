@@ -6,8 +6,8 @@ export interface DeteccionesPdfDeteccion {
     nombre: string;
     color: string;
     status: string | null;
-    inst_interno: string | null;
-    inst_externo: string | null;
+    inst_interno: boolean;
+    inst_externo: boolean;
     proveedor_sugerido: string | null;
     costo: number | null;
     desarrollo_personal: boolean;
@@ -129,8 +129,8 @@ export async function generateDeteccionesPdf(data: DeteccionesPdfData): Promise<
                 body: emp.detecciones.map(det => [
                     det.nombre,
                     statusLabel(det.status),
-                    d(det.inst_interno),
-                    d(det.inst_externo),
+                    check(det.inst_interno),
+                    check(det.inst_externo),
                     d(det.proveedor_sugerido),
                     fmtCost(det.costo),
                     check(det.desarrollo_personal),

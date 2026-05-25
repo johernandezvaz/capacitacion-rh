@@ -91,7 +91,8 @@ export type Course = {
   status: 'draft' | 'active' | 'closed';
   created_at: string;
   plant_id?: string | null;
-  inst_interno?: string | null;
+  inst_interno?: boolean;
+  inst_externo?: boolean;
   proveedor_sugerido?: string | null;
   costo?: number | null;
   desarrollo_personal?: boolean;

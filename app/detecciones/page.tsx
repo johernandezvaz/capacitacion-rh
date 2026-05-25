@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Pencil, FileDown, ClipboardCheck, PencilLine, Trash2, UserMinus } from 'lucide-react';
+import { Plus, Pencil, FileDown, ClipboardCheck, PencilLine, Trash2, UserMinus, Search } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
@@ -18,7 +18,7 @@ export { StatusCombo } from '@/lib/detecciones-utils';
 
 type DetRow = {
     id: string; nombre: string; color: string; status: string | null;
-    inst_interno: string | null; inst_externo: string | null; proveedor_sugerido: string | null; costo: number | null;
+    inst_interno: boolean; inst_externo: boolean; proveedor_sugerido: string | null; costo: number | null;
     desarrollo_personal: boolean; habilidades_blandas: boolean;
     prevencion_riesgos: boolean; habilidades_tecnicas: boolean;
     fecha_programada: string | null; fecha_real: string | null; duration_hours: number | null;
@@ -64,6 +64,7 @@ export default function DeteccionesPage() {
     const [rawDets, setRawDets] = useState<DetRow[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [filterArea, setFilterArea] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -106,8 +107,10 @@ export default function DeteccionesPage() {
                 empsByDet[r.deteccion_id].push(r.employee_id);
             });
 
+            const today = new Date().toISOString().split('T')[0];
             const dets: DetRow[] = detData.map((d: any) => ({
                 ...d,
+                color: (d.fecha_real && d.fecha_real <= today) ? '#22c55e' : '#ef4444',
                 dept_ids: [],
                 emp_ids: empsByDet[d.id] || [],
                 emp_color: null,
@@ -230,9 +233,27 @@ export default function DeteccionesPage() {
         })));
     };
 
-    const filteredGroups = useMemo(() =>
-        filterArea ? groups.filter(g => g.area === filterArea) : groups,
-        [groups, filterArea]);
+    const filteredGroups = useMemo(() => {
+        const byArea = filterArea ? groups.filter(g => g.area === filterArea) : groups;
+        const searchQuery = searchTerm.toLowerCase().trim();
+        if (!searchQuery) return byArea;
+        return byArea
+            .map(grp => ({
+                ...grp,
+                empleados: grp.empleados
+                    .map(emp => ({
+                        ...emp,
+                        detecciones: emp.detecciones.filter(det =>
+                            det.nombre.toLowerCase().includes(searchQuery)
+                        ),
+                    }))
+                    .filter(emp =>
+                        emp.nombre.toLowerCase().includes(searchQuery) ||
+                        emp.detecciones.length > 0
+                    ),
+            }))
+            .filter(grp => grp.empleados.length > 0);
+    }, [groups, filterArea, searchTerm]);
 
     const handleExportAreaPdf = async (grp: AreaGroup) => {
         if (!selectedYear) return;
@@ -280,6 +301,16 @@ export default function DeteccionesPage() {
                                 {years.map(y => <option key={y.id} value={y.id}>{y.year}</option>)}
                             </select>
                         )}
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                placeholder="Buscar empleado o detección..."
+                                className="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2166be] w-56"
+                            />
+                        </div>
                         {groups.length > 0 && (
                             <select value={filterArea} onChange={e => setFilterArea(e.target.value)}
                                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2166be]">
@@ -360,7 +391,6 @@ export default function DeteccionesPage() {
                                                                     Editar
                                                                 </Button>
 
-                                                                {/* Quitar empleado de esta detección */}
                                                                 {confirmRemoveEmp?.empKey === det._emp_key ? (
                                                                     <div className="flex items-center gap-1">
                                                                         <button
@@ -384,7 +414,6 @@ export default function DeteccionesPage() {
                                                                     </Button>
                                                                 )}
 
-                                                                {/* Eliminar detección completa */}
                                                                 {confirmDeleteDet === det.id ? (
                                                                     <div className="flex items-center gap-1">
                                                                         <button
@@ -426,8 +455,8 @@ export default function DeteccionesPage() {
                                                                         const rowColor = getRowColor(emp_color);
                                                                         return (
                                                                             <tr style={{ background: rowColor.bg, color: rowColor.text, fontWeight: 'bold' }}>
-                                                                                <td className="py-2 px-2 text-center">{det.inst_interno || '—'}</td>
-                                                                                <td className="py-2 px-2 text-center">{det.inst_externo || '—'}</td>
+                                                                                <td className="py-2 px-2 text-center font-semibold">{det.inst_interno ? '✓' : '—'}</td>
+                                                                                <td className="py-2 px-2 text-center font-semibold">{det.inst_externo ? '✓' : '—'}</td>
                                                                                 <td className="py-2 px-2 text-center">{det.proveedor_sugerido || '—'}</td>
                                                                                 <td className="py-2 px-2 text-center">{det.costo != null ? `$${det.costo}` : '—'}</td>
                                                                                 {(['desarrollo_personal', 'habilidades_blandas', 'prevencion_riesgos', 'habilidades_tecnicas'] as const).map(k => (

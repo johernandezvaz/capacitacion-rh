@@ -13,12 +13,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 export interface CreateCourseModalPrefill {
   name?: string;
-  instInterno?: string;
+  instInterno?: boolean;
   proveedorSugerido?: string;
   costo?: string;
   fechaProgramada?: string;
@@ -34,8 +35,8 @@ export interface CreateCourseModalPrefill {
 interface DeteccionOption {
   id: string;
   nombre: string;
-  inst_interno: string | null;
-  inst_externo: string | null;
+  inst_interno: boolean;
+  inst_externo: boolean;
   proveedor_sugerido: string | null;
   costo: number | null;
   desarrollo_personal: boolean;
@@ -71,8 +72,8 @@ export function CreateCourseModal({
   const [isLoading, setIsLoading] = useState(false);
 
   const [isDncOpen, setIsDncOpen] = useState(false);
-  const [instInterno, setInstInterno] = useState('');
-  const [instExterno, setInstExterno] = useState('');
+  const [instInterno, setInstInterno] = useState(false);
+  const [instExterno, setInstExterno] = useState(false);
   const [proveedorSugerido, setProveedorSugerido] = useState('');
   const [costo, setCosto] = useState('');
   const [fechaProgramada, setFechaProgramada] = useState('');
@@ -135,7 +136,7 @@ export function CreateCourseModal({
   useEffect(() => {
     if (open && prefill) {
       setName(prefill.name ?? '');
-      setInstInterno(prefill.instInterno ?? '');
+      setInstInterno(prefill.instInterno ?? false);
       setProveedorSugerido(prefill.proveedorSugerido ?? '');
       setCosto(prefill.costo ?? '');
       setFechaProgramada(prefill.fechaProgramada ?? '');
@@ -154,8 +155,8 @@ export function CreateCourseModal({
     setSelectedDeteccionId(det.id);
     setDetSearch(det.nombre);
     setDetDropOpen(false);
-    setInstInterno(det.inst_interno ?? '');
-    setInstExterno(det.inst_externo ?? '');
+    setInstInterno(!!det.inst_interno);
+    setInstExterno(!!det.inst_externo);
     setProveedorSugerido(det.proveedor_sugerido ?? '');
     setCosto(det.costo != null ? String(det.costo) : '');
     setDesarrolloPersonal(det.desarrollo_personal);
@@ -171,8 +172,8 @@ export function CreateCourseModal({
   const clearDeteccion = () => {
     setSelectedDeteccionId(null);
     setDetSearch('');
-    setInstInterno('');
-    setInstExterno('');
+    setInstInterno(false);
+    setInstExterno(false);
     setProveedorSugerido('');
     setCosto('');
     setDesarrolloPersonal(false);
@@ -189,8 +190,8 @@ export function CreateCourseModal({
     setEndDate('');
     setDuration('');
     setIsDncOpen(false);
-    setInstInterno('');
-    setInstExterno('');
+    setInstInterno(false);
+    setInstExterno(false);
     setProveedorSugerido('');
     setCosto('');
     setFechaProgramada('');
@@ -251,8 +252,8 @@ export function CreateCourseModal({
           duration_hours: durationNumber,
           status: 'active',
           plant_id: plantId || null,
-          inst_interno: instInterno.trim() || null,
-          inst_externo: instExterno.trim() || null,
+          inst_interno: instInterno,
+          inst_externo: instExterno,
           proveedor_sugerido: proveedorSugerido.trim() || null,
           costo: costo ? parseFloat(costo) : null,
           fecha_programada: fechaProgramada || null,
@@ -277,8 +278,8 @@ export function CreateCourseModal({
             year_id: yearId,
             color: '#ef4444',
             status: 'no_tomado',
-            inst_interno: instInterno.trim() || null,
-            inst_externo: instExterno.trim() || null,
+            inst_interno: instInterno,
+            inst_externo: instExterno,
             proveedor_sugerido: proveedorSugerido.trim() || null,
             costo: costo ? parseFloat(costo) : null,
             desarrollo_personal: desarrolloPersonal,
@@ -449,25 +450,21 @@ export function CreateCourseModal({
               {isDncOpen && (
                 <div className="p-4 space-y-4 border-t">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="inst-interno">Inst. Interno</Label>
-                      <Input
+                    <div className="space-y-2 flex items-center gap-2 pt-2">
+                      <Checkbox
                         id="inst-interno"
-                        type="text"
-                        placeholder="Instructor interno"
-                        value={instInterno}
-                        onChange={(e) => setInstInterno(e.target.value)}
+                        checked={instInterno}
+                        onCheckedChange={v => setInstInterno(!!v)}
                       />
+                      <Label htmlFor="inst-interno" className="cursor-pointer">Inst. Interno</Label>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="inst-externo">Inst. Externo</Label>
-                      <Input
+                    <div className="space-y-2 flex items-center gap-2 pt-2">
+                      <Checkbox
                         id="inst-externo"
-                        type="text"
-                        placeholder="Instructor externo"
-                        value={instExterno}
-                        onChange={(e) => setInstExterno(e.target.value)}
+                        checked={instExterno}
+                        onCheckedChange={v => setInstExterno(!!v)}
                       />
+                      <Label htmlFor="inst-externo" className="cursor-pointer">Inst. Externo</Label>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="proveedor-sugerido">Proveedor Sugerido</Label>
