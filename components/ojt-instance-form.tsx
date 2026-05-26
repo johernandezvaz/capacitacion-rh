@@ -231,25 +231,63 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
       rows: g.rows.map((r, ri) => ri !== rIdx ? r : { ...r, [field]: value }),
     }));
 
-  const updateRowFirmaUrl = (gIdx: number, rIdx: number, url: string) => {
+  const updateRowFirmaUrl = async (gIdx: number, rIdx: number, url: string) => {
+    const row = groups[gIdx].rows[rIdx];
+
     setGroups(prev => prev.map((g, gi) => gi !== gIdx ? g : {
       ...g,
       rows: g.rows.map((r, ri) => ri !== rIdx ? r : { ...r, responsable_firma_url: url }),
     }));
-    const row = groups[gIdx].rows[rIdx];
+
     if (row.instance_entry_id) {
-      supabase.from('ojt_instance_entries').update({ responsable_firma_url: url }).eq('id', row.instance_entry_id);
+      const { error } = await supabase
+        .from('ojt_instance_entries')
+        .update({ responsable_firma_url: url })
+        .eq('id', row.instance_entry_id);
+      if (error) console.error('Error guardando firma responsable:', error);
+    } else {
+      const { data: ins, error } = await supabase
+        .from('ojt_instance_entries')
+        .insert([{ instance_id: instanceId, entry_id: row.entry_id, responsable_firma_url: url }])
+        .select()
+        .single();
+      if (error) console.error('Error insertando firma responsable:', error);
+      if (ins) {
+        setGroups(prev => prev.map((g, gi) => gi !== gIdx ? g : {
+          ...g,
+          rows: g.rows.map((r, ri) => ri !== rIdx ? r : { ...r, instance_entry_id: ins.id }),
+        }));
+      }
     }
   };
 
-  const updateRowEmpleadoFirmaUrl = (gIdx: number, rIdx: number, url: string) => {
+  const updateRowEmpleadoFirmaUrl = async (gIdx: number, rIdx: number, url: string) => {
+    const row = groups[gIdx].rows[rIdx];
+
     setGroups(prev => prev.map((g, gi) => gi !== gIdx ? g : {
       ...g,
       rows: g.rows.map((r, ri) => ri !== rIdx ? r : { ...r, empleado_firma_url: url }),
     }));
-    const row = groups[gIdx].rows[rIdx];
+
     if (row.instance_entry_id) {
-      supabase.from('ojt_instance_entries').update({ empleado_firma_url: url }).eq('id', row.instance_entry_id);
+      const { error } = await supabase
+        .from('ojt_instance_entries')
+        .update({ empleado_firma_url: url })
+        .eq('id', row.instance_entry_id);
+      if (error) console.error('Error guardando firma empleado:', error);
+    } else {
+      const { data: ins, error } = await supabase
+        .from('ojt_instance_entries')
+        .insert([{ instance_id: instanceId, entry_id: row.entry_id, empleado_firma_url: url }])
+        .select()
+        .single();
+      if (error) console.error('Error insertando firma empleado:', error);
+      if (ins) {
+        setGroups(prev => prev.map((g, gi) => gi !== gIdx ? g : {
+          ...g,
+          rows: g.rows.map((r, ri) => ri !== rIdx ? r : { ...r, instance_entry_id: ins.id }),
+        }));
+      }
     }
   };
 
