@@ -136,6 +136,9 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                 prevencion_riesgos: !!d.prevencion_riesgos,
                 habilidades_tecnicas: !!d.habilidades_tecnicas,
                 selEmps: new Set(d.emp_ids || []),
+                linkedCourseId: d.course_id ?? null,
+                selectedCourseName: d.course_name ?? '',
+                courseSearch: d.course_name ?? '',
             };
             setTabs([tab]);
             setActiveTabId(tab.id);
@@ -462,6 +465,16 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                                 </div>
                             )}
 
+                            {editingId && editingData?.course_id && (
+                                <div className="flex items-center gap-2 rounded-md bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-800">
+                                    <span className="text-base">📘</span>
+                                    <div className="flex flex-col">
+                                        <span className="font-semibold text-xs text-green-700">Curso vinculado</span>
+                                        <span className="font-medium">{editingData.course_name}</span>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="space-y-1.5">
                                 <Label>Nombre <span className="text-red-500">*</span></Label>
                                 <div
@@ -504,13 +517,14 @@ export function DeteccionFormModal({ open, onOpenChange, onSaved, plantId, yearI
                                         <div className="relative flex-1">
                                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                                             <Input
-                                                value={activeTab.courseSearch}
+                                                value={!!(editingId && editingData?.course_id) ? (editingData.course_name ?? '') : activeTab.courseSearch}
                                                 onChange={e => handleCourseSearchChange(activeTab.id, e.target.value)}
                                                 placeholder="Buscar curso por nombre..."
                                                 className="pl-8"
+                                                disabled={!!(editingId && editingData?.course_id)}
                                             />
                                         </div>
-                                        {activeTab.linkedCourseId && (
+                                        {activeTab.linkedCourseId && !(editingId && editingData?.course_id) && (
                                             <button type="button" onClick={() => clearCourse(activeTab.id)} className="p-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Limpiar">
                                                 <X className="w-4 h-4" />
                                             </button>

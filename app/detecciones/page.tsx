@@ -119,8 +119,12 @@ export default function DeteccionesPage() {
                 emp_color: null,
                 emp_status: null,
                 _emp_key: '',
-                course_id: (d as any).courses?.id ?? null,
-                course_name: (d as any).courses?.name ?? null,
+                course_id: Array.isArray((d as any).courses)
+                    ? ((d as any).courses[0]?.id ?? null)
+                    : ((d as any).courses?.id ?? null),
+                course_name: Array.isArray((d as any).courses)
+                    ? ((d as any).courses[0]?.name ?? null)
+                    : ((d as any).courses?.name ?? null),
             }));
             setRawDets(dets);
 
@@ -143,6 +147,8 @@ export default function DeteccionesPage() {
                     emp_color: indiv.color,
                     emp_status: indiv.status,
                     _emp_key: key,
+                    course_id: baseDet.course_id,
+                    course_name: baseDet.course_name,
                 };
                 if (!empDetMap[r.employee_id]) empDetMap[r.employee_id] = [];
                 if (!empDetMap[r.employee_id].find(d => d._emp_key === key))
@@ -403,12 +409,13 @@ export default function DeteccionesPage() {
                                                                     <span
                                                                         className="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-1"
                                                                         style={{ background: '#22c55e22', color: '#86efac', border: '1px solid #22c55e44' }}
-                                                                        title={`Vinculada al curso: ${det.course_name}`}
                                                                     >
                                                                         <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor">
                                                                             <circle cx="4" cy="4" r="4"/>
                                                                         </svg>
-                                                                        Curso vinculado
+                                                                        📘 {det.course_name && det.course_name.length > 30
+                                                                            ? det.course_name.slice(0, 30) + '...'
+                                                                            : det.course_name}
                                                                     </span>
                                                                 )}
                                                             </div>

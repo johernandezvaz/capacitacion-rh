@@ -12,6 +12,19 @@ import { generateCalendarioPdf, type CalendarioPdfFila } from '@/lib/calendario-
 const MONTHS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 const TOTAL_COLS = 14;
 
+const STATUS_LABELS: Record<string, string> = {
+    '#22c55e': 'Tomado',
+    '#ef4444': 'No tomado',
+    '#FFB433': 'Reprogramado',
+    '#2166be': 'Actualización',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+    tomado: '#22c55e',
+    no_tomado: '#ef4444',
+    reprogramado: '#FFB433',
+    actualizacion: '#2166be',
+};
 
 type CourseRow = {
     id: string;
@@ -22,6 +35,8 @@ type CourseRow = {
     comentario_dnc: string | null;
     deteccion_id: string | null;
     color: string;
+    dnc_status: string | null;
+    dnc_comentario: string | null;
     _type: 'course';
     _sortDate: string;
 };
@@ -34,6 +49,7 @@ type DeteccionRow = {
     fecha_programada: string | null;
     fecha_real: string | null;
     areas: string;
+    comentario_dnc: string | null;
     _type: 'deteccion';
     _sortDate: string;
 };
@@ -95,7 +111,8 @@ export default function DncPage() {
 
     const [courses, setCourses] = useState<CourseRow[]>([]);
     const [detecciones, setDetecciones] = useState<DeteccionRow[]>([]);
-    const [comments, setComments] = useState<Record<string, string>>({});
+    const [dncComments, setDncComments] = useState<Record<string, string>>({});
+    const [detComments, setDetComments] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isPdfLoading, setIsPdfLoading] = useState(false);
 
@@ -108,7 +125,7 @@ export default function DncPage() {
         try {
             const { data: coursesData, error: cErr } = await supabase
                 .from('courses')
-                .select('id, name, date, start_date, end_date, fecha_programada, fecha_real, comentario_dnc, deteccion_id')
+                .select('id, name, date, start_date, end_date, fecha_programada, fecha_real, comentario_dnc, deteccion_id, dnc_status, dnc_comentario')
                 .eq('plant_id', plantId)
                 .eq('year_id', selectedYearId);
             if (cErr) throw cErr;
@@ -122,34 +139,49 @@ export default function DncPage() {
                 fecha_real: c.fecha_real ?? null,
                 comentario_dnc: c.comentario_dnc ?? null,
                 deteccion_id: c.deteccion_id ?? null,
-                color: (c.end_date && c.end_date < today) ? '#22c55e' : '#ef4444',
+                dnc_status: c.dnc_status ?? null,
+                dnc_comentario: c.dnc_comentario ?? null,
+                color: c.dnc_status
+                    ? (STATUS_COLORS[c.dnc_status] ?? '#ef4444')
+                    : (c.end_date && c.end_date < today ? '#22c55e' : '#ef4444'),
                 _type: 'course' as const,
                 _sortDate: c.start_date || c.date || '9999-12-31',
             }));
             setCourses(rows);
 
-            const init: Record<string, string> = {};
-            rows.forEach(c => { init[c.id] = c.comentario_dnc || ''; });
-            setComments(init);
+            const initDncComments: Record<string, string> = {};
+            rows.forEach(c => {
+                initDncComments[c.id] = c.dnc_comentario || '';
+            });
+            setDncComments(initDncComments);
 
             const { data: detData } = await supabase
                 .from('detecciones')
-                .select('id, nombre, color, status, fecha_programada, fecha_real')
+                .select('id, nombre, color, status, fecha_programada, fecha_real, comentario_dnc')
                 .eq('plant_id', plantId)
                 .eq('year_id', selectedYearId);
 
             const dets: DeteccionRow[] = (detData || []).map((d: any) => ({
                 id: d.id,
                 nombre: d.nombre,
-                color: d.color || '#2166be',
+                color: (d.fecha_real && d.fecha_real <= today)
+                    ? '#22c55e'
+                    : (d.color || '#ef4444'),
                 status: d.status,
                 fecha_programada: d.fecha_programada,
                 fecha_real: d.fecha_real,
                 areas: '',
+                comentario_dnc: d.comentario_dnc ?? null,
                 _type: 'deteccion' as const,
                 _sortDate: d.fecha_real || d.fecha_programada || '9999-12-31',
             }));
             setDetecciones(dets);
+
+            const initDetComments: Record<string, string> = {};
+            dets.forEach(d => {
+                initDetComments[d.id] = d.comentario_dnc || '';
+            });
+            setDetComments(initDetComments);
         } catch (err) {
             console.error('Error fetching DNC data:', err);
         } finally {
@@ -157,9 +189,9 @@ export default function DncPage() {
         }
     };
 
-    const handleCommentBlur = async (courseId: string) => {
-        const value = comments[courseId] ?? '';
-        await supabase.from('courses').update({ comentario_dnc: value.trim() || null }).eq('id', courseId);
+    const handleDncCommentBlur = async (courseId: string) => {
+        const value = dncComments[courseId] ?? '';
+        await supabase.from('courses').update({ dnc_comentario: value.trim() || null }).eq('id', courseId);
     };
 
     const linkedDeteccionIds = useMemo(
@@ -197,7 +229,7 @@ export default function DncPage() {
                         tipo: 'curso' as const,
                         nombre: course.name,
                         color: course.color,
-                        comentario: comments[course.id] || null,
+                        comentario: dncComments[course.id] || null,
                         meses: Array.from({ length: 12 }, (_, mi) => {
                             const s = getCourseCellStyle(course, mi, yr);
                             const realMonth = parseMonthYear(course.fecha_real);
@@ -215,7 +247,7 @@ export default function DncPage() {
                         tipo: 'deteccion' as const,
                         nombre: det.nombre,
                         color: det.color,
-                        comentario: null,
+                        comentario: detComments[det.id] || null,
                         meses: Array.from({ length: 12 }, (_, mi) => {
                             const s = getDetCellStyle(det, mi, yr);
                             const realMonth = parseMonthYear(det.fecha_real);
@@ -326,9 +358,6 @@ export default function DncPage() {
                                                             className="text-[#2166be] hover:text-[#1a5299] hover:underline font-medium leading-snug">
                                                             {course.name}
                                                         </Link>
-                                                        {course.deteccion_id && (
-                                                            <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-[#22c55e] align-middle" title="Originado de detección" />
-                                                        )}
                                                     </td>
 
                                                     {MONTHS.map((_, mi) => {
@@ -342,20 +371,30 @@ export default function DncPage() {
                                                         );
                                                     })}
                                                     <td className="px-2 py-1 border-b border-gray-100" style={{ width: 180 }}>
-                                                        <input
-                                                            type="text"
-                                                            value={comments[course.id] ?? ''}
-                                                            onChange={e => setComments(prev => ({ ...prev, [course.id]: e.target.value }))}
-                                                            onBlur={() => handleCommentBlur(course.id)}
-                                                            placeholder="—"
-                                                            className="w-full text-sm bg-transparent border-0 outline-none focus:bg-white focus:ring-1 focus:ring-[#2166be] rounded px-1 py-0.5 placeholder:text-gray-300 transition-all"
-                                                        />
+                                                        <div className="flex flex-col gap-1">
+                                                            {STATUS_LABELS[course.color] && (
+                                                                <span
+                                                                    className="text-[10px] px-1.5 py-0.5 rounded-full text-white w-fit font-medium"
+                                                                    style={{ background: course.color }}
+                                                                >
+                                                                    {STATUS_LABELS[course.color]}
+                                                                </span>
+                                                            )}
+                                                            <input
+                                                                type="text"
+                                                                value={dncComments[course.id] ?? ''}
+                                                                onChange={e => setDncComments(prev =>
+                                                                    ({ ...prev, [course.id]: e.target.value }))}
+                                                                onBlur={() => handleDncCommentBlur(course.id)}
+                                                                placeholder="Comentario..."
+                                                                className="w-full text-xs bg-transparent border-0 outline-none focus:bg-white focus:ring-1 focus:ring-[#2166be] rounded px-1 py-0.5 placeholder:text-gray-300 transition-all"
+                                                            />
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
                                         } else {
                                             const det = row as DeteccionRow;
-                                            const colorEntry = COLORES_DETECCION.find(c => c.hex === det.color);
                                             return (
                                                 <tr key={`d-${det.id}`} style={{ background: rowBg }}
                                                     onMouseEnter={e => (e.currentTarget.style.background = '#f1f5f9')}
@@ -377,14 +416,32 @@ export default function DncPage() {
                                                             </td>
                                                         );
                                                     })}
-                                                    <td className="px-3 py-2 border-b border-gray-100 text-xs" style={{ width: 180 }}>
-                                                        {colorEntry ? (
-                                                            <span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full text-white" style={{ background: det.color }}>
-                                                                {colorEntry.label}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-muted-foreground">—</span>
-                                                        )}
+                                                    <td className="px-2 py-1 border-b border-gray-100"
+                                                        style={{ width: 180 }}>
+                                                        <div className="flex flex-col gap-1">
+                                                            {STATUS_LABELS[det.color] && (
+                                                                <span
+                                                                    className="text-[10px] px-1.5 py-0.5 rounded-full text-white w-fit font-medium"
+                                                                    style={{ background: det.color }}
+                                                                >
+                                                                    {STATUS_LABELS[det.color]}
+                                                                </span>
+                                                            )}
+                                                            <input
+                                                                type="text"
+                                                                value={detComments[det.id] ?? ''}
+                                                                onChange={e => setDetComments(prev =>
+                                                                    ({ ...prev, [det.id]: e.target.value }))}
+                                                                onBlur={async () => {
+                                                                    const value = detComments[det.id] ?? '';
+                                                                    await supabase.from('detecciones')
+                                                                        .update({ comentario_dnc: value.trim() || null })
+                                                                        .eq('id', det.id);
+                                                                }}
+                                                                placeholder="Comentario..."
+                                                                className="w-full text-xs bg-transparent border-0 outline-none focus:bg-white focus:ring-1 focus:ring-[#2166be] rounded px-1 py-0.5 placeholder:text-gray-300 transition-all"
+                                                            />
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
