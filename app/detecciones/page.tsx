@@ -241,12 +241,17 @@ export default function DeteccionesPage() {
             .map(grp => ({
                 ...grp,
                 empleados: grp.empleados
-                    .map(emp => ({
-                        ...emp,
-                        detecciones: emp.detecciones.filter(det =>
-                            det.nombre.toLowerCase().includes(searchQuery)
-                        ),
-                    }))
+                    .map(emp => {
+                        const empMatch = emp.nombre.toLowerCase().includes(searchQuery);
+                        return {
+                            ...emp,
+                            detecciones: empMatch
+                                ? emp.detecciones
+                                : emp.detecciones.filter(det =>
+                                    det.nombre.toLowerCase().includes(searchQuery)
+                                ),
+                        };
+                    })
                     .filter(emp =>
                         emp.nombre.toLowerCase().includes(searchQuery) ||
                         emp.detecciones.length > 0
