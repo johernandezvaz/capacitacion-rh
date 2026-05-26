@@ -26,6 +26,8 @@ type DetRow = {
     emp_color: string | null;
     emp_status: string | null;
     _emp_key: string;
+    course_id: string | null;
+    course_name: string | null;
 };
 
 type EmpGroup = { id: string; nombre: string; puesto: string; detecciones: DetRow[] };
@@ -87,7 +89,8 @@ export default function DeteccionesPage() {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const { data: detData } = await supabase.from('detecciones').select('*')
+            const { data: detData } = await supabase.from('detecciones')
+                .select('*, courses!deteccion_id(id, name)')
                 .eq('plant_id', plantId).eq('year_id', selectedYearId);
             if (!detData || detData.length === 0) { setGroups([]); setRawDets([]); setIsLoading(false); return; }
 
@@ -116,6 +119,8 @@ export default function DeteccionesPage() {
                 emp_color: null,
                 emp_status: null,
                 _emp_key: '',
+                course_id: (d as any).courses?.id ?? null,
+                course_name: (d as any).courses?.name ?? null,
             }));
             setRawDets(dets);
 
@@ -174,8 +179,18 @@ export default function DeteccionesPage() {
 
     const handleDeleteDeteccion = async (detId: string) => {
         try {
-            await supabase.from('deteccion_empleados').delete().eq('deteccion_id', detId);
-            await supabase.from('detecciones').delete().eq('id', detId);
+            const { error: empErr } = await supabase
+                .from('deteccion_empleados')
+                .delete()
+                .eq('deteccion_id', detId);
+            if (empErr) throw empErr;
+
+            const { error: detErr } = await supabase
+                .from('detecciones')
+                .delete()
+                .eq('id', detId);
+            if (detErr) throw detErr;
+
             setConfirmDeleteDet(null);
             toast({ title: 'Detección eliminada' });
             fetchData();
@@ -384,6 +399,18 @@ export default function DeteccionesPage() {
                                                                     </span>
                                                                 )}
                                                                 {sc && <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${sc.bg}`}>{sc.label}</span>}
+                                                                {det.course_id && (
+                                                                    <span
+                                                                        className="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-1"
+                                                                        style={{ background: '#22c55e22', color: '#86efac', border: '1px solid #22c55e44' }}
+                                                                        title={`Vinculada al curso: ${det.course_name}`}
+                                                                    >
+                                                                        <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor">
+                                                                            <circle cx="4" cy="4" r="4"/>
+                                                                        </svg>
+                                                                        Curso vinculado
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <div className="flex items-center gap-1">
                                                                 <Button
