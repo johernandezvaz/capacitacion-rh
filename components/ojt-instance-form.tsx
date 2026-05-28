@@ -76,6 +76,8 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
 
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [employeeLabel, setEmployeeLabel] = useState('');
+  const [jefeDirectoId, setJefeDirectoId] = useState<string | null>(null);
+  const [jefeDirectoLabel, setJefeDirectoLabel] = useState('');
   const [nombre, setNombre] = useState('');
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaTermino, setFechaTermino] = useState('');
@@ -114,12 +116,14 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
 
         const { data: inst } = await supabase
           .from('ojt_instances')
-          .select('*, employees(nombre)')
+          .select('*, employees(nombre), jefe:employees!ojt_instances_jefe_directo_id_fkey(id, nombre)')
           .eq('id', instanceId)
           .maybeSingle();
         if (inst) {
           setEmployeeId(inst.employee_id);
           setEmployeeLabel((inst as any).employees?.nombre ?? '');
+          setJefeDirectoId(inst.jefe_directo_id ?? null);
+          setJefeDirectoLabel((inst as any).jefe?.nombre ?? '');
           setNombre(inst.nombre ?? '');
           setFechaInicio(inst.fecha_inicio ?? '');
           setFechaTermino(inst.fecha_termino ?? '');
@@ -297,6 +301,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
       const avg = avgEfectividad;
       await supabase.from('ojt_instances').update({
         employee_id: employeeId,
+        jefe_directo_id: jefeDirectoId,
         nombre: nombre || null,
         fecha_inicio: fechaInicio || null,
         fecha_termino: fechaTermino || null,
@@ -351,7 +356,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
     try {
       await generateOjtInstancePdf({
         template,
-        jefeNombre,
+        jefeNombre: jefeDirectoLabel || jefeNombre,
         nombre,
         fechaInicio,
         fechaTermino,
@@ -377,7 +382,6 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
   const templateReadOnly = [
     { label: 'Puesto', value: template?.puesto || '—' },
     { label: 'Período de Entrenamiento', value: template?.periodo_entrenamiento || '—' },
-    { label: 'Jefe Directo', value: jefeNombre || '—' },
     {
       label: 'Piloto de Proceso',
       value: template?.es_piloto_proceso
@@ -438,6 +442,18 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
               onSelect={emp => {
                 if (emp) { setEmployeeId(emp.id); setEmployeeLabel(emp.nombre); if (!nombre) setNombre(emp.nombre); }
                 else { setEmployeeId(null); setEmployeeLabel(''); }
+              }}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Jefe Directo</Label>
+            <OjtEmployeeSelect
+              value={jefeDirectoLabel}
+              placeholder="Buscar jefe directo..."
+              employees={employees}
+              onSelect={emp => {
+                if (emp) { setJefeDirectoId(emp.id); setJefeDirectoLabel(emp.nombre); }
+                else { setJefeDirectoId(null); setJefeDirectoLabel(''); }
               }}
             />
           </div>

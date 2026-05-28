@@ -48,6 +48,8 @@ export default function OjtInstanciasPage() {
 
   const [newEmployeeId, setNewEmployeeId] = useState<string | null>(null);
   const [newEmployeeLabel, setNewEmployeeLabel] = useState('');
+  const [newJefeId, setNewJefeId] = useState<string | null>(null);
+  const [newJefeLabel, setNewJefeLabel] = useState('');
   const [newNombre, setNewNombre] = useState('');
   const [newFechaInicio, setNewFechaInicio] = useState('');
   const [newFechaTermino, setNewFechaTermino] = useState('');
@@ -83,6 +85,7 @@ export default function OjtInstanciasPage() {
 
   const resetModal = () => {
     setNewEmployeeId(null); setNewEmployeeLabel('');
+    setNewJefeId(null); setNewJefeLabel('');
     setNewNombre(''); setNewFechaInicio(''); setNewFechaTermino('');
   };
 
@@ -94,6 +97,7 @@ export default function OjtInstanciasPage() {
         .insert([{
           template_id: templateId,
           employee_id: newEmployeeId || null,
+          jefe_directo_id: newJefeId || null,
           nombre: newNombre || null,
           fecha_inicio: newFechaInicio || null,
           fecha_termino: newFechaTermino || null,
@@ -275,6 +279,18 @@ export default function OjtInstanciasPage() {
                 onSelect={emp => {
                   if (emp) { setNewEmployeeId(emp.id); setNewEmployeeLabel(emp.nombre); if (!newNombre) setNewNombre(emp.nombre); }
                   else { setNewEmployeeId(null); setNewEmployeeLabel(''); }
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Jefe Directo</Label>
+              <OjtEmployeeSelect
+                value={newJefeLabel}
+                placeholder="Buscar jefe directo..."
+                employees={employees}
+                onSelect={emp => {
+                  if (emp) { setNewJefeId(emp.id); setNewJefeLabel(emp.nombre); }
+                  else { setNewJefeId(null); setNewJefeLabel(''); }
                 }}
               />
             </div>

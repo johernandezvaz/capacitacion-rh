@@ -56,8 +56,7 @@ export function OjtForm({ recordId, plantId }: OjtFormProps) {
   const [titulo, setTitulo] = useState('');
   const [puesto, setPuesto] = useState('');
   const [periodo, setPeriodo] = useState('');
-  const [jefeId, setJefeId] = useState<string | null>(null);
-  const [jefeLabel, setJefeLabel] = useState('');
+
   const [esPiloto, setEsPiloto] = useState(false);
   const [pilotoCodigo, setPilotoCodigo] = useState('');
   const [esBrigada, setEsBrigada] = useState(false);
@@ -87,8 +86,6 @@ export function OjtForm({ recordId, plantId }: OjtFormProps) {
         setTitulo(rec.titulo ?? '');
         setPuesto(rec.puesto ?? '');
         setPeriodo(rec.periodo_entrenamiento ?? '');
-        setJefeId(rec.jefe_directo_id);
-        setJefeLabel((rec as any).jefe_directo?.nombre ?? '');
         setEsPiloto(rec.es_piloto_proceso ?? false);
         setPilotoCodigo(rec.piloto_proceso_codigo ?? '');
         setEsBrigada(rec.es_integrante_brigada ?? false);
@@ -120,7 +117,6 @@ export function OjtForm({ recordId, plantId }: OjtFormProps) {
         titulo: titulo || null,
         puesto: puesto || null,
         periodo_entrenamiento: periodo || null,
-        jefe_directo_id: jefeId,
         es_piloto_proceso: esPiloto,
         piloto_proceso_codigo: pilotoCodigo || null,
         es_integrante_brigada: esBrigada,
@@ -160,7 +156,7 @@ export function OjtForm({ recordId, plantId }: OjtFormProps) {
 
       await generateOjtInstancePdf({
         template: templateRecord as any,
-        jefeNombre: jefeLabel || '—',
+        jefeNombre: '—',
         nombre: '',
         fechaInicio: '',
         fechaTermino: '',
@@ -185,7 +181,6 @@ export function OjtForm({ recordId, plantId }: OjtFormProps) {
         titulo: titulo || null,
         puesto: puesto || null,
         periodo_entrenamiento: periodo || null,
-        jefe_directo_id: jefeId,
         es_piloto_proceso: esPiloto,
         piloto_proceso_codigo: esPiloto ? (pilotoCodigo || null) : null,
         es_integrante_brigada: esBrigada,
@@ -409,15 +404,6 @@ export function OjtForm({ recordId, plantId }: OjtFormProps) {
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Período de Entrenamiento</Label>
             <Input value={periodo} onChange={e => setPeriodo(e.target.value)} placeholder="Ej: Semana 1–4" className="h-9 text-sm" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Jefe Directo</Label>
-            <OjtEmployeeSelect
-              value={jefeLabel}
-              placeholder="Buscar jefe directo..."
-              employees={employees}
-              onSelect={emp => { if (emp) { setJefeId(emp.id); setJefeLabel(emp.nombre); } else { setJefeId(null); setJefeLabel(''); } }}
-            />
           </div>
 
           <div className="space-y-2">
