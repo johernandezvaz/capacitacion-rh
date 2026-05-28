@@ -133,7 +133,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
               id, orden, conocimiento_requerido, habilidades, fuentes_informacion,
               procedimientos_internos, metodo_entrenamiento, duracion, puesto_responsable,
               ojt_instance_entries!ojt_instance_entries_entry_id_fkey (
-                id, efectividad, responsable_nombre, responsable_firma_url,
+                id, instance_id, efectividad, responsable_nombre, responsable_firma_url,
                 empleado_firma_url, fecha_planeada_terminacion, fecha_real_inicio, fecha_real_termino, comentarios
               )
             )
@@ -147,7 +147,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
           tipo: s.tipo,
           orden: s.orden,
           rows: [...(s.ojt_entries || [])].sort((a: any, b: any) => a.orden - b.orden).map((e: any) => {
-            const ie = (e.ojt_instance_entries || []).find((x: any) => true) ?? null;
+            const ie = (e.ojt_instance_entries || []).find((x: any) => x.instance_id === instanceId) ?? null;
             return {
               entry_id: e.id,
               conocimiento_requerido: e.conocimiento_requerido,
