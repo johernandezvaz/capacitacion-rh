@@ -60,7 +60,10 @@ export default function OjtInstanciasPage() {
         supabase.from('ojt_records').select('*').eq('id', templateId).maybeSingle(),
         supabase
           .from('ojt_instances')
-          .select('*, employees(nombre, puesto)')
+          .select(`
+            *,
+            empleado:employees!ojt_instances_employee_id_fkey(nombre, puesto)
+          `)
           .eq('template_id', templateId)
           .order('created_at', { ascending: false }),
         supabase.from('employees').select('id, nombre, puesto, employee_number, area, evaluador, created_at').eq('plant_id', plantId).order('nombre'),
@@ -69,8 +72,8 @@ export default function OjtInstanciasPage() {
       setInstances(
         (inst || []).map((i: any) => ({
           ...i,
-          empleado_nombre: i.employees?.nombre ?? null,
-          empleado_puesto: i.employees?.puesto ?? null,
+          empleado_nombre: (i as any).empleado?.nombre ?? null,
+          empleado_puesto: (i as any).empleado?.puesto ?? null,
         }))
       );
       setEmployees(emps || []);

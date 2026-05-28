@@ -116,12 +116,16 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
 
         const { data: inst } = await supabase
           .from('ojt_instances')
-          .select('*, employees(nombre), jefe:employees!ojt_instances_jefe_directo_id_fkey(id, nombre)')
+          .select(`
+            *,
+            empleado:employees!ojt_instances_employee_id_fkey(id, nombre),
+            jefe:employees!ojt_instances_jefe_directo_id_fkey(id, nombre)
+          `)
           .eq('id', instanceId)
           .maybeSingle();
         if (inst) {
           setEmployeeId(inst.employee_id);
-          setEmployeeLabel((inst as any).employees?.nombre ?? '');
+          setEmployeeLabel((inst as any).empleado?.nombre ?? '');
           setJefeDirectoId(inst.jefe_directo_id ?? null);
           setJefeDirectoLabel((inst as any).jefe?.nombre ?? '');
           setNombre(inst.nombre ?? '');
