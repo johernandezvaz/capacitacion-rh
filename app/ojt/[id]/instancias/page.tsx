@@ -212,9 +212,11 @@ export default function OjtInstanciasPage() {
               <Card key={inst.id} className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-border">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border ${STATUS_CLASS[inst.status]}`}>
-                      {STATUS_LABEL[inst.status]}
-                    </span>
+                    {inst.status !== 'draft' && (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border ${STATUS_CLASS[inst.status]}`}>
+                        {STATUS_LABEL[inst.status]}
+                      </span>
+                    )}
                     {inst.average_efectividad != null && (
                       <span className="text-xs text-muted-foreground border border-border rounded-sm px-2 py-0.5">
                         Efectividad: <strong>{Math.round(inst.average_efectividad)}%</strong>

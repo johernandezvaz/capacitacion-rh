@@ -205,9 +205,19 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
   }, [instanceId, templateId]);
 
   const avgEfectividad = useMemo(() => {
-    const vals = groups.flatMap(g => g.rows).map(r => parseFloat(r.efectividad)).filter(v => !isNaN(v));
-    if (vals.length === 0) return null;
-    return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+    const allRows = groups.flatMap(g => g.rows);
+    const totalRows = allRows.length;
+    if (totalRows === 0) return null;
+
+    const suma = allRows.reduce((acc, r) => {
+      const val = parseFloat(r.efectividad);
+      return acc + (isNaN(val) ? 0 : val);
+    }, 0);
+
+    const hayAlgunValor = allRows.some(r => !isNaN(parseFloat(r.efectividad)));
+    if (!hayAlgunValor) return null;
+
+    return Math.round(suma / totalRows);
   }, [groups]);
 
   const saveInstanceEntryField = useCallback(async (
