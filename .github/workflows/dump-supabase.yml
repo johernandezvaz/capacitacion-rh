@@ -1,0 +1,30 @@
+name: Dump Supabase DB
+
+on:
+  workflow_dispatch:  # Se ejecuta manualmente desde GitHub
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Instalar cliente PostgreSQL
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Ejecutar pg_dump
+        env:
+          DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          pg_dump "postgresql://postgres:${DB_PASSWORD}@db.hxhmvkxzfehbcvaumyjl.supabase.co:5432/postgres?sslmode=require" \
+            --schema=public \
+            --no-owner \
+            --no-acl \
+            -f dump_completo.sql
+          echo "Tamaño del dump: $(du -sh dump_completo.sql)"
+
+      - name: Subir dump como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dump-supabase-${{ github.run_number }}
+          path: dump_completo.sql
+          retention-days: 7
