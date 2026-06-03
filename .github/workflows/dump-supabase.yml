@@ -11,26 +11,18 @@ jobs:
       - name: Instalar cliente PostgreSQL
         run: sudo apt-get install -y postgresql-client
 
-      - name: Verificar conectividad al pooler
-        run: |
-          echo "Verificando IPv4 del pooler..."
-          dig +short A aws-0-us-east-1.pooler.supabase.com | head -3
-          nc -zv aws-0-us-east-1.pooler.supabase.com 5432 2>&1 || echo "Puerto 5432 no accesible"
-          nc -zv aws-0-us-east-1.pooler.supabase.com 6543 2>&1 || echo "Puerto 6543 no accesible"
-
-      - name: Ejecutar pg_dump via Session Pooler (puerto 5432)
+      - name: Ejecutar pg_dump via Session Pooler
         env:
           DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           PGPASSWORD="${DB_PASSWORD}" pg_dump \
-            -h aws-0-us-east-1.pooler.supabase.com \
+            -h aws-1-us-east-1.pooler.supabase.com \
             -p 5432 \
             -U "postgres.hxhmvkxzfehbcvaumyjl" \
             -d postgres \
             --schema=public \
             --no-owner \
             --no-acl \
-            --lock-wait-timeout=120000 \
             -f dump_completo.sql
           echo "✅ Dump completado. Tamaño: $(du -sh dump_completo.sql)"
 
