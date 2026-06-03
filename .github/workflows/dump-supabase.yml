@@ -1,7 +1,7 @@
 name: Dump Supabase DB
 
 on:
-  workflow_dispatch:  # Se ejecuta manualmente desde GitHub
+  workflow_dispatch:
 
 jobs:
   dump:
@@ -11,16 +11,27 @@ jobs:
       - name: Instalar cliente PostgreSQL
         run: sudo apt-get install -y postgresql-client
 
+      - name: Resolver IP y forzar IPv4
+        run: |
+          IPV4=$(dig +short A db.hxhmvkxzfehbcvaumyjl.supabase.co | head -1)
+          echo "IPv4 encontrada: $IPV4"
+          echo "SUPABASE_IPV4=$IPV4" >> $GITHUB_ENV
+          echo "$IPV4 db.hxhmvkxzfehbcvaumyjl.supabase.co" | sudo tee -a /etc/hosts
+
       - name: Ejecutar pg_dump
         env:
           DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          pg_dump "postgresql://postgres:${DB_PASSWORD}@db.hxhmvkxzfehbcvaumyjl.supabase.co:5432/postgres?sslmode=require" \
+          PGPASSWORD="${DB_PASSWORD}" pg_dump \
+            -h db.hxhmvkxzfehbcvaumyjl.supabase.co \
+            -p 5432 \
+            -U postgres \
+            -d postgres \
             --schema=public \
             --no-owner \
             --no-acl \
             -f dump_completo.sql
-          echo "Tamaño del dump: $(du -sh dump_completo.sql)"
+          echo "✅ Dump completado. Tamaño: $(du -sh dump_completo.sql)"
 
       - name: Subir dump como artifact
         uses: actions/upload-artifact@v4
