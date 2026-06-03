@@ -11,25 +11,26 @@ jobs:
       - name: Instalar cliente PostgreSQL
         run: sudo apt-get install -y postgresql-client
 
-      - name: Resolver IP y forzar IPv4
+      - name: Verificar conectividad al pooler
         run: |
-          IPV4=$(dig +short A db.hxhmvkxzfehbcvaumyjl.supabase.co | head -1)
-          echo "IPv4 encontrada: $IPV4"
-          echo "SUPABASE_IPV4=$IPV4" >> $GITHUB_ENV
-          echo "$IPV4 db.hxhmvkxzfehbcvaumyjl.supabase.co" | sudo tee -a /etc/hosts
+          echo "Verificando IPv4 del pooler..."
+          dig +short A aws-0-us-east-1.pooler.supabase.com | head -3
+          nc -zv aws-0-us-east-1.pooler.supabase.com 5432 2>&1 || echo "Puerto 5432 no accesible"
+          nc -zv aws-0-us-east-1.pooler.supabase.com 6543 2>&1 || echo "Puerto 6543 no accesible"
 
-      - name: Ejecutar pg_dump
+      - name: Ejecutar pg_dump via Session Pooler (puerto 5432)
         env:
           DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           PGPASSWORD="${DB_PASSWORD}" pg_dump \
-            -h db.hxhmvkxzfehbcvaumyjl.supabase.co \
+            -h aws-0-us-east-1.pooler.supabase.com \
             -p 5432 \
-            -U postgres \
+            -U "postgres.hxhmvkxzfehbcvaumyjl" \
             -d postgres \
             --schema=public \
             --no-owner \
             --no-acl \
+            --lock-wait-timeout=120000 \
             -f dump_completo.sql
           echo "✅ Dump completado. Tamaño: $(du -sh dump_completo.sql)"
 
