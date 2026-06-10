@@ -16,9 +16,8 @@ jobs:
           sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
-          pg_dump --version
 
-      - name: Ejecutar pg_dump via Session Pooler
+      - name: Ejecutar pg_dump con --inserts
         env:
           DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
@@ -30,12 +29,13 @@ jobs:
             --schema=public \
             --no-owner \
             --no-acl \
+            --inserts \
             -f dump_completo.sql
-          echo "✅ Dump completado. Tamaño: $(du -sh dump_completo.sql)"
+          echo "✅ Tamaño: $(du -sh dump_completo.sql)"
 
       - name: Subir dump como artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dump-supabase-${{ github.run_number }}
+          name: dump-inserts-${{ github.run_number }}
           path: dump_completo.sql
           retention-days: 7
