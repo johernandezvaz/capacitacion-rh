@@ -145,7 +145,12 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
 
   type Row = (string | { content: string; colSpan?: number; styles?: object })[];
   const body: Row[] = [];
-  const meta: Array<{ isHeader: boolean; entryId?: string; efectividadVal?: number | null }> = [];
+  const meta: Array<{
+    isHeader: boolean;
+    entryId?: string;
+    efectividadVal?: number | null;
+    responsableNombre?: string;
+  }> = [];
 
   for (const g of data.groups) {
     body.push([{ content: g.section_nombre.toUpperCase(), colSpan: 14, styles: { fillColor: SEC, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left', fontSize: 8 } }]);
@@ -158,9 +163,14 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
         fmtDate(r.fecha_planeada_terminacion), fmtDate(r.fecha_real_inicio || null),
         fmtDate(r.fecha_real_termino || null), r.efectividad ? `${r.efectividad}%` : '—',
         '',
-        d(r.puesto_responsable), d(r.responsable_nombre), d(r.comentarios),
+        d(r.puesto_responsable), '', d(r.comentarios), // col 12 vacío — se dibuja manualmente
       ]);
-      meta.push({ isHeader: false, entryId: r.entry_id, efectividadVal: efVal });
+      meta.push({
+        isHeader: false,
+        entryId: r.entry_id,
+        efectividadVal: efVal,
+        responsableNombre: r.responsable_nombre || '',
+      });
     }
   }
 
@@ -172,7 +182,7 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
     body: body as any,
     theme: 'grid',
     headStyles: { fillColor: HDR, textColor: 255, fontStyle: 'bold', fontSize: 7, halign: 'center', valign: 'middle', minCellHeight: 10 },
-    bodyStyles: { fontSize: 7, cellPadding: 2, valign: 'top', minCellHeight: 14 },
+    bodyStyles: { fontSize: 7, cellPadding: 2, valign: 'top', minCellHeight: 22 },
     alternateRowStyles: { fillColor: ALT },
     margin: { left: M, right: M },
     tableWidth: W - M * 2,
@@ -201,21 +211,43 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
         const m = meta[hook.row.index];
         if (m && !m.isHeader && m.entryId) {
           const { x, y, width, height } = hook.cell;
-          const ih = Math.min(height - 4, 10);
+
           // col 10 — firma empleado
           if (hook.column.index === 10 && imgs[`emp_${m.entryId}`]) {
+            const ih = Math.min(height - 4, 10);
             try { doc.addImage(imgs[`emp_${m.entryId}`], 'PNG', x + 1, y + 1, ih * 2, ih); } catch { /* ignore */ }
           }
-          // col 12 — firma responsable
-          if (hook.column.index === 12 && imgs[m.entryId]) {
-            try { doc.addImage(imgs[m.entryId], 'PNG', x + 1, y + 1, ih * 2, ih); } catch { /* ignore */ }
+
+          // col 12 — firma ARRIBA, nombre ABAJO
+          if (hook.column.index === 12) {
+            const nombreResp = m.responsableNombre || '';
+            const tieneNombre = !!(nombreResp && nombreResp !== '—');
+            const tieneFirma = !!imgs[m.entryId];
+
+            // Altura reservada para el nombre en la parte inferior
+            const nombreZoneH = tieneNombre ? 6 : 0;
+            // Zona disponible para la firma (parte superior)
+            const firmaZoneH = height - nombreZoneH - 2;
+
+            if (tieneFirma) {
+              const sigH = Math.min(firmaZoneH, 10);
+              const sigW = sigH * 2.5;
+              try {
+                doc.addImage(imgs[m.entryId], 'PNG', x + 1, y + 1, sigW, sigH);
+              } catch { /* ignore */ }
+            }
+
+            if (tieneNombre) {
+              doc.setFontSize(6).setFont('helvetica', 'normal').setTextColor(30, 30, 30);
+              // Nombre pegado al borde inferior de la celda
+              doc.text(nombreResp, x + 1, y + height - 2, { maxWidth: width - 2 });
+            }
           }
         }
       }
     },
   });
   Y = (doc as any).lastAutoTable.finalY + 5;
-
 
   const notaLineHeight = 4.5;
   doc.setFontSize(8).setTextColor(30, 30, 30);
@@ -231,7 +263,7 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
   );
   Y += notaLineHeight * 2;
 
-  if (Y + 35 > H - 15) { doc.addPage(); Y = 15; }
+  if (Y + 40 > H - 15) { doc.addPage(); Y = 15; }
   doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(25, 43, 82);
   doc.text('FIRMAS DE LIBERACIÓN', M, Y);
   Y += 4;
@@ -241,26 +273,47 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
   autoTable(doc, {
     startY: Y,
     head: [['EMPLEADO', 'JEFE DIRECTO', 'RECURSOS HUMANOS'].map(l => ({ content: l, styles: { halign: 'center' } }))],
-    body: [[
-      `Nombre: ${d(data.sigNames['empleado'])}\nFecha:   ${fmtDate(data.sigDates['empleado'])}`,
-      `Nombre: ${d(data.sigNames['jefe_directo'])}\nFecha:   ${fmtDate(data.sigDates['jefe_directo'])}`,
-      `Nombre: ${d(data.sigNames['recursos_humanos'])}\nFecha:   ${fmtDate(data.sigDates['recursos_humanos'])}`,
-    ]],
+    body: [['', '', '']],
     theme: 'grid',
     headStyles: { fillColor: HDR, textColor: 255, fontStyle: 'bold', fontSize: 8, halign: 'center' },
-    bodyStyles: { fontSize: 8, cellPadding: 4, minCellHeight: 24 },
+    bodyStyles: { fontSize: 8, cellPadding: 4, minCellHeight: 40 },
     columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 'auto' } },
     margin: { left: M, right: M },
     tableWidth: W - M * 2,
     didDrawCell(hook) {
       if (hook.section === 'body' && hook.row.index === 0) {
         const t = sigTypes[hook.column.index];
+        const { x, y, width, height } = hook.cell;
+        const pad = 3;
+        const lineH = 4.5;
+
+        // Calcular ancho del bloque de texto (nombre + fecha)
+        doc.setFontSize(7).setFont('helvetica', 'normal').setTextColor(30, 30, 30);
+        const nombreRaw = data.sigNames[t] || '—';
+        const fechaRaw = data.sigDates[t] ? fmtDate(data.sigDates[t]) : '—';
+
+        // Usar 50% del ancho para texto, 50% para firma
+        const textZoneW = width * 0.50;
+        const firmaZoneX = x + textZoneW;
+        const firmaZoneW = width * 0.50 - pad;
+
+        // Texto: nombre + fecha centrados verticalmente en zona izquierda
+        const nombreLines = doc.splitTextToSize(`Nombre: ${nombreRaw}`, textZoneW - pad * 2);
+        const visibleNombreLines = nombreLines.slice(0, 2) as string[];
+        const totalTextH = (visibleNombreLines.length + 1) * lineH;
+        const textStartY = y + (height - totalTextH) / 2 + lineH;
+
+        doc.text(visibleNombreLines, x + pad, textStartY);
+        doc.text(`Fecha: ${fechaRaw}`, x + pad, textStartY + visibleNombreLines.length * lineH);
+
+        // Firma: centrada en zona derecha
         const img = imgs[`sig_${t}`];
         if (img) {
-          const { x, y, width, height } = hook.cell;
-          const ih = Math.min(height - 8, 12);
-          const iw = ih * 2.5;
-          try { doc.addImage(img, 'PNG', x + width / 2 - iw / 2, y + 2, iw, ih); } catch { /* ignore */ }
+          const ih = Math.min(height - pad * 2, 20);
+          const iw = Math.min(ih * 3, firmaZoneW - pad);
+          const imgX = firmaZoneX + (firmaZoneW - iw) / 2;
+          const imgY = y + (height - ih) / 2;
+          try { doc.addImage(img, 'PNG', imgX, imgY, iw, ih); } catch { /* ignore */ }
         }
       }
     },
