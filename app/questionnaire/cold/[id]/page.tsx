@@ -226,7 +226,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             const validResponses = responses.filter(r => r.percentage_value !== null && r.percentage_value > 0);
             const average = validResponses.length > 0
                 ? validResponses.reduce((sum, r) => sum + (r.percentage_value || 0), 0) / validResponses.length
-                : 0;
+                : null;
 
             const { error: qError } = await supabase
                 .from('questionnaires')

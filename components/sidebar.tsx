@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Calendar, BarChart3, Users, Menu, X, ClipboardList, LogOut, Building2, CalendarDays, FileBarChart2, ClipboardCheck } from 'lucide-react';
+import { Calendar, BarChart3, Users, Menu, X, ClipboardList, LogOut, Building2, CalendarDays, FileBarChart2, ClipboardCheck, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
 export function Sidebar() {
@@ -54,6 +54,12 @@ export function Sidebar() {
       href: '/detecciones',
       icon: ClipboardCheck,
       active: pathname === '/detecciones' || pathname.startsWith('/detecciones/'),
+    },
+    {
+      name: 'Promedios Mensuales',
+      href: '/reportes/promedios-mensuales',
+      icon: TrendingUp,
+      active: pathname.startsWith('/reportes/promedios-mensuales'),
     },
   ];
 
