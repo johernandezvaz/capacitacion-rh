@@ -287,10 +287,11 @@ export default function YearDetailPage() {
     );
 
     filteredCourses.forEach(course => {
-      if (!course.date) {
+      const fechaAgrupacion = course.start_date ?? course.date;
+      if (!fechaAgrupacion) {
         noDateCourses.push(course);
       } else {
-        const d = new Date(course.date + 'T12:00:00');
+        const d = new Date(fechaAgrupacion + 'T12:00:00');
         const month = d.toLocaleString('es-ES', { month: 'long' });
         const yearVal = d.getFullYear();
         const monthCap = month.charAt(0).toUpperCase() + month.slice(1);
@@ -312,8 +313,8 @@ export default function YearDetailPage() {
 
     sortedGroups.forEach(group => {
       group.courses.sort((a, b) => {
-        const dateA = a.date || '';
-        const dateB = b.date || '';
+        const dateA = (a.start_date ?? a.date) || '';
+        const dateB = (b.start_date ?? b.date) || '';
         return sortOrder === 'desc'
           ? dateB.localeCompare(dateA)
           : dateA.localeCompare(dateB);

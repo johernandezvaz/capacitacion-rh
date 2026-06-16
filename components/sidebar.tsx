@@ -55,12 +55,6 @@ export function Sidebar() {
       icon: ClipboardCheck,
       active: pathname === '/detecciones' || pathname.startsWith('/detecciones/'),
     },
-    {
-      name: 'Promedios Mensuales',
-      href: '/reportes/promedios-mensuales',
-      icon: TrendingUp,
-      active: pathname.startsWith('/reportes/promedios-mensuales'),
-    },
   ];
 
   const handleLinkClick = () => {
