@@ -188,9 +188,9 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
     const total = (doc.internal as any).getNumberOfPages();
     for (let i = 1; i <= total; i++) {
         doc.setPage(i);
-        doc.setFontSize(7).setFont('helvetica', 'normal').setTextColor(130, 130, 130);
-        doc.text(`Calendario de Capacitación ${data.year}`, M, H - 5);
-        doc.text(`Página ${i} de ${total}`, W - M, H - 5, { align: 'right' });
+        doc.setFontSize(7).setFont('helvetica', 'normal').setTextColor(120);
+        doc.text('04 S10 F36', M, H - 6);
+        doc.text(`Página ${i} de ${total}`, W - M, H - 6, { align: 'right' });
     }
 
     const fecha = new Date().toISOString().split('T')[0];
