@@ -211,6 +211,7 @@ export type OjtInstance = {
   updated_at: string;
   empleado_nombre?: string | null;
   empleado_puesto?: string | null;
+  es_baja: boolean;
 };
 
 export type OjtInstanceEntry = {

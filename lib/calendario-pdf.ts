@@ -12,6 +12,7 @@ export interface CalendarioPdfFila {
         mes: number;
         tiene_programado: boolean;
         tiene_real: boolean;
+        dia: number | null;
     }>;
 }
 
@@ -182,6 +183,15 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
                 hookData.cell.height,
                 'F'
             );
+
+            if (mesInfo.dia !== null) {
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(6);
+                doc.setTextColor(255, 255, 255);
+                const cx = hookData.cell.x + hookData.cell.width / 2;
+                const cy = hookData.cell.y + hookData.cell.height / 2 + 0.8;
+                doc.text(String(mesInfo.dia), cx, cy, { align: 'center' });
+            }
         },
     });
 

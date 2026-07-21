@@ -101,6 +101,35 @@ function getDetCellStyle(det: DeteccionRow, monthIndex: number, year: number): {
     return null;
 }
 
+function getCourseDay(course: CourseRow, monthIndex: number, year: number): number | null {
+  const real = parseMonthYear(course.fecha_real);
+  if (real && real.month === monthIndex && real.year === year) {
+    return new Date(course.fecha_real! + 'T12:00:00').getDate();
+  }
+  const prog = parseMonthYear(course.fecha_programada);
+  if (prog && prog.month === monthIndex && prog.year === year && !course.fecha_real) {
+    return new Date(course.fecha_programada! + 'T12:00:00').getDate();
+  }
+  const dateField = parseMonthYear(course.date);
+  if (dateField && dateField.month === monthIndex && dateField.year === year && !course.fecha_programada && !course.fecha_real) {
+    return new Date(course.date! + 'T12:00:00').getDate();
+  }
+  return null;
+}
+
+function getDetDay(det: DeteccionRow, monthIndex: number, year: number): number | null {
+  const real = parseMonthYear(det.fecha_real);
+  if (real && real.month === monthIndex && real.year === year) {
+    return new Date(det.fecha_real! + 'T12:00:00').getDate();
+  }
+  const prog = parseMonthYear(det.fecha_programada);
+  if (prog && prog.month === monthIndex && prog.year === year && !det.fecha_real) {
+    return new Date(det.fecha_programada! + 'T12:00:00').getDate();
+  }
+  return null;
+}
+
+
 function sortKey(row: UnifiedRow): string {
     return row._sortDate || '9999-12-31';
 }
@@ -238,6 +267,7 @@ export default function DncPage() {
                                 mes: mi + 1,
                                 tiene_real: isReal,
                                 tiene_programado: s !== null && !isReal,
+                                dia: getCourseDay(course, mi, yr),
                             };
                         }),
                     };
@@ -256,6 +286,7 @@ export default function DncPage() {
                                 mes: mi + 1,
                                 tiene_real: isReal,
                                 tiene_programado: s !== null && !isReal,
+                                dia: getDetDay(det, mi, yr),
                             };
                         }),
                     };
@@ -366,7 +397,21 @@ export default function DncPage() {
                                                             <td key={mi} className="border-r border-b border-gray-100"
                                                                 style={{ width: 44, minWidth: 44, padding: '6px 4px' }}
                                                                 title={style?.tooltip}>
-                                                                {style && <div className="mx-auto rounded-sm" style={{ background: style.bg, width: 30, height: 20 }} />}
+                                                                {style && (() => {
+                                                                    const day = getCourseDay(course, mi, selectedYear?.year ?? 0);
+                                                                    return (
+                                                                        <div
+                                                                            className="mx-auto rounded-sm flex items-center justify-center"
+                                                                            style={{ background: style.bg, width: 30, height: 20 }}
+                                                                        >
+                                                                            {day !== null && (
+                                                                                <span style={{ fontSize: 9, fontWeight: 600, color: '#fff', lineHeight: 1 }}>
+                                                                                    {day}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })()}
                                                             </td>
                                                         );
                                                     })}
@@ -412,7 +457,21 @@ export default function DncPage() {
                                                             <td key={mi} className="border-r border-b border-gray-100"
                                                                 style={{ width: 44, minWidth: 44, padding: '6px 4px' }}
                                                                 title={style?.tooltip}>
-                                                                {style && <div className="mx-auto rounded-sm" style={{ background: style.bg, width: 30, height: 20 }} />}
+                                                                {style && (() => {
+                                                                    const day = getDetDay(det, mi, selectedYear?.year ?? 0);
+                                                                    return (
+                                                                        <div
+                                                                            className="mx-auto rounded-sm flex items-center justify-center"
+                                                                            style={{ background: style.bg, width: 30, height: 20 }}
+                                                                        >
+                                                                            {day !== null && (
+                                                                                <span style={{ fontSize: 9, fontWeight: 600, color: '#fff', lineHeight: 1 }}>
+                                                                                    {day}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })()}
                                                             </td>
                                                         );
                                                     })}

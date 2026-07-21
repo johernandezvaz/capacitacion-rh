@@ -54,6 +54,11 @@ export default function OjtInstanciasPage() {
   const [newFechaInicio, setNewFechaInicio] = useState('');
   const [newFechaTermino, setNewFechaTermino] = useState('');
 
+  const [activeTab, setActiveTab] = useState<'activos' | 'bajas'>('activos');
+
+  const instanciasActivas = instances.filter(i => !i.es_baja);
+  const instanciasBajas = instances.filter(i => i.es_baja);
+
   const fetchData = async () => {
     try {
       const [{ data: tmpl }, { data: inst }, { data: emps }] = await Promise.all([
@@ -74,6 +79,7 @@ export default function OjtInstanciasPage() {
           ...i,
           empleado_nombre: (i as any).empleado?.nombre ?? null,
           empleado_puesto: (i as any).empleado?.puesto ?? null,
+          es_baja: (i as any).es_baja ?? false,
         }))
       );
       setEmployees(emps || []);
@@ -152,6 +158,80 @@ export default function OjtInstanciasPage() {
     }
   };
 
+  const handleToggleBaja = async (instanceId: string, currentValue: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('ojt_instances')
+        .update({ es_baja: !currentValue })
+        .eq('id', instanceId);
+      if (error) throw error;
+      setInstances(prev =>
+        prev.map(i => i.id === instanceId ? { ...i, es_baja: !currentValue } : i)
+      );
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'No se pudo actualizar', variant: 'destructive' });
+    }
+  };
+
+  const renderInstancia = (inst: OjtInstance) => {
+    return (
+      <Card key={inst.id} className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-border">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            {inst.status !== 'draft' && (
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border ${STATUS_CLASS[inst.status]}`}>
+                {STATUS_LABEL[inst.status]}
+              </span>
+            )}
+            {inst.average_efectividad != null && (
+              <span className="text-xs text-muted-foreground border border-border rounded-sm px-2 py-0.5">
+                Efectividad: <strong>{Math.round(inst.average_efectividad)}%</strong>
+              </span>
+            )}
+            {inst.es_baja && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+                Baja
+              </span>
+            )}
+          </div>
+          <h3 className="text-sm font-semibold text-foreground truncate">
+            {inst.nombre || inst.empleado_nombre || 'Sin nombre'}
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {inst.empleado_puesto || ''}
+            {inst.fecha_inicio ? ` · Inicio: ${fmtDate(inst.fecha_inicio)}` : ''}
+            {inst.fecha_termino ? ` · Término: ${fmtDate(inst.fecha_termino)}` : ''}
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0 w-full sm:w-auto">
+          <Link href={`/ojt/${templateId}/instancias/${inst.id}`} className="w-full sm:w-auto">
+            <Button size="sm" className="w-full sm:w-auto gap-2 bg-[#2166be] hover:bg-[#1a5299] text-white">
+              Abrir
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </Link>
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full sm:w-auto text-gray-400 border-gray-200 hover:text-gray-600 hover:bg-gray-50"
+            onClick={() => handleToggleBaja(inst.id, inst.es_baja)}
+          >
+            {inst.es_baja ? 'Reactivar' : 'Marcar baja'}
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="w-full sm:w-auto gap-2"
+            onClick={() => setDeleteDialog({ open: true, instanceId: inst.id })}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Eliminar
+          </Button>
+        </div>
+      </Card>
+    );
+  };
+
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8">
       <div className="max-w-5xl mx-auto">
@@ -181,77 +261,79 @@ export default function OjtInstanciasPage() {
                 Editar plantilla
               </Button>
             </Link>
-            <Button
-              className="bg-[#2166be] hover:bg-[#1a5299] text-white gap-2"
-              onClick={() => { resetModal(); setShowModal(true); }}
-            >
-              <Plus className="w-4 h-4" />
-              Agregar empleado
-            </Button>
+            {activeTab === 'activos' && (
+              <Button
+                className="bg-[#2166be] hover:bg-[#1a5299] text-white gap-2"
+                onClick={() => { resetModal(); setShowModal(true); }}
+              >
+                <Plus className="w-4 h-4" />
+                Agregar empleado
+              </Button>
+            )}
           </div>
         </div>
+
+        {!isLoading && (
+          <div className="mb-6">
+            <div className="flex gap-1 border-b border-border">
+              <button
+                onClick={() => setActiveTab('activos')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'activos'
+                    ? 'border-[#2166be] text-[#2166be]'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Activos ({instanciasActivas.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('bajas')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'bajas'
+                    ? 'border-[#2166be] text-[#2166be]'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Bajas ({instanciasBajas.length})
+              </button>
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map(i => <div key={i} className="h-20 bg-card rounded-lg animate-pulse border border-border" />)}
           </div>
-        ) : instances.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
-              <User className="w-8 h-8 text-muted-foreground" />
+        ) : activeTab === 'activos' ? (
+          instanciasActivas.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+                <User className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">No hay instancias activas</h3>
+              <p className="text-muted-foreground mb-6 text-sm">Agrega el primer empleado para crear una instancia de esta plantilla</p>
+              <Button className="bg-[#2166be] hover:bg-[#1a5299] text-white" onClick={() => { resetModal(); setShowModal(true); }}>
+                <Plus className="w-4 h-4 mr-2" /> Agregar empleado
+              </Button>
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Sin instancias</h3>
-            <p className="text-muted-foreground mb-6 text-sm">Agrega el primer empleado para crear una instancia de esta plantilla</p>
-            <Button className="bg-[#2166be] hover:bg-[#1a5299] text-white" onClick={() => { resetModal(); setShowModal(true); }}>
-              <Plus className="w-4 h-4 mr-2" /> Agregar empleado
-            </Button>
-          </div>
+          ) : (
+            <div className="space-y-3">
+              {instanciasActivas.map(renderInstancia)}
+            </div>
+          )
         ) : (
-          <div className="space-y-3">
-            {instances.map(inst => (
-              <Card key={inst.id} className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-border">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    {inst.status !== 'draft' && (
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border ${STATUS_CLASS[inst.status]}`}>
-                        {STATUS_LABEL[inst.status]}
-                      </span>
-                    )}
-                    {inst.average_efectividad != null && (
-                      <span className="text-xs text-muted-foreground border border-border rounded-sm px-2 py-0.5">
-                        Efectividad: <strong>{Math.round(inst.average_efectividad)}%</strong>
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-sm font-semibold text-foreground truncate">
-                    {inst.nombre || inst.empleado_nombre || 'Sin nombre'}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    {inst.empleado_puesto || ''}
-                    {inst.fecha_inicio ? ` · Inicio: ${fmtDate(inst.fecha_inicio)}` : ''}
-                    {inst.fecha_termino ? ` · Término: ${fmtDate(inst.fecha_termino)}` : ''}
-                  </p>
-                </div>
-                <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0 w-full sm:w-auto">
-                  <Link href={`/ojt/${templateId}/instancias/${inst.id}`} className="w-full sm:w-auto">
-                    <Button size="sm" className="w-full sm:w-auto gap-2 bg-[#2166be] hover:bg-[#1a5299] text-white">
-                      Abrir
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </Button>
-                  </Link>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="w-full sm:w-auto gap-2"
-                    onClick={() => setDeleteDialog({ open: true, instanceId: inst.id })}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Eliminar
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
+          instanciasBajas.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+                <User className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">No hay empleados marcados como baja</h3>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {instanciasBajas.map(renderInstancia)}
+            </div>
+          )
         )}
       </div>
 
