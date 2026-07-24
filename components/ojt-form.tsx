@@ -65,7 +65,7 @@ export function OjtForm({ recordId, plantId }: OjtFormProps) {
   useEffect(() => {
     supabase
       .from('employees')
-      .select('id, nombre, puesto, employee_number, area, evaluador, created_at')
+      .select('id, nombre, puesto, employee_number, area, evaluador, created_at, es_baja, fecha_baja')
       .eq('plant_id', plantId)
       .order('nombre')
       .then(({ data }) => setEmployees(data || []));
