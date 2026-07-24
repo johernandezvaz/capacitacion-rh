@@ -94,7 +94,7 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
 
     const body = data.filas.map(fila => [
         fila.nombre,
-        ...fila.meses.map(() => ''),
+        ...fila.meses.map(m => (m.dia !== null && (m.tiene_real || m.tiene_programado) ? String(m.dia) : '')),
         fila.comentario || '',
     ]);
 
@@ -113,6 +113,7 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
         },
         bodyStyles: {
             fontSize: 7,
+            valign: 'middle',
             cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 },
         },
         alternateRowStyles: { fillColor: ALT },
@@ -152,45 +153,13 @@ export async function generateCalendarioPdf(data: CalendarioPdfData): Promise<vo
             if (mesInfo.tiene_real) {
                 hookData.cell.styles.fillColor = baseColor;
                 hookData.cell.styles.textColor = [255, 255, 255];
+                hookData.cell.styles.fontStyle = 'bold';
+                hookData.cell.styles.halign = 'center';
             } else if (mesInfo.tiene_programado) {
                 hookData.cell.styles.fillColor = withAlpha(baseColor, 0.40);
-                hookData.cell.styles.textColor = [60, 60, 60];
-            }
-        },
-        willDrawCell: (hookData) => {
-            if (hookData.section !== 'body') return;
-            const colIdx = hookData.column.index;
-            if (colIdx < 1 || colIdx > 12) return;
-
-            const rowIdx = hookData.row.index;
-            const fila = data.filas[rowIdx];
-            if (!fila) return;
-
-            const mesIdx = colIdx - 1;
-            const mesInfo = fila.meses[mesIdx];
-            if (!mesInfo || (!mesInfo.tiene_real && !mesInfo.tiene_programado)) return;
-
-            const baseColor = hexToRgb(fila.color);
-            const [r, g, b] = mesInfo.tiene_real
-                ? baseColor
-                : withAlpha(baseColor, 0.40);
-
-            doc.setFillColor(r, g, b);
-            doc.rect(
-                hookData.cell.x,
-                hookData.cell.y,
-                hookData.cell.width,
-                hookData.cell.height,
-                'F'
-            );
-
-            if (mesInfo.dia !== null) {
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(6);
-                doc.setTextColor(255, 255, 255);
-                const cx = hookData.cell.x + hookData.cell.width / 2;
-                const cy = hookData.cell.y + hookData.cell.height / 2 + 0.8;
-                doc.text(String(mesInfo.dia), cx, cy, { align: 'center' });
+                hookData.cell.styles.textColor = [30, 30, 30];
+                hookData.cell.styles.fontStyle = 'bold';
+                hookData.cell.styles.halign = 'center';
             }
         },
     });
