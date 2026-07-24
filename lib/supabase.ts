@@ -112,6 +112,8 @@ export type Employee = {
   puesto: string;
   evaluador: string;
   created_at: string;
+  es_baja: boolean;
+  fecha_baja: string | null;
 };
 
 export type CourseParticipant = {

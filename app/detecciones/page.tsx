@@ -30,7 +30,7 @@ type DetRow = {
     course_name: string | null;
 };
 
-type EmpGroup = { id: string; nombre: string; puesto: string; detecciones: DetRow[] };
+type EmpGroup = { id: string; nombre: string; puesto: string; es_baja: boolean; detecciones: DetRow[] };
 type AreaGroup = { area: string; empleados: EmpGroup[] };
 
 const CB_COLS = [
@@ -67,6 +67,7 @@ export default function DeteccionesPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [filterArea, setFilterArea] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [activeTab, setActiveTab] = useState<'activos' | 'bajas'>('activos');
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -100,7 +101,7 @@ export default function DeteccionesPage() {
                 .from('deteccion_empleados')
                 .select(`
                     deteccion_id, employee_id, color, status,
-                    employees!employee_id(id, nombre, puesto, area)
+                    employees!employee_id(id, nombre, puesto, area, es_baja)
                 `)
                 .in('deteccion_id', ids);
 
@@ -111,7 +112,7 @@ export default function DeteccionesPage() {
             });
 
             const today = new Date().toISOString().split('T')[0];
-            const dets: DetRow[] = detData.map((d: any) => ({
+            let dets: DetRow[] = detData.map((d: any) => ({
                 ...d,
                 color: (d.fecha_real && d.fecha_real <= today) ? '#22c55e' : '#ef4444',
                 dept_ids: [],
@@ -166,6 +167,7 @@ export default function DeteccionesPage() {
                 const area: string = emp.area || 'Sin Área';
                 const empGroup: EmpGroup = {
                     id: emp.id, nombre: emp.nombre, puesto: emp.puesto,
+                    es_baja: emp.es_baja ?? false,
                     detecciones: empDetMap[emp.id] || [],
                 };
 
@@ -254,8 +256,40 @@ export default function DeteccionesPage() {
         })));
     };
 
+    const tabGroups = useMemo(() => {
+        if (activeTab === 'activos') {
+            return groups
+                .map(grp => ({
+                    ...grp,
+                    empleados: grp.empleados
+                        .filter(emp => !emp.es_baja)
+                        .map(emp => ({
+                            ...emp,
+                            detecciones: emp.detecciones.filter(d => {
+                                const todosEnBaja = groups
+                                    .flatMap(g => g.empleados)
+                                    .filter(e => e.detecciones.some(dd => dd.id === d.id))
+                                    .every(e => e.es_baja);
+                                const tieneFechaReal = !!d.fecha_real;
+                                if (todosEnBaja && !tieneFechaReal) return false;
+                                return true;
+                            }),
+                        }))
+                        .filter(emp => emp.detecciones.length > 0),
+                }))
+                .filter(grp => grp.empleados.length > 0);
+        } else {
+            return groups
+                .map(grp => ({
+                    ...grp,
+                    empleados: grp.empleados.filter(emp => emp.es_baja),
+                }))
+                .filter(grp => grp.empleados.length > 0);
+        }
+    }, [groups, activeTab]);
+
     const filteredGroups = useMemo(() => {
-        const byArea = filterArea ? groups.filter(g => g.area === filterArea) : groups;
+        const byArea = filterArea ? tabGroups.filter(g => g.area === filterArea) : tabGroups;
         const searchQuery = searchTerm.toLowerCase().trim();
         if (!searchQuery) return byArea;
         return byArea
@@ -279,7 +313,7 @@ export default function DeteccionesPage() {
                     ),
             }))
             .filter(grp => grp.empleados.length > 0);
-    }, [groups, filterArea, searchTerm]);
+    }, [tabGroups, filterArea, searchTerm]);
 
     const handleExportAreaPdf = async (grp: AreaGroup) => {
         if (!selectedYear) return;
@@ -344,10 +378,35 @@ export default function DeteccionesPage() {
                                 {groups.map(g => <option key={g.area} value={g.area}>{g.area}</option>)}
                             </select>
                         )}
-                        <Button onClick={openCreate} className="bg-[#2166be] hover:bg-[#1a5299] text-white">
-                            <Plus className="w-4 h-4 mr-1" />Nueva Detección
-                        </Button>
+                        {activeTab === 'activos' && (
+                            <Button onClick={openCreate} className="bg-[#2166be] hover:bg-[#1a5299] text-white">
+                                <Plus className="w-4 h-4 mr-1" />Nueva Detección
+                            </Button>
+                        )}
                     </div>
+                </div>
+
+                <div className="flex gap-1 border-b border-border mb-6">
+                    <button
+                        onClick={() => setActiveTab('activos')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                            activeTab === 'activos'
+                                ? 'border-[#2166be] text-[#2166be]'
+                                : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        Activos
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('bajas')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                            activeTab === 'bajas'
+                                ? 'border-[#2166be] text-[#2166be]'
+                                : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        Bajas
+                    </button>
                 </div>
 
                 {isLoading ? (
@@ -356,10 +415,16 @@ export default function DeteccionesPage() {
                     <Card className="border-none shadow-lg">
                         <CardContent className="py-16 text-center">
                             <ClipboardCheck className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-                            <p className="text-muted-foreground text-sm">No hay detecciones para {selectedYear?.year}</p>
-                            <Button onClick={openCreate} className="mt-4 bg-[#2166be] hover:bg-[#1a5299] text-white">
-                                <Plus className="w-4 h-4 mr-1" />Nueva Detección
-                            </Button>
+                            <p className="text-muted-foreground text-sm">
+                                {activeTab === 'activos'
+                                    ? `No hay detecciones activas para ${selectedYear?.year}`
+                                    : 'No hay empleados de baja con detecciones registradas'}
+                            </p>
+                            {activeTab === 'activos' && (
+                                <Button onClick={openCreate} className="mt-4 bg-[#2166be] hover:bg-[#1a5299] text-white">
+                                    <Plus className="w-4 h-4 mr-1" />Nueva Detección
+                                </Button>
+                            )}
                         </CardContent>
                     </Card>
                 ) : (
@@ -382,6 +447,11 @@ export default function DeteccionesPage() {
                                         <div key={emp.id}>
                                             <div className="px-4 py-2 text-sm font-semibold text-white flex items-center gap-3" style={{ background: empIdx % 2 === 0 ? '#0833a2' : '#0833a2' }}>
                                                 <span>{emp.nombre}</span>
+                                                {activeTab === 'bajas' && (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-medium bg-gray-200 text-gray-600 ml-2">
+                                                        Baja
+                                                    </span>
+                                                )}
                                                 <span className="font-normal opacity-75">· {emp.puesto}</span>
                                             </div>
 

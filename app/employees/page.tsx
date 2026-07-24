@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Pencil, Trash2, BarChart2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, BarChart2, UserMinus, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ export default function EmployeesPage() {
     const [filterArea, setFilterArea] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'activos' | 'bajas'>('activos');
 
     const [deleteDialog, setDeleteDialog] = useState<{
         open: boolean;
@@ -96,6 +97,9 @@ export default function EmployeesPage() {
         }
         return result;
     }, [employees, searchQuery, filterArea]);
+
+    const empleadosActivos = useMemo(() => filteredEmployees.filter(e => !e.es_baja), [filteredEmployees]);
+    const empleadosBajas = useMemo(() => filteredEmployees.filter(e => e.es_baja), [filteredEmployees]);
 
     const startEditArea = (employee: Employee) => {
         setEditingAreaId(employee.id);
@@ -181,6 +185,30 @@ export default function EmployeesPage() {
         }
     };
 
+    const handleToggleBaja = async (employee: Employee) => {
+        const nuevoBaja = !employee.es_baja;
+        const fechaBaja = nuevoBaja ? new Date().toISOString().split('T')[0] : null;
+        try {
+            const { error } = await supabase
+                .from('employees')
+                .update({ es_baja: nuevoBaja, fecha_baja: fechaBaja })
+                .eq('id', employee.id);
+            if (error) throw error;
+            setEmployees(prev =>
+                prev.map(e => e.id === employee.id
+                    ? { ...e, es_baja: nuevoBaja, fecha_baja: fechaBaja }
+                    : e
+                )
+            );
+        } catch (error: any) {
+            toast({
+                title: 'Error',
+                description: error.message || 'No se pudo actualizar',
+                variant: 'destructive',
+            });
+        }
+    };
+
     const handleEmployeeCreated = () => {
         fetchEmployees();
         setIsCreateModalOpen(false);
@@ -212,14 +240,16 @@ export default function EmployeesPage() {
                             Gestión de empleados del sistema
                         </p>
                     </div>
-                    <Button
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="bg-[#2166be] hover:bg-[#1a5299] text-white w-full sm:w-auto"
-                        size="lg"
-                    >
-                        <Plus className="w-5 h-5 mr-2" />
-                        Nuevo Empleado
-                    </Button>
+                    {activeTab === 'activos' && (
+                        <Button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="bg-[#2166be] hover:bg-[#1a5299] text-white w-full sm:w-auto"
+                            size="lg"
+                        >
+                            <Plus className="w-5 h-5 mr-2" />
+                            Nuevo Empleado
+                        </Button>
+                    )}
                 </div>
 
                 <Card className="mb-6 border-none shadow-lg">
@@ -261,15 +291,37 @@ export default function EmployeesPage() {
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                             <CardTitle className="text-lg sm:text-xl">Listado de Empleados</CardTitle>
                             <Badge variant="secondary" className="w-fit">
-                                {filteredEmployees.length} empleados
+                                {activeTab === 'activos' ? empleadosActivos.length : empleadosBajas.length} empleados
                             </Badge>
                         </div>
                     </CardHeader>
                     <CardContent>
-                        {filteredEmployees.length === 0 ? (
+                        <div className="flex gap-1 border-b border-border mb-4">
+                            <button
+                                onClick={() => setActiveTab('activos')}
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                                    activeTab === 'activos'
+                                        ? 'border-[#2166be] text-[#2166be]'
+                                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                Activos ({empleadosActivos.length})
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('bajas')}
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                                    activeTab === 'bajas'
+                                        ? 'border-[#2166be] text-[#2166be]'
+                                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                Bajas ({empleadosBajas.length})
+                            </button>
+                        </div>
+                        {(activeTab === 'activos' ? empleadosActivos : empleadosBajas).length === 0 ? (
                             <div className="text-center py-12">
                                 <p className="text-muted-foreground text-sm sm:text-base">
-                                    {searchQuery || filterArea ? 'No se encontraron empleados' : 'No hay empleados registrados'}
+                                    {searchQuery || filterArea ? 'No se encontraron empleados' : activeTab === 'activos' ? 'No hay empleados registrados' : 'No hay empleados de baja'}
                                 </p>
                             </div>
                         ) : (
@@ -287,11 +339,14 @@ export default function EmployeesPage() {
                                                 </th>
                                                 <th className="text-left py-3 px-4 font-semibold text-sm">Puesto</th>
                                                 <th className="text-left py-3 px-4 font-semibold text-sm">Evaluador</th>
+                                                {activeTab === 'bajas' && (
+                                                    <th className="text-left py-3 px-4 font-semibold text-sm">Fecha Baja</th>
+                                                )}
                                                 <th className="text-right py-3 px-4 font-semibold text-sm">Acciones</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {filteredEmployees.map((employee) => (
+                                            {(activeTab === 'activos' ? empleadosActivos : empleadosBajas).map((employee) => (
                                                 <tr key={employee.id} className="border-b hover:bg-muted/50">
                                                     <td className="py-3 px-4 text-sm">{employee.employee_number}</td>
                                                     <td className="py-3 px-4 text-sm font-medium">{employee.nombre}</td>
@@ -326,6 +381,13 @@ export default function EmployeesPage() {
 
                                                     <td className="py-3 px-4 text-sm">{employee.puesto}</td>
                                                     <td className="py-3 px-4 text-sm">{employee.evaluador}</td>
+                                                    {activeTab === 'bajas' && (
+                                                        <td className="py-3 px-4 text-sm text-muted-foreground">
+                                                            {employee.fecha_baja
+                                                                ? `Baja: ${new Date(employee.fecha_baja + 'T12:00:00').toLocaleDateString('es-MX')}`
+                                                                : '—'}
+                                                        </td>
+                                                    )}
                                                     <td className="py-3 px-4 text-right">
                                                         <div className="flex items-center justify-end gap-2">
                                                             <Link href={`/employees/${employee.id}/dnc`}>
@@ -346,13 +408,36 @@ export default function EmployeesPage() {
                                                             >
                                                                 <Pencil className="w-4 h-4" />
                                                             </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => handleDeleteClick(employee)}
-                                                            >
-                                                                <Trash2 className="w-4 h-4 text-red-600" />
-                                                            </Button>
+                                                            {activeTab === 'activos' ? (
+                                                                <>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => handleToggleBaja(employee)}
+                                                                        className="text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                                                                        title="Dar de baja"
+                                                                    >
+                                                                        <UserMinus className="w-4 h-4" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => handleDeleteClick(employee)}
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4 text-red-600" />
+                                                                    </Button>
+                                                                </>
+                                                            ) : (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => handleToggleBaja(employee)}
+                                                                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                                                                    title="Reactivar"
+                                                                >
+                                                                    <UserCheck className="w-4 h-4" />
+                                                                </Button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -363,7 +448,7 @@ export default function EmployeesPage() {
 
                                 {/* ── Vista móvil ── */}
                                 <div className="lg:hidden space-y-3">
-                                    {filteredEmployees.map((employee) => (
+                                    {(activeTab === 'activos' ? empleadosActivos : empleadosBajas).map((employee) => (
                                         <div key={employee.id} className="border rounded-lg p-4 space-y-2">
                                             <div className="flex items-start justify-between gap-2">
                                                 <div className="flex-1 min-w-0">
@@ -371,6 +456,11 @@ export default function EmployeesPage() {
                                                         {employee.employee_number}
                                                     </p>
                                                     <p className="font-medium text-sm mb-2 break-words">{employee.nombre}</p>
+                                                    {activeTab === 'bajas' && employee.fecha_baja && (
+                                                        <p className="text-xs text-muted-foreground mb-1">
+                                                            {`Baja: ${new Date(employee.fecha_baja + 'T12:00:00').toLocaleDateString('es-MX')}`}
+                                                        </p>
+                                                    )}
                                                     <div className="text-xs text-muted-foreground space-y-1">
                                                         <p className="flex items-center gap-1">
                                                             <span className="font-medium">Área:</span>
@@ -420,13 +510,36 @@ export default function EmployeesPage() {
                                                     >
                                                         <Pencil className="w-4 h-4" />
                                                     </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => handleDeleteClick(employee)}
-                                                    >
-                                                        <Trash2 className="w-4 h-4 text-red-600" />
-                                                    </Button>
+                                                    {activeTab === 'activos' ? (
+                                                        <>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => handleToggleBaja(employee)}
+                                                                className="text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                                                                title="Dar de baja"
+                                                            >
+                                                                <UserMinus className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => handleDeleteClick(employee)}
+                                                            >
+                                                                <Trash2 className="w-4 h-4 text-red-600" />
+                                                            </Button>
+                                                        </>
+                                                    ) : (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleToggleBaja(employee)}
+                                                            className="text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                                                            title="Reactivar"
+                                                        >
+                                                            <UserCheck className="w-4 h-4" />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

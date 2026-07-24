@@ -39,7 +39,8 @@ export async function GET(
                     nombre,
                     area,
                     puesto,
-                    evaluador
+                    evaluador,
+                    es_baja
                 )
             `)
             .eq('course_id', courseId);
@@ -119,6 +120,7 @@ export async function GET(
                 area: employee?.area || '',
                 puesto: employee?.puesto || '',
                 evaluador: employee?.evaluador || '',
+                es_baja: employee?.es_baja ?? false,
                 hot_score: hasHot ? (hotQ?.average_score ?? null) : null,
                 cold_score: hasCold ? (coldQ?.average_score ?? null) : null,
             };
@@ -186,14 +188,20 @@ export async function GET(
             doc.setFont('helvetica', 'normal');
         }
 
-        const tableData = participants.map((p, index) => [
-            index + 1,
-            p.employee_number,
-            p.nombre,
-            p.area,
-            p.puesto,
-            reportType === 'hot' ? (p.hot_score?.toFixed(2) || 'N/A') : (p.cold_score?.toFixed(2) || 'N/A')
-        ]);
+        const tableData = participants.map((p, index) => {
+            const score = reportType === 'hot' ? p.hot_score : p.cold_score;
+            const calificacion = score != null
+                ? score.toFixed(2)
+                : (p.es_baja ? 'Baja' : 'N/A');
+            return [
+                index + 1,
+                p.employee_number,
+                p.nombre,
+                p.area,
+                p.puesto,
+                calificacion,
+            ];
+        });
 
         autoTable(doc, {
             startY: 84,
@@ -217,7 +225,15 @@ export async function GET(
                 3: { cellWidth: 30 },
                 4: { cellWidth: 35 },
                 5: { halign: 'center', cellWidth: 25 }
-            }
+            },
+            didParseCell(data) {
+                if (data.section === 'body' && data.column.index === 5) {
+                    if (data.cell.raw === 'Baja') {
+                        data.cell.styles.fillColor = [200, 200, 200];
+                        data.cell.styles.textColor = [100, 100, 100];
+                    }
+                }
+            },
         });
 
         const finalY = (doc as any).lastAutoTable?.finalY || 84;

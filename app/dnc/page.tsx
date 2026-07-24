@@ -102,31 +102,31 @@ function getDetCellStyle(det: DeteccionRow, monthIndex: number, year: number): {
 }
 
 function getCourseDay(course: CourseRow, monthIndex: number, year: number): number | null {
-  const real = parseMonthYear(course.fecha_real);
-  if (real && real.month === monthIndex && real.year === year) {
-    return new Date(course.fecha_real! + 'T12:00:00').getDate();
-  }
-  const prog = parseMonthYear(course.fecha_programada);
-  if (prog && prog.month === monthIndex && prog.year === year && !course.fecha_real) {
-    return new Date(course.fecha_programada! + 'T12:00:00').getDate();
-  }
-  const dateField = parseMonthYear(course.date);
-  if (dateField && dateField.month === monthIndex && dateField.year === year && !course.fecha_programada && !course.fecha_real) {
-    return new Date(course.date! + 'T12:00:00').getDate();
-  }
-  return null;
+    const real = parseMonthYear(course.fecha_real);
+    if (real && real.month === monthIndex && real.year === year) {
+        return new Date(course.fecha_real! + 'T12:00:00').getDate();
+    }
+    const prog = parseMonthYear(course.fecha_programada);
+    if (prog && prog.month === monthIndex && prog.year === year && !course.fecha_real) {
+        return new Date(course.fecha_programada! + 'T12:00:00').getDate();
+    }
+    const dateField = parseMonthYear(course.date);
+    if (dateField && dateField.month === monthIndex && dateField.year === year && !course.fecha_programada && !course.fecha_real) {
+        return new Date(course.date! + 'T12:00:00').getDate();
+    }
+    return null;
 }
 
 function getDetDay(det: DeteccionRow, monthIndex: number, year: number): number | null {
-  const real = parseMonthYear(det.fecha_real);
-  if (real && real.month === monthIndex && real.year === year) {
-    return new Date(det.fecha_real! + 'T12:00:00').getDate();
-  }
-  const prog = parseMonthYear(det.fecha_programada);
-  if (prog && prog.month === monthIndex && prog.year === year && !det.fecha_real) {
-    return new Date(det.fecha_programada! + 'T12:00:00').getDate();
-  }
-  return null;
+    const real = parseMonthYear(det.fecha_real);
+    if (real && real.month === monthIndex && real.year === year) {
+        return new Date(det.fecha_real! + 'T12:00:00').getDate();
+    }
+    const prog = parseMonthYear(det.fecha_programada);
+    if (prog && prog.month === monthIndex && prog.year === year && !det.fecha_real) {
+        return new Date(det.fecha_programada! + 'T12:00:00').getDate();
+    }
+    return null;
 }
 
 
@@ -159,8 +159,62 @@ export default function DncPage() {
                 .eq('year_id', selectedYearId);
             if (cErr) throw cErr;
 
+            const courseIds = (coursesData || []).map((c: any) => c.id);
+
+            let cursosFiltrados = coursesData || [];
+
+            if (courseIds.length > 0) {
+                const { data: participantsData } = await supabase
+                    .from('course_participants')
+                    .select('course_id, employee:employees!employee_id(es_baja)')
+                    .in('course_id', courseIds);
+
+                const deteccionIds = (coursesData || [])
+                    .map((c: any) => c.deteccion_id)
+                    .filter(Boolean);
+
+                let deteccionEmpleadosData: any[] = [];
+                if (deteccionIds.length > 0) {
+                    const { data: deData } = await supabase
+                        .from('deteccion_empleados')
+                        .select('deteccion_id, employee:employees!employee_id(es_baja)')
+                        .in('deteccion_id', deteccionIds);
+                    deteccionEmpleadosData = deData || [];
+                }
+
+                cursosFiltrados = (coursesData || []).filter((c: any) => {
+                    const participantes = (participantsData || []).filter(
+                        (p: any) => p.course_id === c.id
+                    );
+
+                    if (participantes.length > 0) {
+                        const todosEnBaja = participantes.every(
+                            (p: any) => p.employee?.es_baja === true
+                        );
+                        const cursoTomado = !!c.fecha_real;
+                        if (todosEnBaja && !cursoTomado) return false;
+                        return true;
+                    }
+
+                    if (c.deteccion_id) {
+                        const empsDet = deteccionEmpleadosData.filter(
+                            (de: any) => de.deteccion_id === c.deteccion_id
+                        );
+                        if (empsDet.length > 0) {
+                            const todosEnBaja = empsDet.every(
+                                (de: any) => de.employee?.es_baja === true
+                            );
+                            const cursoTomado = !!c.fecha_real;
+                            if (todosEnBaja && !cursoTomado) return false;
+                        }
+                    }
+
+                    return true;
+                });
+            }
+
             const today = new Date().toISOString().split('T')[0];
-            const rows: CourseRow[] = (coursesData || []).map((c: any) => ({
+            const rows: CourseRow[] = cursosFiltrados.map((c: any) => ({
                 id: c.id,
                 name: c.name,
                 date: c.date ?? null,
@@ -347,12 +401,12 @@ export default function DncPage() {
                     ))}
                 </div>
 
-                <div className="rounded-lg border border-gray-200 shadow-md overflow-hidden">
-                    <div className="overflow-x-auto">
+                <div className="rounded-lg border border-gray-200 shadow-md">
+                    <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
                         <table className="border-collapse w-full" style={{ minWidth: '1000px' }}>
-                            <thead>
+                            <thead className="sticky top-0 z-30" style={{ boxShadow: '0 1px 0 0 #e5e7eb' }}>
                                 <tr style={{ background: '#192b52' }}>
-                                    <th className="sticky left-0 z-20 text-left px-3 py-3 text-xs font-semibold text-white border-r"
+                                    <th className="sticky left-0 z-40 text-left px-3 py-3 text-xs font-semibold text-white border-r"
                                         style={{ width: 240, minWidth: 240, background: '#192b52', borderColor: 'rgba(255,255,255,0.15)' }}>
                                         TEMA
                                     </th>

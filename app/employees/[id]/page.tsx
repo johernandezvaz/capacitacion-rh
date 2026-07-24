@@ -212,7 +212,14 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
 
                 <Card className="border-none shadow-lg">
                     <CardHeader>
-                        <CardTitle className="text-xl sm:text-2xl">Editar Empleado</CardTitle>
+                        <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                            Editar Empleado
+                            {employee.es_baja && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200 ml-2">
+                                    Baja
+                                </span>
+                            )}
+                        </CardTitle>
                         <CardDescription className="text-sm sm:text-base">
                             Modifica la información del empleado. Los cambios se reflejarán en todos los cursos y cuestionarios asociados.
                         </CardDescription>
