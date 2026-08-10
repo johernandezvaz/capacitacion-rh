@@ -1,7 +1,6 @@
 "use client";
 
 import { use, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import dynamic from 'next/dynamic';
 
 const HotPage = dynamic(() => import('@/app/questionnaire/hot/[id]/page'), { ssr: false });
@@ -21,17 +20,18 @@ export default function PublicQuestionnairePage({
   }>({ type: null, id: null, notFound: false, loading: true });
 
   useEffect(() => {
-    supabase
-      .from('questionnaires')
-      .select('id, type')
-      .eq('id', resolvedParams.token)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error || !data) {
+    fetch(`/public/questionnaire/${resolvedParams.token}/data`)
+      .then(async (res) => {
+        if (!res.ok) {
           setState({ type: null, id: null, notFound: true, loading: false });
           return;
         }
+        const data = await res.json();
         setState({ type: data.type as 'hot' | 'cold', id: data.id, notFound: false, loading: false });
+      })
+      .catch((err) => {
+        console.error('[PublicQuestionnairePage] Error loading data:', err);
+        setState({ type: null, id: null, notFound: true, loading: false });
       });
   }, [resolvedParams.token]);
 

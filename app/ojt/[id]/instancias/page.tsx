@@ -12,7 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { OjtEmployeeSelect } from '@/components/ojt-employee-select';
-import { supabase, Employee, OjtInstance, OjtRecord } from '@/lib/supabase';
+import { type Employee, type OjtInstance, type OjtRecord } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { fmtDate } from '@/lib/detecciones-utils';
@@ -27,7 +27,6 @@ const STATUS_CLASS: Record<string, string> = {
   completed: 'bg-green-100 text-green-800 border-green-200',
   locked: 'bg-red-100 text-red-800 border-red-200',
 };
-
 
 export default function OjtInstanciasPage() {
   const params = useParams();
@@ -61,28 +60,12 @@ export default function OjtInstanciasPage() {
 
   const fetchData = async () => {
     try {
-      const [{ data: tmpl }, { data: inst }, { data: emps }] = await Promise.all([
-        supabase.from('ojt_records').select('*').eq('id', templateId).maybeSingle(),
-        supabase
-          .from('ojt_instances')
-          .select(`
-            *,
-            empleado:employees!ojt_instances_employee_id_fkey(nombre, puesto)
-          `)
-          .eq('template_id', templateId)
-          .order('created_at', { ascending: false }),
-        supabase.from('employees').select('id, nombre, puesto, employee_number, area, evaluador, created_at, es_baja, fecha_baja').eq('plant_id', plantId).order('nombre'),
-      ]);
-      setTemplate(tmpl ?? null);
-      setInstances(
-        (inst || []).map((i: any) => ({
-          ...i,
-          empleado_nombre: (i as any).empleado?.nombre ?? null,
-          empleado_puesto: (i as any).empleado?.puesto ?? null,
-          es_baja: (i as any).es_baja ?? false,
-        }))
-      );
-      setEmployees(emps || []);
+      const res = await fetch(`/ojt/${templateId}/instancias/data?plant_id=${plantId || ''}`);
+      if (!res.ok) throw new Error('No se pudieron cargar los datos');
+      const data = await res.json();
+      setTemplate(data.template ?? null);
+      setInstances(data.instances || []);
+      setEmployees(data.employees || []);
     } catch {
       toast({ title: 'Error', description: 'No se pudo cargar los datos', variant: 'destructive' });
     } finally {
@@ -90,7 +73,7 @@ export default function OjtInstanciasPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, [templateId]);
+  useEffect(() => { fetchData(); }, [templateId, plantId]);
 
   const resetModal = () => {
     setNewEmployeeId(null); setNewEmployeeLabel('');
@@ -101,35 +84,21 @@ export default function OjtInstanciasPage() {
   const handleCreateInstance = async () => {
     setIsCreating(true);
     try {
-      const { data: instance, error: instErr } = await supabase
-        .from('ojt_instances')
-        .insert([{
-          template_id: templateId,
+      const res = await fetch(`/ojt/${templateId}/instancias/data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           employee_id: newEmployeeId || null,
           jefe_directo_id: newJefeId || null,
           nombre: newNombre || null,
           fecha_inicio: newFechaInicio || null,
           fecha_termino: newFechaTermino || null,
-          status: 'draft',
-        }])
-        .select()
-        .single();
-      if (instErr) throw instErr;
-
-      const { data: sections } = await supabase
-        .from('ojt_sections')
-        .select('ojt_entries(id)')
-        .eq('record_id', templateId);
-
-      const entryIds: string[] = [];
-      (sections || []).forEach((s: any) => {
-        (s.ojt_entries || []).forEach((e: any) => entryIds.push(e.id));
+        }),
       });
 
-      if (entryIds.length > 0) {
-        await supabase.from('ojt_instance_entries').insert(
-          entryIds.map(entry_id => ({ instance_id: instance.id, entry_id }))
-        );
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'No se pudo crear la instancia');
       }
 
       toast({ title: 'Instancia creada', description: 'Se creó la instancia correctamente' });
@@ -145,11 +114,13 @@ export default function OjtInstanciasPage() {
 
   const handleDeleteInstance = async (instanceId: string) => {
     try {
-      const { error } = await supabase
-        .from('ojt_instances')
-        .delete()
-        .eq('id', instanceId);
-      if (error) throw error;
+      const res = await fetch(`/ojt/${templateId}/instancias/data?instance_id=${instanceId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'No se pudo eliminar la instancia');
+      }
       toast({ title: 'Instancia eliminada', description: 'La instancia se ha eliminado correctamente.' });
       setDeleteDialog({ open: false, instanceId: null });
       fetchData();
@@ -160,11 +131,19 @@ export default function OjtInstanciasPage() {
 
   const handleToggleBaja = async (instanceId: string, currentValue: boolean) => {
     try {
-      const { error } = await supabase
-        .from('ojt_instances')
-        .update({ es_baja: !currentValue })
-        .eq('id', instanceId);
-      if (error) throw error;
+      const res = await fetch(`/ojt/${templateId}/instancias/data`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'toggle_baja',
+          instance_id: instanceId,
+          es_baja: !currentValue,
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'No se pudo actualizar');
+      }
       setInstances(prev =>
         prev.map(i => i.id === instanceId ? { ...i, es_baja: !currentValue } : i)
       );

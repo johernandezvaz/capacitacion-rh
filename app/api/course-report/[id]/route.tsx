@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { pool } from '@/lib/db';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { readFileSync } from 'fs';
@@ -16,79 +16,79 @@ export async function GET(
         const reportType = searchParams.get('type') || 'cold';
         const participantId = searchParams.get('participantId');
 
-        const { data: courseData, error: courseError } = await supabase
-            .from('courses')
-            .select('name, start_date, duration_hours')
-            .eq('id', courseId)
-            .maybeSingle();
+        const courseResult = await pool.query(
+            `SELECT name, start_date, duration_hours FROM courses WHERE id = $1`,
+            [courseId]
+        );
 
-        if (courseError || !courseData) {
+        if (courseResult.rowCount === 0) {
             return NextResponse.json(
                 { error: 'Curso no encontrado' },
                 { status: 404 }
             );
         }
 
-        let participantsQuery = supabase
-            .from('course_participants')
-            .select(`
-                id,
-                employee:employees(
-                    id,
-                    employee_number,
-                    nombre,
-                    area,
-                    puesto,
-                    evaluador,
-                    es_baja
-                )
-            `)
-            .eq('course_id', courseId);
+        const courseData = courseResult.rows[0];
 
+        const queryParams: any[] = [courseId];
+        let whereClause = 'WHERE cp.course_id = $1';
         if (participantId) {
-            participantsQuery = participantsQuery.eq('id', participantId);
+            queryParams.push(participantId);
+            whereClause += ' AND cp.id = $2';
         }
 
-        const { data: participantsData, error: participantsError } = await participantsQuery;
+        const participantsResult = await pool.query(
+            `SELECT 
+                cp.id,
+                e.id AS employee_id,
+                e.employee_number,
+                e.nombre,
+                e.area,
+                e.puesto,
+                e.evaluador,
+                e.es_baja
+             FROM course_participants cp
+             JOIN employees e ON cp.employee_id = e.id
+             ${whereClause}`,
+            queryParams
+        );
 
-        if (participantsError || !participantsData || participantsData.length === 0) {
+        if (participantsResult.rowCount === 0) {
             return NextResponse.json(
                 { error: participantId ? 'Participante no encontrado' : 'El curso no tiene participantes inscritos' },
                 { status: 400 }
             );
         }
 
+        const participantsData = participantsResult.rows;
         const participantIds = participantsData.map((p: any) => p.id);
 
-        const { data: questionnaires } = await supabase
-            .from('questionnaires')
-            .select('*')
-            .in('course_participant_id', participantIds);
+        const questionnairesResult = await pool.query(
+            `SELECT * FROM questionnaires WHERE course_participant_id = ANY($1::uuid[])`,
+            [participantIds]
+        );
+        const questionnaires = questionnairesResult.rows;
 
-        const questionnaireIds = questionnaires?.map((q) => q.id) || [];
+        const questionnaireIds = questionnaires.map((q: any) => q.id);
 
         let signatures: any[] = [];
         if (questionnaireIds.length > 0) {
-            const { data: signaturesData } = await supabase
-                .from('questionnaire_signatures')
-                .select('*')
-                .in('questionnaire_id', questionnaireIds);
-
-            signatures = signaturesData || [];
+            const signaturesResult = await pool.query(
+                `SELECT * FROM questionnaire_signatures WHERE questionnaire_id = ANY($1::uuid[])`,
+                [questionnaireIds]
+            );
+            signatures = signaturesResult.rows;
         }
 
         if (reportType === 'hot') {
             const incompleteParticipants: string[] = [];
 
             for (const participant of participantsData) {
-                const employee = Array.isArray(participant.employee) ? participant.employee[0] : participant.employee;
-                if (!employee) continue;
-
-                const hotQ = questionnaires?.find((q) => q.course_participant_id === participant.id && q.type === 'hot') || null;
+                const hotQ = questionnaires.find((q: any) => q.course_participant_id === participant.id && q.type === 'hot') || null;
                 const hasHot = hotQ && hotQ.status === 'completed' && hotQ.submitted_at !== null;
 
                 if (!hasHot) {
-                    incompleteParticipants.push(`${employee.nombre} (cuestionario empleado pendiente)`);
+                    incompleteParticipants.push(`${participant.nombre} (cuestionario empleado pendiente)`);
                 }
             }
 
@@ -105,24 +105,26 @@ export async function GET(
         }
 
         const participants = participantsData.map((p: any) => {
-            const employee = Array.isArray(p.employee) ? p.employee[0] : p.employee;
-            const hotQ = questionnaires?.find((q) => q.course_participant_id === p.id && q.type === 'hot') || null;
-            const coldQ = questionnaires?.find((q) => q.course_participant_id === p.id && q.type === 'cold') || null;
+            const hotQ = questionnaires.find((q: any) => q.course_participant_id === p.id && q.type === 'hot') || null;
+            const coldQ = questionnaires.find((q: any) => q.course_participant_id === p.id && q.type === 'cold') || null;
 
             const hasHot = hotQ && hotQ.status === 'completed' && hotQ.submitted_at !== null;
             const hasCold = coldQ && coldQ.status === 'completed' && coldQ.submitted_at !== null;
 
             if (reportType === 'cold' && !hasCold) return null;
 
+            const hotScoreNum = hotQ?.average_score != null ? Number(hotQ.average_score) : null;
+            const coldScoreNum = coldQ?.average_score != null ? Number(coldQ.average_score) : null;
+
             return {
-                employee_number: employee?.employee_number || '',
-                nombre: employee?.nombre || '',
-                area: employee?.area || '',
-                puesto: employee?.puesto || '',
-                evaluador: employee?.evaluador || '',
-                es_baja: employee?.es_baja ?? false,
-                hot_score: hasHot ? (hotQ?.average_score ?? null) : null,
-                cold_score: hasCold ? (coldQ?.average_score ?? null) : null,
+                employee_number: p.employee_number || '',
+                nombre: p.nombre || '',
+                area: p.area || '',
+                puesto: p.puesto || '',
+                evaluador: p.evaluador || '',
+                es_baja: p.es_baja ?? false,
+                hot_score: hasHot ? hotScoreNum : null,
+                cold_score: hasCold ? coldScoreNum : null,
             };
         }).filter((p): p is NonNullable<typeof p> => p !== null && !!p.employee_number);
 

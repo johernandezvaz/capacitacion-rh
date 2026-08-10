@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -45,132 +44,22 @@ export default function ReportsPage() {
     }, [plantId, selectedYearId]);
 
     async function loadCourses() {
+        setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('courses')
-                .select('id, name, date, year_id, training_years(year)')
-                .eq('plant_id', plantId)
-                .eq('year_id', selectedYearId)
-                .order('date', { ascending: false });
-
-            if (error) throw error;
-
-            const coursesData = data.map((course: any) => ({
-                ...course,
-                year: course.training_years
-            }));
-
-            setCourses(coursesData);
-
-            const statuses: Record<string, ReportStatus> = {};
-            for (const course of coursesData) {
-                statuses[course.id] = await checkReportAvailability(course.id);
+            const res = await fetch(`/reports/data?plant_id=${plantId}&year_id=${selectedYearId}`);
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Error al cargar cursos');
             }
+
+            const { courses: coursesData, reportStatuses: statuses } = await res.json();
+            setCourses(coursesData);
             setReportStatuses(statuses);
         } catch (error) {
             console.error('Error loading courses:', error);
             toast.error('Error al cargar cursos');
         } finally {
             setLoading(false);
-        }
-    }
-
-    async function checkReportAvailability(courseId: string): Promise<ReportStatus> {
-        try {
-            const { data: participants, error: participantsError } = await supabase
-                .from('course_participants')
-                .select('id')
-                .eq('course_id', courseId);
-
-            if (participantsError) throw participantsError;
-
-            const totalParticipants = participants?.length || 0;
-
-            if (totalParticipants === 0) {
-                return {
-                    courseId,
-                    hotReportAvailable: false,
-                    coldReportAvailable: false,
-                    hotReportMessage: 'No hay participantes inscritos',
-                    coldReportMessage: 'No hay participantes inscritos',
-                    totalParticipants: 0,
-                    completedHot: 0,
-                    completedCold: 0
-                };
-            }
-
-            const participantIds = participants.map((p) => p.id);
-
-            const { data: questionnaires, error: questionnairesError } = await supabase
-                .from('questionnaires')
-                .select('id, course_participant_id, type, status, submitted_at')
-                .in('course_participant_id', participantIds);
-
-            if (questionnairesError) throw questionnairesError;
-
-            let completedHot = 0;
-            let completedCold = 0;
-
-            for (const participant of participants) {
-                const hotQ = questionnaires?.find(
-                    (q: any) => q.course_participant_id === participant.id && q.type === 'hot'
-                );
-                const coldQ = questionnaires?.find(
-                    (q: any) => q.course_participant_id === participant.id && q.type === 'cold'
-                );
-
-                if (hotQ && hotQ.status === 'completed' && hotQ.submitted_at !== null) {
-                    completedHot++;
-                }
-
-                if (coldQ && coldQ.status === 'completed' && coldQ.submitted_at !== null) {
-                    completedCold++;
-                }
-            }
-
-            const hotReportAvailable = completedHot === totalParticipants;
-            const coldReportAvailable = totalParticipants > 0;
-
-            let hotReportMessage = '';
-            let coldReportMessage = '';
-
-            if (!hotReportAvailable) {
-                const pending = totalParticipants - completedHot;
-                hotReportMessage = `${pending} participante${pending > 1 ? 's' : ''} pendiente${pending > 1 ? 's' : ''} de completar cuestionario empleado`;
-            } else {
-                hotReportMessage = 'Disponible';
-            }
-
-            if (completedCold === totalParticipants) {
-                coldReportMessage = 'Disponible';
-            } else if (completedCold === 0) {
-                coldReportMessage = 'Sin cuestionarios completados aún';
-            } else {
-                coldReportMessage = `${completedCold} de ${totalParticipants} evaluador${totalParticipants !== 1 ? 'es' : ''} completado${completedCold !== 1 ? 's' : ''}`;
-            }
-
-            return {
-                courseId,
-                hotReportAvailable,
-                coldReportAvailable,
-                hotReportMessage,
-                coldReportMessage,
-                totalParticipants,
-                completedHot,
-                completedCold
-            };
-        } catch (error) {
-            console.error('Error checking report availability:', error);
-            return {
-                courseId,
-                hotReportAvailable: false,
-                coldReportAvailable: false,
-                hotReportMessage: 'Error al verificar disponibilidad',
-                coldReportMessage: 'Error al verificar disponibilidad',
-                totalParticipants: 0,
-                completedHot: 0,
-                completedCold: 0
-            };
         }
     }
 
@@ -344,7 +233,7 @@ export default function ReportsPage() {
                                                             <div>
                                                                 <CardTitle className="text-xl">{course.name}</CardTitle>
                                                                 <CardDescription>
-                                                                    Año: {course.year?.year || 'N/A'} | Fecha: {new Date(course.date + 'T12:00:00').toLocaleDateString('es-MX')}
+                                                                    Año: {course.year?.year || 'N/A'} | Fecha: {course.date ? new Date(course.date + 'T12:00:00').toLocaleDateString('es-MX') : 'N/A'}
                                                                 </CardDescription>
                                                             </div>
                                                             {status && (

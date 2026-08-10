@@ -7,9 +7,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { CourseCard } from '@/components/course-card';
-import { CreateCourseModal, CreateCourseModalPrefill } from '@/components/create-course-modal';
+import { CreateCourseModal } from '@/components/create-course-modal';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import {
   Dialog,
@@ -19,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { supabase, TrainingYear, Course } from '@/lib/supabase';
+import { TrainingYear, Course } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -67,9 +66,7 @@ export default function YearDetailPage() {
     reprogramado: 'Reprogramado', actualizacion: 'Actualización',
   };
 
-  const openDetPicker = async () => {
-    const { data } = await supabase.from('detecciones').select('*').order('nombre', { ascending: true });
-    setAllDetecciones(data || []);
+  const openDetPicker = () => {
     setDetSearch('');
     setDetPickerOpen(true);
   };
@@ -87,46 +84,24 @@ export default function YearDetailPage() {
   }
 
   const fetchYearAndCourses = async () => {
+    if (!plantId || !params.id) return;
     try {
-      const { data: yearData, error: yearError } = await supabase
-        .from('training_years')
-        .select('*')
-        .eq('id', params.id)
-        .maybeSingle();
+      const res = await fetch(`/year/${params.id}/data?plant_id=${plantId}`);
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Error al cargar datos del año');
+      }
 
-      if (yearError) throw yearError;
+      const { year: yearData, courses: coursesData, detecciones: detData } = await res.json();
+
       if (!yearData) {
         router.push('/');
         return;
       }
 
       setYear(yearData);
-
-      const { data: coursesData, error: coursesError } = await supabase
-        .from('courses')
-        .select('*')
-        .eq('year_id', params.id)
-        .eq('plant_id', plantId)
-        .order('date', { ascending: true });
-
-      if (coursesError) throw coursesError;
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const modifiedCourses = await Promise.all((coursesData || []).map(async (course: Course) => {
-        if (course.status === 'active' && course.end_date) {
-            const endDate = new Date(course.end_date + 'T12:00:00');
-            endDate.setHours(0, 0, 0, 0);
-            if (endDate < today) {
-                await supabase.from('courses').update({ status: 'closed' }).eq('id', course.id);
-                return { ...course, status: 'closed' as const };
-            }
-        }
-        return course;
-      }));
-
-      setCourses(modifiedCourses);
+      setCourses(coursesData || []);
+      setAllDetecciones(detData || []);
     } catch (error) {
       toast({
         title: 'Error',
@@ -140,7 +115,7 @@ export default function YearDetailPage() {
 
   useEffect(() => {
     fetchYearAndCourses();
-  }, [params.id]);
+  }, [params.id, plantId]);
 
   const handleCourseCreated = () => {
     fetchYearAndCourses();
@@ -161,28 +136,14 @@ export default function YearDetailPage() {
 
   const handleDeleteYear = async () => {
     try {
-      if (courses.length > 0) {
-        for (const course of courses) {
-          await supabase
-            .from('course_participants')
-            .delete()
-            .eq('course_id', course.id);
-        }
+      const res = await fetch(`/year/${params.id}/data?action=delete_year`, {
+        method: 'DELETE',
+      });
 
-        const { error: coursesError } = await supabase
-          .from('courses')
-          .delete()
-          .eq('year_id', params.id);
-
-        if (coursesError) throw coursesError;
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'No se pudo eliminar el año');
       }
-
-      const { error: yearError } = await supabase
-        .from('training_years')
-        .delete()
-        .eq('id', params.id);
-
-      if (yearError) throw yearError;
 
       toast({
         title: 'Éxito',
@@ -212,9 +173,15 @@ export default function YearDetailPage() {
     const course = deleteCourseDialog.course;
     if (!course) return;
     try {
-      await supabase.from('course_participants').delete().eq('course_id', course.id);
-      const { error } = await supabase.from('courses').delete().eq('id', course.id);
-      if (error) throw error;
+      const res = await fetch(`/year/${params.id}/data?action=delete_course&course_id=${course.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'No se pudo eliminar el curso');
+      }
+
       setCourses((prev) => prev.filter((c) => c.id !== course.id));
       toast({ title: 'Éxito', description: `Curso "${course.name}" eliminado correctamente` });
     } catch (error: any) {
@@ -246,8 +213,21 @@ export default function YearDetailPage() {
     }
     setIsRenameSaving(true);
     try {
-      const { error } = await supabase.from('courses').update({ name: trimmed }).eq('id', course.id);
-      if (error) throw error;
+      const res = await fetch(`/year/${params.id}/data`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'rename_course',
+          course_id: course.id,
+          name: trimmed,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'No se pudo actualizar el nombre');
+      }
+
       setCourses((prev) => prev.map((c) => (c.id === course.id ? { ...c, name: trimmed } : c)));
       toast({ title: 'Éxito', description: 'Nombre del curso actualizado' });
       setRenameCourseDialog({ open: false, course: null });

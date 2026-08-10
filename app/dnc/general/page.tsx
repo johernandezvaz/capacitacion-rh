@@ -7,12 +7,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { useTrainingYears } from '@/hooks/use-training-years';
 import { fmtDate } from '@/lib/detecciones-utils';
-
-
 
 type Empleado = { nombre: string; puesto: string };
 
@@ -101,103 +98,12 @@ export default function DncGeneralPage() {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const { data: coursesRaw } = await supabase
-                .from('courses')
-                .select('id, name, date, fecha_programada, fecha_real, inst_interno, inst_externo, proveedor_sugerido, costo, duration_hours, desarrollo_personal, habilidades_blandas, prevencion_riesgos, habilidades_tecnicas, deteccion_id')
-                .eq('plant_id', plantId)
-                .eq('year_id', selectedYearId)
-                .order('date', { ascending: true, nullsFirst: false });
+            const res = await fetch(`/dnc/general/data?plant_id=${plantId}&year_id=${selectedYearId}`);
+            if (!res.ok) throw new Error('Error al obtener DNC general');
+            const { courseItems: courses, detItems: dets } = await res.json();
 
-            const courseIds = (coursesRaw || []).map((c: any) => c.id);
-
-            let partMap: Record<string, Empleado[]> = {};
-            if (courseIds.length > 0) {
-                const { data: partData } = await supabase
-                    .from('course_participants')
-                    .select('course_id, employees!employee_id(nombre, puesto)')
-                    .in('course_id', courseIds);
-
-                (partData || []).forEach((r: any) => {
-                    const emp = r.employees;
-                    if (!emp) return;
-                    if (!partMap[r.course_id]) partMap[r.course_id] = [];
-                    partMap[r.course_id].push({ nombre: emp.nombre, puesto: emp.puesto });
-                });
-            }
-
-            setCourseItems((coursesRaw || []).map((c: any) => ({
-                _type: 'course' as const,
-                _sortDate: c.date || c.fecha_programada || c.fecha_real || '9999-12-31',
-                id: c.id,
-                name: c.name,
-                date: c.date ?? null,
-                fecha_programada: c.fecha_programada ?? null,
-                fecha_real: c.fecha_real ?? null,
-                inst_interno: !!c.inst_interno,
-                inst_externo: !!c.inst_externo,
-                proveedor_sugerido: c.proveedor_sugerido ?? null,
-                costo: c.costo ?? null,
-                duration_hours: c.duration_hours ?? null,
-                desarrollo_personal: c.desarrollo_personal ?? false,
-                habilidades_blandas: c.habilidades_blandas ?? false,
-                prevencion_riesgos: c.prevencion_riesgos ?? false,
-                habilidades_tecnicas: c.habilidades_tecnicas ?? false,
-                deteccion_id: c.deteccion_id ?? null,
-                empleados: partMap[c.id] || [],
-            })));
-
-            const linkedIds = (coursesRaw || [])
-                .map((c: any) => c.deteccion_id)
-                .filter(Boolean) as string[];
-
-            let detQuery = supabase
-                .from('detecciones')
-                .select('id, nombre, color, fecha_programada, fecha_real, inst_interno, inst_externo, proveedor_sugerido, costo, duration_hours, desarrollo_personal, habilidades_blandas, prevencion_riesgos, habilidades_tecnicas')
-                .eq('plant_id', plantId)
-                .eq('year_id', selectedYearId)
-                .order('fecha_programada', { ascending: true, nullsFirst: false });
-
-            if (linkedIds.length > 0) {
-                detQuery = detQuery.not('id', 'in', `(${linkedIds.join(',')})`);
-            }
-
-            const { data: detsRaw } = await detQuery;
-
-            let empMap: Record<string, Empleado[]> = {};
-            if (detsRaw && detsRaw.length > 0) {
-                const detIds = detsRaw.map((d: any) => d.id);
-                const { data: empData } = await supabase
-                    .from('deteccion_empleados')
-                    .select('deteccion_id, employees!employee_id(nombre, puesto)')
-                    .in('deteccion_id', detIds);
-
-                (empData || []).forEach((r: any) => {
-                    const emp = r.employees;
-                    if (!emp) return;
-                    if (!empMap[r.deteccion_id]) empMap[r.deteccion_id] = [];
-                    empMap[r.deteccion_id].push({ nombre: emp.nombre, puesto: emp.puesto });
-                });
-            }
-
-            setDetItems((detsRaw || []).map((d: any) => ({
-                _type: 'deteccion' as const,
-                _sortDate: d.fecha_programada || d.fecha_real || '9999-12-31',
-                id: d.id,
-                nombre: d.nombre,
-                color: d.color || '#2166be',
-                fecha_programada: d.fecha_programada ?? null,
-                fecha_real: d.fecha_real ?? null,
-                inst_interno: !!d.inst_interno,
-                inst_externo: !!d.inst_externo,
-                proveedor_sugerido: d.proveedor_sugerido ?? null,
-                costo: d.costo ?? null,
-                duration_hours: d.duration_hours ?? null,
-                desarrollo_personal: d.desarrollo_personal ?? false,
-                habilidades_blandas: d.habilidades_blandas ?? false,
-                prevencion_riesgos: d.prevencion_riesgos ?? false,
-                habilidades_tecnicas: d.habilidades_tecnicas ?? false,
-                empleados: empMap[d.id] || [],
-            })));
+            setCourseItems(courses || []);
+            setDetItems(dets || []);
         } catch (err) {
             console.error('Error fetching DNC general:', err);
         } finally {

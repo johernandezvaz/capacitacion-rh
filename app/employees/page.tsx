@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { supabase, Employee } from '@/lib/supabase';
+import { type Employee } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { CreateEmployeeModal } from '@/components/create-employee-modal';
@@ -55,14 +55,10 @@ export default function EmployeesPage() {
     const fetchEmployees = async () => {
         setIsLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('employees')
-                .select('*')
-                .eq('plant_id', plantId)
-                .order('nombre');
-
-            if (error) throw error;
-            setEmployees(data || []);
+            const res = await fetch(`/employees/data?plant_id=${plantId}`);
+            if (!res.ok) throw new Error('Error al cargar los empleados');
+            const data = await res.json();
+            setEmployees(data.employees || []);
         } catch (error) {
             console.error('Error fetching employees:', error);
             toast({
@@ -119,12 +115,20 @@ export default function EmployeesPage() {
 
         setSavingAreaId(employeeId);
         try {
-            const { error } = await supabase
-                .from('employees')
-                .update({ area: newValue })
-                .eq('id', employeeId);
+            const res = await fetch('/employees/data', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'update_area',
+                    employee_id: employeeId,
+                    area: newValue,
+                }),
+            });
 
-            if (error) throw error;
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'No se pudo actualizar el área');
+            }
 
             setEmployees(prev =>
                 prev.map(e => e.id === employeeId ? { ...e, area: newValue } : e)
@@ -149,28 +153,35 @@ export default function EmployeesPage() {
     };
 
     const handleDeleteClick = async (employee: Employee) => {
-        const { data: participants } = await supabase
-            .from('course_participants')
-            .select('id')
-            .eq('employee_id', employee.id);
-
-        setDeleteDialog({
-            open: true,
-            employee,
-            hasActiveCourses: (participants?.length || 0) > 0,
-        });
+        try {
+            const res = await fetch(`/employees/data?check_courses=true&employee_id=${employee.id}`);
+            const data = await res.json();
+            setDeleteDialog({
+                open: true,
+                employee,
+                hasActiveCourses: !!data.hasActiveCourses,
+            });
+        } catch {
+            setDeleteDialog({
+                open: true,
+                employee,
+                hasActiveCourses: false,
+            });
+        }
     };
 
     const handleDeleteConfirm = async () => {
         if (!deleteDialog.employee) return;
 
         try {
-            const { error } = await supabase
-                .from('employees')
-                .delete()
-                .eq('id', deleteDialog.employee.id);
+            const res = await fetch(`/employees/data?id=${deleteDialog.employee.id}`, {
+                method: 'DELETE',
+            });
 
-            if (error) throw error;
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'No se pudo eliminar el empleado');
+            }
 
             toast({ title: 'Éxito', description: 'Empleado eliminado correctamente' });
             fetchEmployees();
@@ -189,11 +200,22 @@ export default function EmployeesPage() {
         const nuevoBaja = !employee.es_baja;
         const fechaBaja = nuevoBaja ? new Date().toISOString().split('T')[0] : null;
         try {
-            const { error } = await supabase
-                .from('employees')
-                .update({ es_baja: nuevoBaja, fecha_baja: fechaBaja })
-                .eq('id', employee.id);
-            if (error) throw error;
+            const res = await fetch('/employees/data', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'toggle_baja',
+                    employee_id: employee.id,
+                    es_baja: nuevoBaja,
+                    fecha_baja: fechaBaja,
+                }),
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'No se pudo actualizar');
+            }
+
             setEmployees(prev =>
                 prev.map(e => e.id === employee.id
                     ? { ...e, es_baja: nuevoBaja, fecha_baja: fechaBaja }

@@ -3,7 +3,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { Plus, Pencil, FileDown, ClipboardCheck, PencilLine, Trash2, UserMinus, Search } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { useTrainingYears } from '@/hooks/use-training-years';
@@ -90,20 +89,10 @@ export default function DeteccionesPage() {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const { data: detData } = await supabase.from('detecciones')
-                .select('*, courses!deteccion_id(id, name)')
-                .eq('plant_id', plantId).eq('year_id', selectedYearId);
+            const response = await fetch(`/detecciones/data?plantId=${encodeURIComponent(plantId!)}&yearId=${encodeURIComponent(selectedYearId)}`);
+            if (!response.ok) throw new Error('No se pudieron cargar las detecciones');
+            const { detecciones: detData, employeeLinks: empLinks } = await response.json();
             if (!detData || detData.length === 0) { setGroups([]); setRawDets([]); setIsLoading(false); return; }
-
-            const ids = detData.map((d: any) => d.id);
-
-            const { data: empLinks } = await supabase
-                .from('deteccion_empleados')
-                .select(`
-                    deteccion_id, employee_id, color, status,
-                    employees!employee_id(id, nombre, puesto, area, es_baja)
-                `)
-                .in('deteccion_id', ids);
 
             const empsByDet: Record<string, string[]> = {};
             (empLinks || []).forEach((r: any) => {
@@ -120,12 +109,8 @@ export default function DeteccionesPage() {
                 emp_color: null,
                 emp_status: null,
                 _emp_key: '',
-                course_id: Array.isArray((d as any).courses)
-                    ? ((d as any).courses[0]?.id ?? null)
-                    : ((d as any).courses?.id ?? null),
-                course_name: Array.isArray((d as any).courses)
-                    ? ((d as any).courses[0]?.name ?? null)
-                    : ((d as any).courses?.name ?? null),
+                course_id: d.course_id ?? null,
+                course_name: d.course_name ?? null,
             }));
             setRawDets(dets);
 
@@ -187,17 +172,8 @@ export default function DeteccionesPage() {
 
     const handleDeleteDeteccion = async (detId: string) => {
         try {
-            const { error: empErr } = await supabase
-                .from('deteccion_empleados')
-                .delete()
-                .eq('deteccion_id', detId);
-            if (empErr) throw empErr;
-
-            const { error: detErr } = await supabase
-                .from('detecciones')
-                .delete()
-                .eq('id', detId);
-            if (detErr) throw detErr;
+            const response = await fetch(`/detecciones/data?deteccionId=${encodeURIComponent(detId)}`, { method: 'DELETE' });
+            if (!response.ok) { const data = await response.json().catch(() => null); throw new Error(data?.error || 'No se pudo eliminar'); }
 
             setConfirmDeleteDet(null);
             toast({ title: 'Detección eliminada' });
@@ -209,7 +185,8 @@ export default function DeteccionesPage() {
 
     const handleRemoveEmpleado = async (detId: string, empId: string, empKey: string) => {
         try {
-            await supabase.from('deteccion_empleados').delete().eq('deteccion_id', detId).eq('employee_id', empId);
+            const response = await fetch(`/detecciones/data?deteccionId=${encodeURIComponent(detId)}&employeeId=${encodeURIComponent(empId)}`, { method: 'DELETE' });
+            if (!response.ok) { const data = await response.json().catch(() => null); throw new Error(data?.error || 'No se pudo quitar'); }
             setConfirmRemoveEmp(null);
             setGroups(prev =>
                 prev.map(grp => ({

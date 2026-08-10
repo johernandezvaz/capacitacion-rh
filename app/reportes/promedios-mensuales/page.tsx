@@ -3,13 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { TrendingUp, ChevronRight, FileDown } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { generatePromediosMensualesPdf } from '@/lib/promedios-mensuales-pdf';
-
 
 const MESES = [
   { value: 1, label: 'Enero' },
@@ -30,7 +28,6 @@ function buildYearOptions(): number[] {
   const current = new Date().getFullYear();
   return [current, current - 1, current - 2];
 }
-
 
 type EvaluacionTipo = 'hot' | 'cold';
 
@@ -57,7 +54,6 @@ function semaforoColor(pct: number): string {
 function fmtPct(n: number): string {
   return n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
 }
-
 
 interface FilterSelectProps {
   id: string;
@@ -91,7 +87,6 @@ function TabSkeleton() {
   return (
     <div className="space-y-4">
       <Skeleton className="h-28 w-full rounded-xl" />
-      {/* Table skeleton */}
       <div className="rounded-xl border border-gray-200 overflow-hidden">
         <Skeleton className="h-11 w-full rounded-none" />
         {[...Array(6)].map((_, i) => (
@@ -214,7 +209,6 @@ function DetalleTable({ rows }: DetalleTableProps) {
   );
 }
 
-
 interface TabPanelProps {
   plantId: string;
   tipo: EvaluacionTipo;
@@ -236,32 +230,13 @@ function TabPanel({ plantId, tipo, tabId }: TabPanelProps) {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [detalleRes, plantRes] = await Promise.all([
-        supabase.rpc('rpt_promedio_mensual_detalle', {
-          p_plant_id: plantId,
-          p_year: year,
-          p_month: month,
-          p_type: tipo,
-        }),
-        supabase.rpc('rpt_promedio_mensual_planta', {
-          p_plant_id: plantId,
-          p_year: year,
-          p_month: month,
-          p_type: tipo,
-        }),
-      ]);
-
-      if (detalleRes.error) console.error('rpt_promedio_mensual_detalle error:', detalleRes.error);
-      if (plantRes.error) console.error('rpt_promedio_mensual_planta error:', plantRes.error);
-
-      setDetalle(detalleRes.data ?? []);
-
-      const raw = plantRes.data;
-      if (Array.isArray(raw)) {
-        setPromedioPlanta(raw[0] ?? null);
-      } else {
-        setPromedioPlanta(raw ?? null);
-      }
+      const res = await fetch(
+        `/reportes/promedios-mensuales/data?plant_id=${plantId}&year=${year}&month=${month}&type=${tipo}`
+      );
+      if (!res.ok) throw new Error('Error al cargar datos');
+      const data = await res.json();
+      setDetalle(data.detalle || []);
+      setPromedioPlanta(data.promedioPlanta || null);
     } catch (err) {
       console.error('Error fetching promedio mensual:', err);
     } finally {

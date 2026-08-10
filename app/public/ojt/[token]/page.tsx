@@ -1,7 +1,6 @@
 "use client";
 
 import { use, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { OjtInstanceForm } from '@/components/ojt-instance-form';
 
 export default function PublicOjtPage({
@@ -20,50 +19,24 @@ export default function PublicOjtPage({
 
   useEffect(() => {
     const load = async () => {
-      console.log('[PublicOjtPage] loading token:', resolvedParams.token);
-
-      const { data: instance, error } = await supabase
-        .from('ojt_instances')
-        .select('id, template_id')
-        .eq('public_token', resolvedParams.token)
-        .maybeSingle();
-
-      console.log('[PublicOjtPage] ojt_instances result — data:', instance, 'error:', error?.message, 'code:', error?.code);
-
-      let resolved = instance;
-      if (!resolved && !error) {
-        // Fallback: token may be the instance ID itself
-        console.log('[PublicOjtPage] fallback — querying by id:', resolvedParams.token);
-        const { data: byId, error: errById } = await supabase
-          .from('ojt_instances')
-          .select('id, template_id')
-          .eq('id', resolvedParams.token)
-          .maybeSingle();
-        console.log('[PublicOjtPage] fallback by id — data:', byId, 'error:', errById?.message);
-        resolved = byId;
-      }
-
-      if (error || !resolved) {
-        console.warn('[PublicOjtPage] instance not found or error — showing notFound');
+      try {
+        const res = await fetch(`/public/ojt/${resolvedParams.token}/data`);
+        if (!res.ok) {
+          setState({ templateId: null, instanceId: null, plantId: null, notFound: true, loading: false });
+          return;
+        }
+        const data = await res.json();
+        setState({
+          templateId: data.templateId,
+          instanceId: data.instanceId,
+          plantId: data.plantId ?? null,
+          notFound: false,
+          loading: false,
+        });
+      } catch (err) {
+        console.error('[PublicOjtPage] Error loading data:', err);
         setState({ templateId: null, instanceId: null, plantId: null, notFound: true, loading: false });
-        return;
       }
-
-      const { data: record, error: recErr } = await supabase
-        .from('ojt_records')
-        .select('plant_id')
-        .eq('id', resolved.template_id)
-        .maybeSingle();
-
-      console.log('[PublicOjtPage] ojt_records result — data:', record, 'error:', recErr?.message);
-
-      setState({
-        templateId: resolved.template_id,
-        instanceId: resolved.id,
-        plantId: record?.plant_id ?? null,
-        notFound: false,
-        loading: false,
-      });
     };
 
     load();

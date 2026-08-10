@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { generateDncCoursePdf } from '@/lib/dnc-course-pdf';
 
@@ -75,22 +74,10 @@ export default function CourseDncPage() {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const { data: courseData, error: courseError } = await supabase
-                .from('courses')
-                .select(`
-                    id, name, duration_hours,
-                    inst_interno, inst_externo, proveedor_sugerido, costo,
-                    fecha_programada, fecha_real,
-                    desarrollo_personal, habilidades_blandas,
-                    prevencion_riesgos, habilidades_tecnicas,
-                    comentario_dnc,
-                    training_years!year_id(year)
-                `)
-                .eq('id', courseId)
-                .maybeSingle();
-
-            if (courseError) throw courseError;
-            if (!courseData) { router.push('/'); return; }
+            const response = await fetch(`/course/${courseId}/dnc/data`);
+            if (response.status === 404) { router.push('/'); return; }
+            if (!response.ok) throw new Error('No se pudieron cargar los datos del DNC');
+            const { course: courseData, participants: participantData } = await response.json();
 
             const c: CourseData = {
                 id: courseData.id,
@@ -107,7 +94,7 @@ export default function CourseDncPage() {
                 prevencion_riesgos: courseData.prevencion_riesgos ?? false,
                 habilidades_tecnicas: courseData.habilidades_tecnicas ?? false,
                 comentario_dnc: courseData.comentario_dnc,
-                training_year: (courseData.training_years as any)?.year ?? null,
+                training_year: courseData.training_year ?? null,
             };
             setCourse(c);
 
@@ -126,29 +113,7 @@ export default function CourseDncPage() {
                 comentario_dnc: c.comentario_dnc || '',
             });
 
-            const { data: pData, error: pError } = await supabase
-                .from('course_participants')
-                .select('employees!employee_id(id, nombre, puesto, area)')
-                .eq('course_id', courseId)
-                .order('employees(nombre)', { ascending: true });
-
-            if (pError) throw pError;
-
-            const parts: Participant[] = ((pData || [])
-                .map((row: any) => {
-                    const emp = row.employees;
-                    if (!emp) return null;
-                    return {
-                        id: emp.id,
-                        nombre: emp.nombre,
-                        puesto: emp.puesto,
-                        area: emp.area,
-                    };
-                })
-                .filter(Boolean) as Participant[])
-                .sort((a: Participant, b: Participant) => a.nombre.localeCompare(b.nombre));
-
-            setParticipants(parts);
+            setParticipants(participantData);
         } catch (error: any) {
             console.error('Error fetching DNC data:', error);
             toast({
@@ -179,12 +144,15 @@ export default function CourseDncPage() {
                 comentario_dnc: form.comentario_dnc.trim() || null,
             };
 
-            const { error } = await supabase
-                .from('courses')
-                .update(payload)
-                .eq('id', courseId);
-
-            if (error) throw error;
+            const response = await fetch(`/course/${courseId}/dnc/data`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const data = await response.json().catch(() => null);
+                throw new Error(data?.error || 'No se pudieron guardar los datos');
+            }
 
             setCourse(prev => prev ? { ...prev, ...payload } : null);
             toast({ title: 'Éxito', description: 'Datos DNC guardados correctamente' });

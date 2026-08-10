@@ -5,12 +5,9 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { generateDncPdf, type DncPdfData } from '@/lib/dnc-pdf';
 import { fmtDate } from '@/lib/detecciones-utils';
-
-const COURSE_COLOR = '#4A249D';
 
 type UnifiedRow = {
   tipo: 'curso' | 'deteccion';
@@ -49,87 +46,17 @@ export default function EmployeeDncPage({ params }: { params: Promise<{ id: stri
 
   const fetchAll = async () => {
     try {
-      const [empResult, courseResult, detResult] = await Promise.all([
-        supabase
-          .from('employees')
-          .select('nombre, puesto')
-          .eq('id', employeeId)
-          .maybeSingle(),
-        supabase
-          .from('course_participants')
-          .select(`
-                        course:courses!course_id(
-                            name, inst_interno, inst_externo, proveedor_sugerido, costo,
-                            desarrollo_personal, habilidades_blandas, prevencion_riesgos,
-                            habilidades_tecnicas, fecha_programada, fecha_real, duration_hours
-                        )
-                    `)
-          .eq('employee_id', employeeId),
-        supabase
-          .from('deteccion_empleados')
-          .select(`
-                        detecciones!deteccion_id(
-                            id, nombre, color, inst_interno, inst_externo, proveedor_sugerido,
-                            costo, duration_hours, desarrollo_personal, habilidades_blandas,
-                            prevencion_riesgos, habilidades_tecnicas, fecha_programada, fecha_real
-                        )
-                    `)
-          .eq('employee_id', employeeId),
-      ]);
+      const res = await fetch(`/employees/${employeeId}/dnc/data`);
+      if (res.status === 404) {
+        router.push('/employees');
+        return;
+      }
+      if (!res.ok) throw new Error('No se pudo cargar el DNC');
+      const data = await res.json();
 
-      if (empResult.error) throw empResult.error;
-      if (!empResult.data) { router.push('/employees'); return; }
-
-      setNombre(empResult.data.nombre);
-      setPuesto(empResult.data.puesto);
-
-      const courseRows: UnifiedRow[] = (courseResult.data || [])
-        .filter((r: any) => r.course)
-        .map((r: any) => ({
-          tipo: 'curso' as const,
-          nombre: r.course.name || '—',
-          color: COURSE_COLOR,
-          inst_interno: !!r.course.inst_interno,
-          inst_externo: !!r.course.inst_externo,
-          proveedor_sugerido: r.course.proveedor_sugerido ?? null,
-          costo: r.course.costo ?? null,
-          desarrollo_personal: r.course.desarrollo_personal ?? false,
-          habilidades_blandas: r.course.habilidades_blandas ?? false,
-          prevencion_riesgos: r.course.prevencion_riesgos ?? false,
-          habilidades_tecnicas: r.course.habilidades_tecnicas ?? false,
-          fecha_programada: r.course.fecha_programada ?? null,
-          fecha_real: r.course.fecha_real ?? null,
-          duration_hours: r.course.duration_hours ?? null,
-        }));
-
-      const detRows: UnifiedRow[] = (detResult.data || [])
-        .map((r: any) => r.detecciones)
-        .filter(Boolean)
-        .map((d: any) => ({
-          tipo: 'deteccion' as const,
-          nombre: d.nombre || '—',
-          color: d.color || '#2166be',
-          inst_interno: !!d.inst_interno,
-          inst_externo: !!d.inst_externo,
-          proveedor_sugerido: d.proveedor_sugerido ?? null,
-          costo: d.costo ?? null,
-          desarrollo_personal: d.desarrollo_personal ?? false,
-          habilidades_blandas: d.habilidades_blandas ?? false,
-          prevencion_riesgos: d.prevencion_riesgos ?? false,
-          habilidades_tecnicas: d.habilidades_tecnicas ?? false,
-          fecha_programada: d.fecha_programada ?? null,
-          fecha_real: d.fecha_real ?? null,
-          duration_hours: d.duration_hours ?? null,
-        }));
-
-      const combined = [...courseRows, ...detRows].sort((a, b) => {
-        if (!a.fecha_programada && !b.fecha_programada) return 0;
-        if (!a.fecha_programada) return 1;
-        if (!b.fecha_programada) return -1;
-        return a.fecha_programada.localeCompare(b.fecha_programada);
-      });
-
-      setRows(combined);
+      setNombre(data.nombre || '');
+      setPuesto(data.puesto || '');
+      setRows(data.rows || []);
     } catch (error) {
       console.error('Error fetching DNC:', error);
       toast({ title: 'Error', description: 'No se pudo cargar el DNC', variant: 'destructive' });

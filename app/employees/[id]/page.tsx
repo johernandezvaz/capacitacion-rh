@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { supabase, Employee } from '@/lib/supabase';
+import { type Employee } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { STATUS_CONFIG, fmtDate } from '@/lib/detecciones-utils';
 
@@ -41,30 +41,15 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
         evaluador: '',
     });
 
-    const fetchDetecciones = async () => {
-        const { data } = await supabase
-            .from('deteccion_empleados')
-            .select('detecciones!deteccion_id(id, nombre, status, fecha_programada, fecha_real)')
-            .eq('employee_id', resolvedParams.id)
-            .order('detecciones(created_at)', { ascending: false });
-        if (data) setDetecciones((data as any[]).map(r => r.detecciones).filter(Boolean));
-    };
-
     useEffect(() => {
-        fetchEmployee();
-        fetchDetecciones();
+        fetchData();
     }, [resolvedParams.id]);
 
-    const fetchEmployee = async () => {
+    const fetchData = async () => {
+        setIsLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('employees')
-                .select('*')
-                .eq('id', resolvedParams.id)
-                .maybeSingle();
-
-            if (error) throw error;
-            if (!data) {
+            const res = await fetch(`/employees/${resolvedParams.id}/data`);
+            if (res.status === 404) {
                 toast({
                     title: 'Error',
                     description: 'Empleado no encontrado',
@@ -73,15 +58,18 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
                 router.push('/employees');
                 return;
             }
+            if (!res.ok) throw new Error('No se pudo cargar el empleado');
 
+            const { employee: data, detecciones: detData } = await res.json();
             setEmployee(data);
             setFormData({
-                employee_number: data.employee_number,
-                nombre: data.nombre,
-                area: data.area,
-                puesto: data.puesto,
-                evaluador: data.evaluador,
+                employee_number: data.employee_number || '',
+                nombre: data.nombre || '',
+                area: data.area || '',
+                puesto: data.puesto || '',
+                evaluador: data.evaluador || '',
             });
+            setDetecciones(detData || []);
         } catch (error) {
             console.error('Error fetching employee:', error);
             toast({
@@ -128,35 +116,24 @@ export default function EmployeeEditPage({ params }: { params: Promise<{ id: str
 
         setIsSaving(true);
         try {
-            if (formData.employee_number !== employee?.employee_number) {
-                const { data: existing } = await supabase
-                    .from('employees')
-                    .select('id')
-                    .eq('employee_number', formData.employee_number)
-                    .maybeSingle();
+            const res = await fetch(`/employees/${resolvedParams.id}/data`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData),
+            });
 
-                if (existing) {
-                    setErrors({
-                        ...errors,
-                        employee_number: 'Este número de empleado ya existe',
-                    });
+            if (!res.ok) {
+                const errData = await res.json();
+                if (errData.code === 'DUPLICATE_NUMBER') {
+                    setErrors(prev => ({
+                        ...prev,
+                        employee_number: errData.error,
+                    }));
                     setIsSaving(false);
                     return;
                 }
+                throw new Error(errData.error || 'No se pudo actualizar el empleado');
             }
-
-            const { error } = await supabase
-                .from('employees')
-                .update({
-                    employee_number: formData.employee_number.trim(),
-                    nombre: formData.nombre.trim(),
-                    area: formData.area.trim(),
-                    puesto: formData.puesto.trim(),
-                    evaluador: formData.evaluador.trim(),
-                })
-                .eq('id', resolvedParams.id);
-
-            if (error) throw error;
 
             toast({
                 title: 'Éxito',

@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmployeeSearcher } from '@/components/employee-searcher';
 import { EmployeeList } from '@/components/employee-list';
-import { Course, TrainingYear, EmployeeWithQuestionnaires, supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import {
     Dialog,
@@ -23,6 +22,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Edit2 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+
+type Course = { id: string; year_id: string; name: string; duration_hours: number; status: 'draft' | 'active' | 'closed'; start_date?: string | null; end_date?: string | null };
+type TrainingYear = { id: string; year: number };
+type EmployeeWithQuestionnaires = { id: string; employee_number: string; nombre: string; area: string; puesto: string; evaluador: string; created_at: string; es_baja: boolean; fecha_baja: string | null; participant_id: string; course_id: string; hot_questionnaire: { id: string; submitted_at: string | null; available_from: string | null } | null; cold_questionnaire: { id: string; submitted_at: string | null; available_from: string | null } | null };
 
 export default function CourseDetailPage() {
     const params = useParams();
@@ -47,41 +50,16 @@ export default function CourseDetailPage() {
 
     const fetchCourseData = async () => {
         try {
-            const { data: courseData, error: courseError } = await supabase
-                .from('courses')
-                .select('*')
-                .eq('id', params.id)
-                .maybeSingle();
-
-            if (courseError) throw courseError;
-            if (!courseData) {
+            const response = await fetch(`/course/${params.id}/data`);
+            if (response.status === 404) {
                 router.push('/');
                 return;
             }
-
-            if (courseData.status === 'active' && courseData.end_date) {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const endDate = new Date(courseData.end_date + 'T12:00:00');
-                endDate.setHours(0, 0, 0, 0);
-                if (endDate < today) {
-                    courseData.status = 'closed';
-                    supabase.from('courses').update({ status: 'closed' }).eq('id', courseData.id).then();
-                }
-            }
-
-            setCourse(courseData);
-
-            const { data: yearData, error: yearError } = await supabase
-                .from('training_years')
-                .select('*')
-                .eq('id', courseData.year_id)
-                .maybeSingle();
-
-            if (yearError) throw yearError;
-            setYear(yearData);
-
-            await fetchEmployees();
+            if (!response.ok) throw new Error('No se pudo cargar el curso');
+            const data = await response.json();
+            setCourse(data.course);
+            setYear(data.year);
+            setEmployees(data.employees);
         } catch (error) {
             toast({
                 title: 'Error',
@@ -95,40 +73,10 @@ export default function CourseDetailPage() {
 
     const fetchEmployees = async () => {
         try {
-            const { data: participantsData, error: participantsError } = await supabase
-                .from('course_participants')
-                .select(`
-          id,
-          enrolled_at,
-          has_completed_hot,
-          has_completed_cold,
-          employee:employees(*)
-        `)
-                .eq('course_id', params.id);
-
-            if (participantsError) throw participantsError;
-
-            const participantIds = participantsData?.map((p: any) => p.id) || [];
-
-            const { data: questionnaires } = await supabase
-                .from('questionnaires')
-                .select('*')
-                .in('course_participant_id', participantIds);
-
-            const employeesWithQuestionnaires: EmployeeWithQuestionnaires[] = participantsData?.map((p: any) => {
-                const hotQ = questionnaires?.find((q) => q.course_participant_id === p.id && q.type === 'hot') || null;
-                const coldQ = questionnaires?.find((q) => q.course_participant_id === p.id && q.type === 'cold') || null;
-
-                return {
-                    ...p.employee,
-                    participant_id: p.id,
-                    course_id: params.id as string,
-                    hot_questionnaire: hotQ,
-                    cold_questionnaire: coldQ,
-                };
-            }) || [];
-
-            setEmployees(employeesWithQuestionnaires);
+            const response = await fetch(`/course/${params.id}/data`);
+            if (!response.ok) throw new Error('No se pudieron cargar los participantes');
+            const data = await response.json();
+            setEmployees(data.employees);
         } catch (error) {
             console.error('Error fetching employees:', error);
         }
@@ -199,15 +147,11 @@ export default function CourseDetailPage() {
 
         setIsSavingDates(true);
         try {
-            const { error } = await supabase
-                .from('courses')
-                .update({
-                    start_date: editStartDate || null,
-                    end_date: editEndDate || null,
-                })
-                .eq('id', params.id);
-
-            if (error) throw error;
+            const response = await fetch(`/course/${params.id}/data`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'dates', start_date: editStartDate || null, end_date: editEndDate || null }),
+            });
+            if (!response.ok) throw new Error('No se pudieron actualizar las fechas');
 
             setCourse(prev => prev ? {
                 ...prev,
@@ -234,9 +178,8 @@ export default function CourseDetailPage() {
 
     const handleDeleteCourse = async () => {
         try {
-            await supabase.from('course_participants').delete().eq('course_id', params.id);
-            const { error } = await supabase.from('courses').delete().eq('id', params.id);
-            if (error) throw error;
+            const response = await fetch(`/course/${params.id}/data`, { method: 'DELETE' });
+            if (!response.ok) { const data = await response.json().catch(() => null); throw new Error(data?.error || 'No se pudo eliminar el curso'); }
             toast({ title: 'Éxito', description: 'Curso eliminado correctamente' });
             router.push(`/year/${year?.id}`);
         } catch (error: any) {
@@ -264,8 +207,11 @@ export default function CourseDetailPage() {
         }
         setIsRenameSaving(true);
         try {
-            const { error } = await supabase.from('courses').update({ name: trimmed }).eq('id', params.id);
-            if (error) throw error;
+            const response = await fetch(`/course/${params.id}/data`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'name', name: trimmed }),
+            });
+            if (!response.ok) throw new Error('No se pudo actualizar el nombre');
             setCourse((prev) => prev ? { ...prev, name: trimmed } : null);
             toast({ title: 'Éxito', description: 'Nombre del curso actualizado' });
             setIsRenameDialogOpen(false);
@@ -467,7 +413,7 @@ export default function CourseDetailPage() {
                         </CardHeader>
                         <CardContent>
                             <EmployeeList
-                                employees={employees}
+                                employees={employees as any}
                                 onRefresh={fetchEmployees}
                             />
                         </CardContent>

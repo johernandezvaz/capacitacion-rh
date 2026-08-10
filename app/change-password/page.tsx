@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -14,12 +14,13 @@ export default function ChangePasswordPage() {
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.user) {
+    fetch('/api/auth/session').then(async (response) => {
+      if (!response.ok) {
         router.replace('/login');
         return;
       }
-      if (session.user.user_metadata?.force_password_change !== true) {
+      const { user } = await response.json();
+      if (user.force_password_change !== true) {
         router.replace('/');
         return;
       }
@@ -43,17 +44,17 @@ export default function ChangePasswordPage() {
 
     setIsLoading(true);
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-        data: { force_password_change: false },
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
       });
 
-      if (updateError) {
+      if (!response.ok) {
         setError('No se pudo actualizar la contraseña. Intenta de nuevo.');
         return;
       }
 
-      await supabase.auth.refreshSession();
       router.replace('/');
     } catch {
       setError('Ocurrió un error inesperado. Intenta de nuevo.');
@@ -99,6 +100,21 @@ export default function ChangePasswordPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="current-password" className="block text-sm font-medium text-foreground">
+                Contraseña actual
+              </label>
+              <input
+                id="current-password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Contraseña temporal"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#2166be] focus:border-transparent transition-all"
+              />
+            </div>
             <div className="space-y-1.5">
               <label htmlFor="new-password" className="block text-sm font-medium text-foreground">
                 Nueva contraseña

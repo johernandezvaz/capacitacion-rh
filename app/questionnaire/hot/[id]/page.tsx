@@ -2,13 +2,12 @@
 
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, CheckCircle2, Lock, PenTool, Download, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Lock, PenTool, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
@@ -82,62 +81,26 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
 
     const fetchQuestionnaire = async () => {
         try {
-            const { data: qData, error: qError } = await supabase
-                .from('questionnaires')
-                .select(`
-          id,
-          course_participant_id,
-          status,
-          submitted_at,
-          average_score,
-          additional_comments,
-          course_participant:course_participants(
-            id,
-            course_id,
-            course:courses(name, start_date, duration_hours),
-            employee:employees(nombre, employee_number, puesto, area)
-          )
-        `)
-                .eq('id', resolvedParams.id)
-                .eq('type', 'hot')
-                .maybeSingle();
-
-            if (qError) throw qError;
-            if (!qData) {
-                throw new Error('Cuestionario no encontrado');
-            }
-            if (!qData.course_participant || !(qData.course_participant as any).course || !(qData.course_participant as any).employee) {
-                throw new Error('No se pudo cargar la información del curso o empleado asociado');
+            const res = await fetch(`/questionnaire/hot/${resolvedParams.id}/data`);
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Cuestionario no encontrado');
             }
 
-            const { data: rData, error: rError } = await supabase
-                .from('questionnaire_responses')
-                .select('*')
-                .eq('questionnaire_id', resolvedParams.id)
-                .order('question_key');
+            const { questionnaire: qData, responses: rData, signatures: sData } = await res.json();
 
-            if (rError) throw rError;
-
-            const { data: sData, error: sError } = await supabase
-                .from('questionnaire_signatures')
-                .select('*')
-                .eq('questionnaire_id', resolvedParams.id)
-                .order('signed_at');
-
-            if (sError) throw sError;
-
-            setQuestionnaire(qData as any);
-            setResponses(rData as Response[]);
-            setSignatures(sData as Signature[]);
+            setQuestionnaire(qData);
+            setResponses(rData);
+            setSignatures(sData);
             setAdditionalComments(qData.additional_comments || '');
 
-            const hasProblems = rData.find(r => r.question_key === 'has_problems');
+            const hasProblems = (rData as Response[]).find(r => r.question_key === 'has_problems');
             if (hasProblems?.yes_no_value === true) {
                 setShowProblemsDetail(true);
             }
         } catch (error: any) {
             console.error('Error fetching questionnaire:', error);
-            toast.error('Error al cargar el cuestionario');
+            toast.error(error?.message || 'Error al cargar el cuestionario');
         } finally {
             setLoading(false);
         }
@@ -146,48 +109,44 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
     const updateResponse = async (questionKey: string, value: any, type: 'percentage' | 'yes_no' | 'text') => {
         if (questionnaire?.submitted_at !== null) return;
 
-        const updateData: any = {
-            updated_at: new Date().toISOString(),
-        };
+        try {
+            const res = await fetch(`/questionnaire/hot/${resolvedParams.id}/data`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'update_response',
+                    question_key: questionKey,
+                    value,
+                    response_type: type,
+                }),
+            });
 
-        if (type === 'percentage') {
-            updateData.percentage_value = value;
-        } else if (type === 'yes_no') {
-            updateData.yes_no_value = value;
-
-            if (questionKey === 'has_problems') {
-                setShowProblemsDetail(value === true);
-                if (value === false) {
-                    await supabase
-                        .from('questionnaire_responses')
-                        .update({ text_value: null })
-                        .eq('questionnaire_id', resolvedParams.id)
-                        .eq('question_key', 'problems_detail');
-                }
+            if (!res.ok) {
+                toast.error('Error al guardar la respuesta');
+                return;
             }
-        } else if (type === 'text') {
-            updateData.text_value = value;
-        }
 
-        const { error } = await supabase
-            .from('questionnaire_responses')
-            .update(updateData)
-            .eq('questionnaire_id', resolvedParams.id)
-            .eq('question_key', questionKey);
+            if (type === 'yes_no' && questionKey === 'has_problems') {
+                setShowProblemsDetail(value === true);
+            }
 
-        if (error) {
+            setResponses(prev =>
+                prev.map(r => {
+                    if (r.question_key === questionKey) {
+                        if (type === 'percentage') return { ...r, percentage_value: value };
+                        if (type === 'yes_no') return { ...r, yes_no_value: value };
+                        if (type === 'text') return { ...r, text_value: value };
+                    }
+                    if (type === 'yes_no' && questionKey === 'has_problems' && value === false && r.question_key === 'problems_detail') {
+                        return { ...r, text_value: null };
+                    }
+                    return r;
+                })
+            );
+        } catch (error) {
             console.error('Error updating response:', error);
             toast.error('Error al guardar la respuesta');
-            return;
         }
-
-        setResponses(prev =>
-            prev.map(r =>
-                r.question_key === questionKey
-                    ? { ...r, ...updateData }
-                    : r
-            )
-        );
     };
 
     const validateForm = () => {
@@ -236,27 +195,21 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
             );
             const average = evaluationResponses.reduce((sum, r) => sum + (r.percentage_value || 0), 0) / evaluationResponses.length;
 
-            const { error: sigError } = await supabase
-                .from('questionnaire_signatures')
-                .insert({
-                    questionnaire_id: resolvedParams.id,
-                    signer_type: 'employee',
+            const res = await fetch(`/questionnaire/hot/${resolvedParams.id}/data`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'sign_employee',
                     signer_name: employeeName.trim(),
-                });
-
-            if (sigError) throw sigError;
-
-            const { error } = await supabase
-                .from('questionnaires')
-                .update({
-                    status: 'completed',
-                    submitted_at: new Date().toISOString(),
                     average_score: average,
                     additional_comments: additionalComments || null,
-                })
-                .eq('id', resolvedParams.id);
+                }),
+            });
 
-            if (error) throw error;
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Error al enviar la firma');
+            }
 
             toast.success('Cuestionario firmado y enviado exitosamente');
 
@@ -265,7 +218,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
             }, 1500);
         } catch (error: any) {
             console.error('Error submitting questionnaire:', error);
-            toast.error('Error al enviar el cuestionario');
+            toast.error(error?.message || 'Error al enviar el cuestionario');
         } finally {
             setSaving(false);
         }
@@ -349,100 +302,71 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                     <CardHeader>
                         <div className="flex items-start justify-between">
                             <div>
-                                <CardTitle className="text-2xl mb-2">Cuestionario del Empleado</CardTitle>
-                                <CardDescription>
-                                    {'Cuestionario completado'}
+                                <CardTitle className="text-2xl">
+                                    EVALUACIÓN DE REACCIÓN (REACCIÓN INMEDIATA / CALIENTE)
+                                </CardTitle>
+                                <CardDescription className="mt-2">
+                                    Cuestionario de satisfacción del participante sobre la capacitación recibida
                                 </CardDescription>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    onClick={() => {
-                                        const url = `${window.location.origin}/public/questionnaire/${questionnaire.id}`;
-                                        if (navigator.clipboard) {
-                                            navigator.clipboard.writeText(url).then(() => {
-                                                toast.success('Enlace copiado al portapapeles');
-                                            }).catch(() => {
-                                                toast.error('No se pudo copiar el enlace');
-                                            });
-                                        } else {
-                                            const ta = document.createElement('textarea');
-                                            ta.value = url;
-                                            ta.style.position = 'fixed';
-                                            ta.style.opacity = '0';
-                                            document.body.appendChild(ta);
-                                            ta.focus();
-                                            ta.select();
-                                            try {
-                                                document.execCommand('copy');
-                                                toast.success('Enlace copiado al portapapeles');
-                                            } catch {
-                                                toast.error('No se pudo copiar el enlace');
-                                            }
-                                            document.body.removeChild(ta);
-                                        }
-                                    }}
-                                    variant="outline"
-                                    size="sm"
-                                    title="Copiar enlace público"
-                                >
-                                    <LinkIcon className="h-4 w-4 mr-2" />
-                                    Compartir
-                                </Button>
-                                {isLocked && (
-                                    <>
-                                        <Button
-                                            onClick={handleDownloadPDF}
-                                            disabled={downloadingPDF}
-                                            variant="outline"
-                                            size="sm"
-                                        >
-                                            <Download className="h-4 w-4 mr-2" />
-                                            {downloadingPDF ? 'Generando...' : 'Descargar PDF'}
-                                        </Button>
-                                        <Lock className="h-6 w-6 text-gray-400" />
-                                    </>
-                                )}
-                            </div>
+                            {isLocked && (
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        onClick={handleDownloadPDF}
+                                        disabled={downloadingPDF}
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-2"
+                                    >
+                                        <Download className="w-4 h-4" />
+                                        {downloadingPDF ? 'Descargando...' : 'Descargar PDF'}
+                                    </Button>
+                                    <div className="flex items-center text-amber-600 bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200">
+                                        <Lock className="w-4 h-4 mr-1" />
+                                        <span className="text-xs font-medium">Completado y bloqueado</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-4 rounded-lg">
                             <div>
-                                <p className="font-semibold text-gray-700">Nombre del curso</p>
-                                <p className="text-gray-600">{questionnaire.course_participant.course.name}</p>
+                                <span className="font-semibold text-gray-700">Nombre del Participante:</span>{' '}
+                                {questionnaire.course_participant.employee.nombre}
                             </div>
                             <div>
-                                <p className="font-semibold text-gray-700">Empleado</p>
-                                <p className="text-gray-600">{questionnaire.course_participant.employee.nombre}</p>
+                                <span className="font-semibold text-gray-700">Número de Empleado:</span>{' '}
+                                {questionnaire.course_participant.employee.employee_number}
                             </div>
                             <div>
-                                <p className="font-semibold text-gray-700">Puesto del empleado</p>
-                                <p className="text-gray-600">{questionnaire.course_participant.employee.puesto}</p>
+                                <span className="font-semibold text-gray-700">Puesto:</span>{' '}
+                                {questionnaire.course_participant.employee.puesto}
                             </div>
                             <div>
-                                <p className="font-semibold text-gray-700">Área del empleado</p>
-                                <p className="text-gray-600">{questionnaire.course_participant.employee.area}</p>
+                                <span className="font-semibold text-gray-700">Área:</span>{' '}
+                                {questionnaire.course_participant.employee.area}
                             </div>
                             <div>
-                                <p className="font-semibold text-gray-700">Fecha del curso</p>
-                                <p className="text-gray-600">
-                                    {questionnaire.course_participant.course.start_date
-                                        ? format(new Date(questionnaire.course_participant.course.start_date + 'T12:00:00'), 'dd/MM/yyyy')
-                                        : format(new Date(), 'dd/MM/yyyy')}
-                                </p>
+                                <span className="font-semibold text-gray-700">Nombre del Curso:</span>{' '}
+                                {questionnaire.course_participant.course.name}
                             </div>
                             <div>
-                                <p className="font-semibold text-gray-700">Número de empleado</p>
-                                <p className="text-gray-600">{questionnaire.course_participant.employee.employee_number}</p>
+                                <span className="font-semibold text-gray-700">Fecha de Inicio:</span>{' '}
+                                {questionnaire.course_participant.course.start_date
+                                    ? format(new Date(questionnaire.course_participant.course.start_date), 'dd/MM/yyyy')
+                                    : 'N/A'}
                             </div>
                             <div>
-                                <p className="font-semibold text-gray-700">Duración del curso</p>
-                                <p className="text-gray-600">{questionnaire.course_participant.course.duration_hours} horas</p>
+                                <span className="font-semibold text-gray-700">Duración:</span>{' '}
+                                {questionnaire.course_participant.course.duration_hours} hrs
                             </div>
-                            {isLocked && questionnaire.average_score && (
+                            {questionnaire.average_score !== null && (
                                 <div>
-                                    <p className="font-semibold text-gray-700">Promedio</p>
-                                    <p className="text-gray-600">{questionnaire.average_score.toFixed(2)}%</p>
+                                    <span className="font-semibold text-gray-700">Promedio General:</span>{' '}
+                                    <span className="font-bold text-blue-600">
+                                        {questionnaire.average_score.toFixed(1)}%
+                                    </span>
                                 </div>
                             )}
                         </div>
@@ -451,29 +375,28 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
 
                 <Card className="mb-6">
                     <CardHeader>
-                        <CardTitle>Sección 1 - Evaluación Porcentual</CardTitle>
+                        <CardTitle className="text-xl">I. EVALUACIÓN DE LA CAPACITACIÓN</CardTitle>
                         <CardDescription>
-                            Todas las preguntas son obligatorias
+                            Seleccione el nivel de satisfacción para cada uno de los siguientes aspectos
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        {evaluationQuestions.map((question) => (
-                            <div key={question.id} className="space-y-3">
-                                <Label className="text-base font-semibold">{question.question_text}</Label>
+                        {evaluationQuestions.map((q, idx) => (
+                            <div key={q.id} className="border-b pb-4 last:border-0">
+                                <Label className="text-base font-medium mb-3 block">
+                                    {idx + 1}. {q.question_text}
+                                </Label>
                                 <RadioGroup
-                                    value={question.percentage_value?.toString() || ''}
-                                    onValueChange={(value) => updateResponse(question.question_key, parseInt(value), 'percentage')}
                                     disabled={isLocked}
-                                    className="flex flex-col space-y-2"
+                                    value={q.percentage_value?.toString() || ''}
+                                    onValueChange={(val) => updateResponse(q.question_key, parseInt(val), 'percentage')}
+                                    className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2"
                                 >
-                                    {PERCENTAGE_OPTIONS.map((option) => (
-                                        <div key={option.value} className="flex items-center space-x-2">
-                                            <RadioGroupItem value={option.value.toString()} id={`${question.id}-${option.value}`} />
-                                            <Label
-                                                htmlFor={`${question.id}-${option.value}`}
-                                                className="font-normal cursor-pointer"
-                                            >
-                                                {option.label}
+                                    {PERCENTAGE_OPTIONS.map(opt => (
+                                        <div key={opt.value} className="flex items-center space-x-2 border rounded-lg p-3 hover:bg-slate-50 transition-colors">
+                                            <RadioGroupItem value={opt.value.toString()} id={`${q.id}-${opt.value}`} />
+                                            <Label htmlFor={`${q.id}-${opt.value}`} className="cursor-pointer font-normal text-sm">
+                                                {opt.label}
                                             </Label>
                                         </div>
                                     ))}
@@ -485,122 +408,127 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
 
                 <Card className="mb-6">
                     <CardHeader>
-                        <CardTitle>Sección 2 - Retroalimentación</CardTitle>
+                        <CardTitle className="text-xl">II. RETROALIMENTACIÓN</CardTitle>
+                        <CardDescription>
+                            Responda a las siguientes preguntas sobre la utilidad de la capacitación
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        {feedbackQuestions.map((question) => {
-                            if (question.response_type === 'yes_no') {
-                                const isProblemsQuestion = question.question_key === 'has_problems';
-                                const problemsDetailQuestion = feedbackQuestions.find(q => q.question_key === 'problems_detail');
-
+                        {feedbackQuestions.map((q) => {
+                            if (q.response_type === 'yes_no') {
                                 return (
-                                    <div key={question.id} className="space-y-3">
-                                        <Label className="text-base font-semibold">{question.question_text}</Label>
+                                    <div key={q.id} className="border-b pb-4 last:border-0">
+                                        <Label className="text-base font-medium mb-3 block">
+                                            {q.question_text}
+                                        </Label>
                                         <RadioGroup
-                                            value={question.yes_no_value === null ? '' : question.yes_no_value.toString()}
-                                            onValueChange={(value) => updateResponse(question.question_key, value === 'true', 'yes_no')}
                                             disabled={isLocked}
-                                            className="flex gap-6"
+                                            value={q.yes_no_value === null ? '' : q.yes_no_value ? 'true' : 'false'}
+                                            onValueChange={(val) => updateResponse(q.question_key, val === 'true', 'yes_no')}
+                                            className="flex space-x-6 mt-2"
                                         >
-                                            <div className="flex items-center space-x-2">
-                                                <RadioGroupItem value="true" id={`${question.id}-yes`} />
-                                                <Label htmlFor={`${question.id}-yes`} className="font-normal cursor-pointer">
-                                                    Sí
-                                                </Label>
+                                            <div className="flex items-center space-x-2 border rounded-lg p-3 w-32 hover:bg-slate-50">
+                                                <RadioGroupItem value="true" id={`${q.id}-yes`} />
+                                                <Label htmlFor={`${q.id}-yes`} className="cursor-pointer font-normal">Sí</Label>
                                             </div>
-                                            <div className="flex items-center space-x-2">
-                                                <RadioGroupItem value="false" id={`${question.id}-no`} />
-                                                <Label htmlFor={`${question.id}-no`} className="font-normal cursor-pointer">
-                                                    No
-                                                </Label>
+                                            <div className="flex items-center space-x-2 border rounded-lg p-3 w-32 hover:bg-slate-50">
+                                                <RadioGroupItem value="false" id={`${q.id}-no`} />
+                                                <Label htmlFor={`${q.id}-no`} className="cursor-pointer font-normal">No</Label>
                                             </div>
                                         </RadioGroup>
-
-                                        {isProblemsQuestion && showProblemsDetail && problemsDetailQuestion && (
-                                            <div className="mt-4 ml-6 space-y-2">
-                                                <Label className="text-base font-semibold">{problemsDetailQuestion.question_text}</Label>
-                                                <Textarea
-                                                    value={problemsDetailQuestion.text_value || ''}
-                                                    onChange={(e) => updateResponse(problemsDetailQuestion.question_key, e.target.value, 'text')}
-                                                    disabled={isLocked}
-                                                    placeholder="Especifique el problema..."
-                                                    rows={3}
-                                                />
-                                            </div>
-                                        )}
                                     </div>
                                 );
                             }
 
-                            return null;
-                        })}
+                            if (q.question_key === 'problems_detail' && !showProblemsDetail) {
+                                return null;
+                            }
 
-                        <div className="space-y-3">
-                            <Label className="text-base font-semibold">Comentarios adicionales</Label>
-                            <Textarea
-                                value={additionalComments}
-                                onChange={(e) => setAdditionalComments(e.target.value)}
-                                disabled={isLocked}
-                                placeholder="Comentarios opcionales..."
-                                rows={4}
-                            />
-                        </div>
+                            return (
+                                <div key={q.id} className="border-b pb-4 last:border-0">
+                                    <Label className="text-base font-medium mb-2 block">
+                                        {q.question_text}
+                                    </Label>
+                                    <Textarea
+                                        disabled={isLocked}
+                                        value={q.text_value || ''}
+                                        onChange={(e) => updateResponse(q.question_key, e.target.value, 'text')}
+                                        placeholder="Escriba sus comentarios aquí..."
+                                        rows={3}
+                                        className="mt-2"
+                                    />
+                                </div>
+                            );
+                        })}
                     </CardContent>
                 </Card>
 
-                {!isLocked && (
-                    <Card className="mb-6">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <PenTool className="h-5 w-5" />
-                                Firma del Empleado
-                            </CardTitle>
-                            <CardDescription>
-                                Para completar el cuestionario, por favor ingrese su nombre como firma
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="employee-name">Nombre del empleado *</Label>
-                                <Input
-                                    id="employee-name"
-                                    value={employeeName}
-                                    onChange={(e) => setEmployeeName(e.target.value)}
-                                    placeholder="Escriba su nombre completo"
-                                />
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle className="text-xl">III. COMENTARIOS ADICIONALES</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Textarea
+                            disabled={isLocked}
+                            value={additionalComments}
+                            onChange={(e) => setAdditionalComments(e.target.value)}
+                            placeholder="Comentarios adicionales sobre el curso..."
+                            rows={3}
+                        />
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-xl flex items-center gap-2">
+                            <PenTool className="w-5 h-5" />
+                            IV. FIRMA DEL PARTICIPANTE
+                        </CardTitle>
+                        <CardDescription>
+                            {isLocked
+                                ? 'El cuestionario ha sido firmado y enviado'
+                                : 'Ingrese su nombre completo para firmar electrónicamente este cuestionario'}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {employeeSignature ? (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <CheckCircle2 className="w-6 h-6 text-green-600" />
+                                    <div>
+                                        <div className="font-semibold text-green-900">
+                                            Firmado por: {employeeSignature.signer_name}
+                                        </div>
+                                        <div className="text-xs text-green-700">
+                                            Fecha: {format(new Date(employeeSignature.signed_at), 'dd/MM/yyyy HH:mm')} hrs
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex justify-end">
+                        ) : (
+                            <div className="space-y-4">
+                                <div>
+                                    <Label htmlFor="employeeName">Nombre Completo del Participante *</Label>
+                                    <Input
+                                        id="employeeName"
+                                        value={employeeName}
+                                        onChange={(e) => setEmployeeName(e.target.value)}
+                                        placeholder="Ingrese su nombre completo tal como aparece en el registro"
+                                        className="mt-1"
+                                    />
+                                </div>
                                 <Button
                                     onClick={handleEmployeeSign}
                                     disabled={saving}
+                                    className="w-full bg-[#2166be] hover:bg-[#1a5299]"
                                     size="lg"
-                                    className="min-w-[200px]"
                                 >
-                                    {saving ? 'Enviando...' : 'Firmar y Enviar'}
+                                    {saving ? 'Guardando y Firmando...' : 'Firmar y Enviar Cuestionario'}
                                 </Button>
                             </div>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {isLocked && employeeSignature && (
-                    <Card className="mb-6 border-green-200 bg-green-50">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-green-800">
-                                <CheckCircle2 className="h-5 w-5" />
-                                Cuestionario Completado
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="font-semibold text-green-800">Firmado por:</span>
-                                    <span className="text-green-700">{employeeSignature.signer_name}</span>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
+                        )}
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );

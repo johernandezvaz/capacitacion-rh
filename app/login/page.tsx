@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 
 export default function LoginPage() {
@@ -13,13 +12,13 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        if (session.user.user_metadata?.force_password_change === true) {
-          router.replace('/change-password');
-        } else {
-          router.replace('/');
-        }
+    fetch('/api/auth/session').then(async (response) => {
+      if (!response.ok) return;
+      const { user } = await response.json();
+      if (user.force_password_change === true) {
+        router.replace('/change-password');
+      } else {
+        router.replace('/');
       }
     });
   }, [router]);
@@ -30,18 +29,19 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
-      if (signInError) {
+      if (!response.ok) {
         setError('Credenciales incorrectas. Verifica tu correo y contraseña.');
         return;
       }
 
-      const user = data.user;
-      if (user?.user_metadata?.force_password_change === true) {
+      const { force_password_change: forcePasswordChange } = await response.json();
+      if (forcePasswordChange === true) {
         router.replace('/change-password');
       } else {
         router.replace('/');

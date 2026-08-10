@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { pool } from '@/lib/db';
 import jsPDF from 'jspdf';
 import fs from 'fs';
 import path from 'path';
@@ -12,33 +12,61 @@ export async function GET(
         const resolvedParams = await params;
         const questionnaireId = resolvedParams.id;
 
-        const { data: questionnaireData, error: questionnaireError } = await supabase
-            .from('questionnaires')
-            .select(`
-                id,
-                type,
-                status,
-                submitted_at,
-                average_score,
-                additional_comments,
-                observation_1,
-                course_participant:course_participants(
-                    id,
-                    course_id,
-                    course:courses(name, start_date, duration_hours),
-                    employee:employees(nombre, employee_number, puesto, area)
-                )
-            `)
-            .eq('id', questionnaireId)
-            .maybeSingle();
+        const questionnaireResult = await pool.query(
+            `SELECT 
+                q.id,
+                q.type,
+                q.status,
+                q.submitted_at,
+                q.average_score,
+                q.additional_comments,
+                q.observation_1,
+                c.name AS course_name,
+                c.start_date AS course_start_date,
+                c.duration_hours AS course_duration_hours,
+                e.nombre AS employee_nombre,
+                e.employee_number AS employee_number,
+                e.puesto AS employee_puesto,
+                e.area AS employee_area
+             FROM questionnaires q
+             JOIN course_participants cp ON q.course_participant_id = cp.id
+             JOIN courses c ON cp.course_id = c.id
+             JOIN employees e ON cp.employee_id = e.id
+             WHERE q.id = $1`,
+            [questionnaireId]
+        );
 
-        if (questionnaireError) throw questionnaireError;
-        if (!questionnaireData) {
+        if (questionnaireResult.rowCount === 0) {
             return NextResponse.json(
                 { error: 'Cuestionario no encontrado' },
                 { status: 404 }
             );
         }
+
+        const qRow = questionnaireResult.rows[0];
+
+        const questionnaireData = {
+            id: qRow.id,
+            type: qRow.type,
+            status: qRow.status,
+            submitted_at: qRow.submitted_at,
+            average_score: qRow.average_score != null ? Number(qRow.average_score) : null,
+            additional_comments: qRow.additional_comments,
+            observation_1: qRow.observation_1,
+            course_participant: {
+                course: {
+                    name: qRow.course_name,
+                    start_date: qRow.course_start_date,
+                    duration_hours: qRow.course_duration_hours,
+                },
+                employee: {
+                    nombre: qRow.employee_nombre,
+                    employee_number: qRow.employee_number,
+                    puesto: qRow.employee_puesto,
+                    area: qRow.employee_area,
+                },
+            },
+        };
 
         if (!questionnaireData.submitted_at) {
             return NextResponse.json(
@@ -47,19 +75,20 @@ export async function GET(
             );
         }
 
-        const { data: responsesData, error: responsesError } = await supabase
-            .from('questionnaire_responses')
-            .select('*')
-            .eq('questionnaire_id', questionnaireId)
-            .order('question_key');
+        const responsesResult = await pool.query(
+            `SELECT * FROM questionnaire_responses WHERE questionnaire_id = $1 ORDER BY question_key ASC`,
+            [questionnaireId]
+        );
+        const responsesData = responsesResult.rows.map(r => ({
+            ...r,
+            percentage_value: r.percentage_value != null ? Number(r.percentage_value) : null
+        }));
 
-        if (responsesError) throw responsesError;
-
-        const { data: signaturesData } = await supabase
-            .from('questionnaire_signatures')
-            .select('*')
-            .eq('questionnaire_id', questionnaireId)
-            .order('signed_at');
+        const signaturesResult = await pool.query(
+            `SELECT * FROM questionnaire_signatures WHERE questionnaire_id = $1 ORDER BY signed_at ASC`,
+            [questionnaireId]
+        );
+        const signaturesData = signaturesResult.rows;
 
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();

@@ -2,14 +2,13 @@
 
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, CheckCircle2, Lock, AlertCircle, Download, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Lock, AlertCircle, Download } from 'lucide-react';
 import { format, isAfter } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -82,54 +81,17 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
 
     const fetchQuestionnaire = async () => {
         try {
-            const { data: qData, error: qError } = await supabase
-                .from('questionnaires')
-                .select(`
-          id,
-          course_participant_id,
-          status,
-          submitted_at,
-          available_from,
-          average_score,
-          observation_1,
-          course_participant:course_participants(
-            id,
-            course_id,
-            course:courses(name, start_date, duration_hours),
-            employee:employees(nombre, employee_number, puesto, area)
-          )
-        `)
-                .eq('id', resolvedParams.id)
-                .eq('type', 'cold')
-                .maybeSingle();
-
-            if (qError) throw qError;
-            if (!qData) {
-                throw new Error('Cuestionario no encontrado');
-            }
-            if (!qData.course_participant || !(qData.course_participant as any).course || !(qData.course_participant as any).employee) {
-                throw new Error('No se pudo cargar la información del curso o empleado asociado');
+            const res = await fetch(`/questionnaire/cold/${resolvedParams.id}/data`);
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Cuestionario no encontrado');
             }
 
-            const { data: rData, error: rError } = await supabase
-                .from('questionnaire_responses')
-                .select('*')
-                .eq('questionnaire_id', resolvedParams.id)
-                .order('question_key');
+            const { questionnaire: qData, responses: rData, signatures: sData } = await res.json();
 
-            if (rError) throw rError;
-
-            const { data: sData, error: sError } = await supabase
-                .from('questionnaire_signatures')
-                .select('*')
-                .eq('questionnaire_id', resolvedParams.id)
-                .order('signed_at');
-
-            if (sError) throw sError;
-
-            setQuestionnaire(qData as any);
-            setResponses(rData as Response[]);
-            setSignatures(sData as Signature[]);
+            setQuestionnaire(qData);
+            setResponses(rData);
+            setSignatures(sData);
             setObservation1(qData.observation_1 || '');
 
             const now = new Date();
@@ -137,7 +99,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             setIsAvailable(availableDate ? isAfter(now, availableDate) : false);
         } catch (error: any) {
             console.error('Error fetching questionnaire:', error);
-            toast.error('Error al cargar el cuestionario');
+            toast.error(error?.message || 'Error al cargar el cuestionario');
         } finally {
             setLoading(false);
         }
@@ -152,28 +114,33 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             return;
         }
 
-        const { error } = await supabase
-            .from('questionnaire_responses')
-            .update({
-                percentage_value: value,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('questionnaire_id', resolvedParams.id)
-            .eq('question_key', questionKey);
+        try {
+            const res = await fetch(`/questionnaire/cold/${resolvedParams.id}/data`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'update_response',
+                    question_key: questionKey,
+                    value,
+                }),
+            });
 
-        if (error) {
+            if (!res.ok) {
+                toast.error('Error al guardar la respuesta');
+                return;
+            }
+
+            setResponses(prev =>
+                prev.map(r =>
+                    r.question_key === questionKey
+                        ? { ...r, percentage_value: value }
+                        : r
+                )
+            );
+        } catch (error) {
             console.error('Error updating response:', error);
             toast.error('Error al guardar la respuesta');
-            return;
         }
-
-        setResponses(prev =>
-            prev.map(r =>
-                r.question_key === questionKey
-                    ? { ...r, percentage_value: value }
-                    : r
-            )
-        );
     };
 
     const updateObservations = async () => {
@@ -182,14 +149,16 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             return;
         }
 
-        const { error } = await supabase
-            .from('questionnaires')
-            .update({
-                observation_1: observation1,
-            })
-            .eq('id', resolvedParams.id);
-
-        if (error) {
+        try {
+            await fetch(`/questionnaire/cold/${resolvedParams.id}/data`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'update_observations',
+                    observation_1: observation1,
+                }),
+            });
+        } catch (error) {
             console.error('Error updating observations:', error);
         }
     };
@@ -228,35 +197,21 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                 ? validResponses.reduce((sum, r) => sum + (r.percentage_value || 0), 0) / validResponses.length
                 : null;
 
-            const { error: qError } = await supabase
-                .from('questionnaires')
-                .update({
+            const res = await fetch(`/questionnaire/cold/${resolvedParams.id}/data`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'sign_evaluator',
+                    signer_name: evaluatorName.trim(),
                     average_score: average,
                     observation_1: observation1.trim(),
-                })
-                .eq('id', resolvedParams.id);
+                }),
+            });
 
-            if (qError) throw qError;
-
-            const { error: sigError } = await supabase
-                .from('questionnaire_signatures')
-                .insert({
-                    questionnaire_id: resolvedParams.id,
-                    signer_type: 'evaluator',
-                    signer_name: evaluatorName.trim(),
-                });
-
-            if (sigError) throw sigError;
-
-            const { error: completeError } = await supabase
-                .from('questionnaires')
-                .update({
-                    status: 'completed',
-                    submitted_at: new Date().toISOString(),
-                })
-                .eq('id', resolvedParams.id);
-
-            if (completeError) throw completeError;
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Error al registrar la firma');
+            }
 
             toast.success('Firma del evaluador registrada y cuestionario completado exitosamente');
 
@@ -265,13 +220,11 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             }, 1500);
         } catch (error: any) {
             console.error('Error signing questionnaire:', error);
-            toast.error('Error al registrar la firma');
+            toast.error(error?.message || 'Error al registrar la firma');
         } finally {
             setSaving(false);
         }
     };
-
-
 
     const handleDownloadPDF = async () => {
         if (!questionnaire?.submitted_at) {
@@ -292,7 +245,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `Cuestionario_${questionnaire.course_participant.employee.nombre.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+            a.download = `Cuestionario_Frio_${questionnaire.course_participant.employee.nombre.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -332,7 +285,6 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
 
     const isLocked = questionnaire.submitted_at !== null;
     const evaluatorSignature = signatures.find(s => s.signer_type === 'evaluator');
-    const canEdit = isAvailable && !evaluatorSignature && !isLocked;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
@@ -346,114 +298,89 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                     Volver al curso
                 </Button>
 
+                {!isAvailable && !isLocked && (
+                    <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
+                        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                        <div className="text-sm text-amber-800">
+                            <strong>Cuestionario no disponible aún.</strong> Estará disponible a partir del{' '}
+                            {questionnaire.available_from
+                                ? format(new Date(questionnaire.available_from), 'dd/MM/yyyy')
+                                : 'fecha especificada'}.
+                        </div>
+                    </div>
+                )}
+
                 <Card className="mb-6">
                     <CardHeader>
                         <div className="flex items-start justify-between">
                             <div>
-                                <CardTitle className="text-2xl mb-2">Cuestionario del Evaluador</CardTitle>
-                                <CardDescription>
-                                    {!isAvailable ? (
-                                        <span className="flex items-center text-amber-600">
-                                            <AlertCircle className="mr-2 h-4 w-4" />
-                                            Este cuestionario estará disponible hasta el {questionnaire.available_from ? format(new Date(questionnaire.available_from), 'dd/MM/yyyy') : '—'}
-                                        </span>
-                                    ) : (
-                                        'Cuestionario completado'
-                                    )}
+                                <CardTitle className="text-2xl">
+                                    EVALUACIÓN DE EFECTIVIDAD (SEGUIMIENTO A 3 MESES / FRÍO)
+                                </CardTitle>
+                                <CardDescription className="mt-2">
+                                    Evaluación de la aplicación de lo aprendido en el puesto de trabajo (a llenar por el Jefe Inmediato / Evaluador)
                                 </CardDescription>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    onClick={() => {
-                                        const url = `${window.location.origin}/public/questionnaire/${questionnaire.id}`;
-                                        if (navigator.clipboard) {
-                                            navigator.clipboard.writeText(url).then(() => {
-                                                toast.success('Enlace copiado al portapapeles');
-                                            }).catch(() => {
-                                                toast.error('No se pudo copiar el enlace');
-                                            });
-                                        } else {
-                                            const ta = document.createElement('textarea');
-                                            ta.value = url;
-                                            ta.style.position = 'fixed';
-                                            ta.style.opacity = '0';
-                                            document.body.appendChild(ta);
-                                            ta.focus();
-                                            ta.select();
-                                            try {
-                                                document.execCommand('copy');
-                                                toast.success('Enlace copiado al portapapeles');
-                                            } catch {
-                                                toast.error('No se pudo copiar el enlace');
-                                            }
-                                            document.body.removeChild(ta);
-                                        }
-                                    }}
-                                    variant="outline"
-                                    size="sm"
-                                    title="Copiar enlace público"
-                                >
-                                    <LinkIcon className="h-4 w-4 mr-2" />
-                                    Compartir
-                                </Button>
-                                {isLocked && (
-                                    <>
-                                        <Button
-                                            onClick={handleDownloadPDF}
-                                            disabled={downloadingPDF}
-                                            variant="outline"
-                                            size="sm"
-                                        >
-                                            <Download className="h-4 w-4 mr-2" />
-                                            {downloadingPDF ? 'Generando...' : 'Descargar PDF'}
-                                        </Button>
-                                        <Lock className="h-6 w-6 text-gray-400" />
-                                    </>
-                                )}
-                                {!isLocked && !isAvailable && (
-                                    <Lock className="h-6 w-6 text-gray-400" />
-                                )}
-                            </div>
+                            {isLocked && (
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        onClick={handleDownloadPDF}
+                                        disabled={downloadingPDF}
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-2"
+                                    >
+                                        <Download className="w-4 h-4" />
+                                        {downloadingPDF ? 'Descargando...' : 'Descargar PDF'}
+                                    </Button>
+                                    <div className="flex items-center text-amber-600 bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200">
+                                        <Lock className="w-4 h-4 mr-1" />
+                                        <span className="text-xs font-medium">Completado y bloqueado</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-4 rounded-lg">
                             <div>
-                                <p className="font-semibold text-gray-700">Nombre del curso</p>
-                                <p className="text-gray-600">{questionnaire.course_participant.course.name}</p>
+                                <span className="font-semibold text-gray-700">Nombre del Empleado:</span>{' '}
+                                {questionnaire.course_participant.employee.nombre}
                             </div>
                             <div>
-                                <p className="font-semibold text-gray-700">Empleado</p>
-                                <p className="text-gray-600">{questionnaire.course_participant.employee.nombre}</p>
+                                <span className="font-semibold text-gray-700">Número de Empleado:</span>{' '}
+                                {questionnaire.course_participant.employee.employee_number}
                             </div>
                             <div>
-                                <p className="font-semibold text-gray-700">Puesto del empleado</p>
-                                <p className="text-gray-600">{questionnaire.course_participant.employee.puesto}</p>
+                                <span className="font-semibold text-gray-700">Puesto:</span>{' '}
+                                {questionnaire.course_participant.employee.puesto}
                             </div>
                             <div>
-                                <p className="font-semibold text-gray-700">Área del empleado</p>
-                                <p className="text-gray-600">{questionnaire.course_participant.employee.area}</p>
+                                <span className="font-semibold text-gray-700">Área:</span>{' '}
+                                {questionnaire.course_participant.employee.area}
                             </div>
                             <div>
-                                <p className="font-semibold text-gray-700">Fecha del curso</p>
-                                <p className="text-gray-600">
-                                    {questionnaire.course_participant.course.start_date
-                                        ? format(new Date(questionnaire.course_participant.course.start_date + 'T12:00:00'), 'dd/MM/yyyy')
-                                        : format(new Date(), 'dd/MM/yyyy')}
-                                </p>
+                                <span className="font-semibold text-gray-700">Nombre del Curso:</span>{' '}
+                                {questionnaire.course_participant.course.name}
                             </div>
                             <div>
-                                <p className="font-semibold text-gray-700">Número de empleado</p>
-                                <p className="text-gray-600">{questionnaire.course_participant.employee.employee_number}</p>
+                                <span className="font-semibold text-gray-700">Fecha del Curso:</span>{' '}
+                                {questionnaire.course_participant.course.start_date
+                                    ? format(new Date(questionnaire.course_participant.course.start_date), 'dd/MM/yyyy')
+                                    : 'N/A'}
                             </div>
                             <div>
-                                <p className="font-semibold text-gray-700">Duración del curso</p>
-                                <p className="text-gray-600">{questionnaire.course_participant.course.duration_hours} horas</p>
+                                <span className="font-semibold text-gray-700">Disponible desde:</span>{' '}
+                                {questionnaire.available_from
+                                    ? format(new Date(questionnaire.available_from), 'dd/MM/yyyy')
+                                    : 'N/A'}
                             </div>
-                            {isLocked && questionnaire.average_score !== null && (
+                            {questionnaire.average_score !== null && (
                                 <div>
-                                    <p className="font-semibold text-gray-700">Promedio</p>
-                                    <p className="text-gray-600">{questionnaire.average_score.toFixed(2)}%</p>
+                                    <span className="font-semibold text-gray-700">Promedio de Efectividad:</span>{' '}
+                                    <span className="font-bold text-blue-600">
+                                        {questionnaire.average_score.toFixed(1)}%
+                                    </span>
                                 </div>
                             )}
                         </div>
@@ -462,29 +389,28 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
 
                 <Card className="mb-6">
                     <CardHeader>
-                        <CardTitle>Evaluación del Evaluador</CardTitle>
+                        <CardTitle className="text-xl">EVALUACIÓN DE APLICACIÓN EN EL PUESTO</CardTitle>
                         <CardDescription>
-                            Complete todas las evaluaciones. Use N/A si no aplica.
+                            Evalúe en qué porcentaje el empleado aplica en sus labores diarias los conocimientos y habilidades adquiridos
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        {responses.map((question) => (
-                            <div key={question.id} className="space-y-3">
-                                <Label className="text-base font-semibold">{question.question_text}</Label>
+                        {responses.map((q, idx) => (
+                            <div key={q.id} className="border-b pb-4 last:border-0">
+                                <Label className="text-base font-medium mb-3 block">
+                                    {idx + 1}. {q.question_text}
+                                </Label>
                                 <RadioGroup
-                                    value={question.percentage_value?.toString() || ''}
-                                    onValueChange={(value) => updateResponse(question.question_key, parseInt(value))}
-                                    disabled={!canEdit}
-                                    className="flex flex-wrap gap-4"
+                                    disabled={isLocked || !isAvailable || !!evaluatorSignature}
+                                    value={q.percentage_value?.toString() ?? ''}
+                                    onValueChange={(val) => updateResponse(q.question_key, parseInt(val))}
+                                    className="grid grid-cols-3 md:grid-cols-6 gap-3 mt-2"
                                 >
-                                    {COLD_PERCENTAGE_OPTIONS.map((option) => (
-                                        <div key={option.value} className="flex items-center space-x-2">
-                                            <RadioGroupItem value={option.value.toString()} id={`${question.id}-${option.value}`} />
-                                            <Label
-                                                htmlFor={`${question.id}-${option.value}`}
-                                                className="font-normal cursor-pointer"
-                                            >
-                                                {option.label}
+                                    {COLD_PERCENTAGE_OPTIONS.map(opt => (
+                                        <div key={opt.value} className="flex items-center space-x-2 border rounded-lg p-3 hover:bg-slate-50 transition-colors">
+                                            <RadioGroupItem value={opt.value.toString()} id={`${q.id}-${opt.value}`} />
+                                            <Label htmlFor={`${q.id}-${opt.value}`} className="cursor-pointer font-normal text-sm">
+                                                {opt.label}
                                             </Label>
                                         </div>
                                     ))}
@@ -496,81 +422,74 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
 
                 <Card className="mb-6">
                     <CardHeader>
-                        <CardTitle>Observaciones del Evaluador</CardTitle>
+                        <CardTitle className="text-xl">OBSERVACIONES DEL EVALUADOR</CardTitle>
                         <CardDescription>
-                            La observación es obligatoria para poder firmar.
+                            Escriba las observaciones sobre la aplicación del entrenamiento en el puesto <span className="text-red-500">*</span>
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="space-y-3">
-                            <Label htmlFor="obs1" className="text-base font-semibold">Observación *</Label>
-                            <Textarea
-                                id="obs1"
-                                value={observation1}
-                                onChange={(e) => setObservation1(e.target.value)}
-                                onBlur={updateObservations}
-                                disabled={!canEdit}
-                                placeholder="Ingrese la observación..."
-                                rows={3}
-                            />
-                        </div>
+                    <CardContent>
+                        <Textarea
+                            disabled={isLocked || !isAvailable || !!evaluatorSignature}
+                            value={observation1}
+                            onChange={(e) => setObservation1(e.target.value)}
+                            onBlur={updateObservations}
+                            placeholder="Comentarios u observaciones sobre el desempeño y aplicación..."
+                            rows={4}
+                        />
                     </CardContent>
                 </Card>
 
-                {signatures.length > 0 && (
-                    <Card className="mb-6">
-                        <CardHeader>
-                            <CardTitle>Firmas</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {evaluatorSignature && (
-                                <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-xl flex items-center gap-2">
+                            FIRMA DEL JEFE INMEDIATO / EVALUADOR
+                        </CardTitle>
+                        <CardDescription>
+                            {evaluatorSignature
+                                ? 'La evaluación ha sido firmada por el evaluador'
+                                : 'Ingrese su nombre completo para firmar electrónicamente esta evaluación'}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {evaluatorSignature ? (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <CheckCircle2 className="w-6 h-6 text-green-600" />
                                     <div>
-                                        <p className="font-semibold text-green-900">Evaluador</p>
-                                        <p className="text-green-700">{evaluatorSignature.signer_name}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-sm text-green-600">
-
-                                        </p>
+                                        <div className="font-semibold text-green-900">
+                                            Firmado por: {evaluatorSignature.signer_name} (Evaluador)
+                                        </div>
+                                        <div className="text-xs text-green-700">
+                                            Fecha: {format(new Date(evaluatorSignature.signed_at), 'dd/MM/yyyy HH:mm')} hrs
+                                        </div>
                                     </div>
                                 </div>
-                            )}
-
-                        </CardContent>
-                    </Card>
-                )}
-
-                {canEdit && !evaluatorSignature && (
-                    <Card className="mb-6">
-                        <CardHeader>
-                            <CardTitle>Firma del Evaluador</CardTitle>
-                            <CardDescription>
-                                Una vez firmado, no podrá modificar las respuestas
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="evaluator-name">Nombre del Evaluador</Label>
-                                <Input
-                                    id="evaluator-name"
-                                    value={evaluatorName}
-                                    onChange={(e) => setEvaluatorName(e.target.value)}
-                                    placeholder="Ingrese su nombre completo"
-                                />
                             </div>
-                            <Button
-                                onClick={handleEvaluatorSign}
-                                disabled={saving}
-                                className="w-full"
-                            >
-                                {saving ? 'Firmando...' : 'Firmar como Evaluador'}
-                            </Button>
-                        </CardContent>
-                    </Card>
-                )}
-
-
+                        ) : (
+                            <div className="space-y-4">
+                                <div>
+                                    <Label htmlFor="evaluatorName">Nombre Completo del Evaluador / Jefe Inmediato *</Label>
+                                    <Input
+                                        id="evaluatorName"
+                                        disabled={!isAvailable}
+                                        value={evaluatorName}
+                                        onChange={(e) => setEvaluatorName(e.target.value)}
+                                        placeholder="Ingrese su nombre completo"
+                                        className="mt-1"
+                                    />
+                                </div>
+                                <Button
+                                    onClick={handleEvaluatorSign}
+                                    disabled={saving || !isAvailable}
+                                    className="w-full bg-[#2166be] hover:bg-[#1a5299]"
+                                    size="lg"
+                                >
+                                    {saving ? 'Guardando y Firmando...' : 'Firmar y Finalizar Evaluación'}
+                                </Button>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { pool } from '@/lib/db';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { readFileSync } from 'fs';
@@ -13,47 +13,45 @@ export async function GET(
         const resolvedParams = await params;
         const courseId = resolvedParams.id;
 
-        const { data: courseData, error: courseError } = await supabase
-            .from('courses')
-            .select('name, date, duration_hours')
-            .eq('id', courseId)
-            .maybeSingle();
+        const courseResult = await pool.query(
+            `SELECT name, date, duration_hours FROM courses WHERE id = $1`,
+            [courseId]
+        );
 
-        if (courseError || !courseData) {
+        if (courseResult.rowCount === 0) {
             return NextResponse.json(
                 { error: 'Curso no encontrado' },
                 { status: 404 }
             );
         }
 
-        const { data: participantsData, error: participantsError } = await supabase
-            .from('course_participants')
-            .select(`
-              employee:employees(
-                employee_number,
-                nombre,
-                area,
-                puesto
-              )
-            `)
-            .eq('course_id', courseId);
+        const courseData = courseResult.rows[0];
 
-        if (participantsError || !participantsData || participantsData.length === 0) {
+        const participantsResult = await pool.query(
+            `SELECT 
+                e.employee_number,
+                e.nombre,
+                e.area,
+                e.puesto
+             FROM course_participants cp
+             JOIN employees e ON cp.employee_id = e.id
+             WHERE cp.course_id = $1`,
+            [courseId]
+        );
+
+        if (participantsResult.rowCount === 0) {
             return NextResponse.json(
                 { error: 'El curso no tiene participantes inscritos' },
                 { status: 400 }
             );
         }
 
-        const participants = participantsData
-            .map((p: any) => p.employee)
-            .filter((e: any) => e !== null)
-            .map((e: any) => ({
-                employee_number: e.employee_number,
-                nombre: e.nombre,
-                area: e.area,
-                puesto: e.puesto,
-            }));
+        const participants = participantsResult.rows.map((e: any) => ({
+            employee_number: e.employee_number || '',
+            nombre: e.nombre || '',
+            area: e.area || '',
+            puesto: e.puesto || '',
+        }));
 
         participants.sort((a, b) => a.nombre.localeCompare(b.nombre));
 

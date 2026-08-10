@@ -1,11 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Plus, Search, FileText, Users, ChevronRight, Edit3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { Card } from '@/components/ui/card';
 import {
@@ -36,46 +35,14 @@ export default function OjtPage() {
   const [selectedPuesto, setSelectedPuesto] = useState<string>('all');
 
   const fetchData = async () => {
+    if (!plantId) return;
+    setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('ojt_records')
-        .select(`
-          id, titulo, puesto, periodo_entrenamiento, created_at,
-          ojt_instances(id)
-        `)
-        .eq('is_template', true)
-        .eq('plant_id', plantId)
-        .order('puesto', { ascending: true })
-        .order('titulo', { ascending: true });
-
-      if (error) throw error;
-
-      const mapped: OjtListItem[] = (data || []).map((r: any) => ({
-        id: r.id,
-        titulo: r.titulo,
-        puesto: r.puesto,
-        periodo_entrenamiento: r.periodo_entrenamiento,
-        created_at: r.created_at,
-        total_instancias: Array.isArray(r.ojt_instances) ? r.ojt_instances.length : 0,
-      }));
-
-      setRecords(mapped);
-
-      const { data: puestosData, error: puestosError } = await supabase
-        .from('ojt_records')
-        .select('puesto')
-        .eq('is_template', true)
-        .eq('plant_id', plantId)
-        .not('puesto', 'is', null)
-        .neq('puesto', '');
-
-      if (puestosError) throw puestosError;
-
-      const uniquePuestos = Array.from(
-        new Set(puestosData?.map((p: any) => p.puesto) || [])
-      ).sort() as string[];
-      setPuestos(uniquePuestos);
-
+      const res = await fetch(`/ojt/data?plant_id=${plantId}`);
+      if (!res.ok) throw new Error('Error al cargar las plantillas');
+      const data = await res.json();
+      setRecords(data.records || []);
+      setPuestos(data.puestos || []);
     } catch (err) {
       toast({ title: 'Error', description: 'No se pudieron cargar las plantillas OJT', variant: 'destructive' });
     } finally {
@@ -83,7 +50,7 @@ export default function OjtPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [plantId]);
 
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {

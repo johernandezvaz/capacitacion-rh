@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { ChevronRight, Link as LinkIcon } from 'lucide-react';
 import { OjtInstanceForm } from '@/components/ojt-instance-form';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -17,19 +16,13 @@ export default function OjtInstancePage() {
   const [publicToken, setPublicToken] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from('ojt_records').select('titulo').eq('id', templateId).maybeSingle()
-      .then(({ data }) => setTemplateTitle(data?.titulo ?? 'Plantilla'));
-
-    supabase.from('ojt_instances').select('public_token').eq('id', instanceId).maybeSingle()
-      .then(async ({ data }) => {
-        if (data?.public_token) {
-          setPublicToken(data.public_token);
-        } else {
-          const token = instanceId;
-          await supabase.from('ojt_instances').update({ public_token: token }).eq('id', instanceId);
-          setPublicToken(token);
-        }
-      });
+    fetch(`/ojt/${templateId}/instancias/${instanceId}/data`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.templateTitle) setTemplateTitle(data.templateTitle);
+        if (data.publicToken) setPublicToken(data.publicToken);
+      })
+      .catch(err => console.error('Error fetching instance header info:', err));
   }, [templateId, instanceId]);
 
   return (

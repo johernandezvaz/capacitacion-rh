@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { CalendarDays, FileDown } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/auth-context';
 import { useTrainingYears } from '@/hooks/use-training-years';
 import { COLORES_DETECCION } from '@/lib/detecciones-utils';
@@ -152,69 +151,12 @@ export default function DncPage() {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const { data: coursesData, error: cErr } = await supabase
-                .from('courses')
-                .select('id, name, date, start_date, end_date, fecha_programada, fecha_real, comentario_dnc, deteccion_id, dnc_status, dnc_comentario')
-                .eq('plant_id', plantId)
-                .eq('year_id', selectedYearId);
-            if (cErr) throw cErr;
-
-            const courseIds = (coursesData || []).map((c: any) => c.id);
-
-            let cursosFiltrados = coursesData || [];
-
-            if (courseIds.length > 0) {
-                const { data: participantsData } = await supabase
-                    .from('course_participants')
-                    .select('course_id, employee:employees!employee_id(es_baja)')
-                    .in('course_id', courseIds);
-
-                const deteccionIds = (coursesData || [])
-                    .map((c: any) => c.deteccion_id)
-                    .filter(Boolean);
-
-                let deteccionEmpleadosData: any[] = [];
-                if (deteccionIds.length > 0) {
-                    const { data: deData } = await supabase
-                        .from('deteccion_empleados')
-                        .select('deteccion_id, employee:employees!employee_id(es_baja)')
-                        .in('deteccion_id', deteccionIds);
-                    deteccionEmpleadosData = deData || [];
-                }
-
-                cursosFiltrados = (coursesData || []).filter((c: any) => {
-                    const participantes = (participantsData || []).filter(
-                        (p: any) => p.course_id === c.id
-                    );
-
-                    if (participantes.length > 0) {
-                        const todosEnBaja = participantes.every(
-                            (p: any) => p.employee?.es_baja === true
-                        );
-                        const cursoTomado = !!c.fecha_real;
-                        if (todosEnBaja && !cursoTomado) return false;
-                        return true;
-                    }
-
-                    if (c.deteccion_id) {
-                        const empsDet = deteccionEmpleadosData.filter(
-                            (de: any) => de.deteccion_id === c.deteccion_id
-                        );
-                        if (empsDet.length > 0) {
-                            const todosEnBaja = empsDet.every(
-                                (de: any) => de.employee?.es_baja === true
-                            );
-                            const cursoTomado = !!c.fecha_real;
-                            if (todosEnBaja && !cursoTomado) return false;
-                        }
-                    }
-
-                    return true;
-                });
-            }
+            const res = await fetch(`/dnc/data?plant_id=${plantId}&year_id=${selectedYearId}`);
+            if (!res.ok) throw new Error('Error al obtener datos DNC');
+            const { courses: coursesData, detecciones: detData } = await res.json();
 
             const today = new Date().toISOString().split('T')[0];
-            const rows: CourseRow[] = cursosFiltrados.map((c: any) => ({
+            const rows: CourseRow[] = (coursesData || []).map((c: any) => ({
                 id: c.id,
                 name: c.name,
                 date: c.date ?? null,
@@ -237,12 +179,6 @@ export default function DncPage() {
                 initDncComments[c.id] = c.dnc_comentario || '';
             });
             setDncComments(initDncComments);
-
-            const { data: detData } = await supabase
-                .from('detecciones')
-                .select('id, nombre, color, status, fecha_programada, fecha_real, comentario_dnc')
-                .eq('plant_id', plantId)
-                .eq('year_id', selectedYearId);
 
             const dets: DeteccionRow[] = (detData || []).map((d: any) => ({
                 id: d.id,
@@ -274,7 +210,11 @@ export default function DncPage() {
 
     const handleDncCommentBlur = async (courseId: string) => {
         const value = dncComments[courseId] ?? '';
-        await supabase.from('courses').update({ dnc_comentario: value.trim() || null }).eq('id', courseId);
+        await fetch('/dnc/data', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'course', id: courseId, comentario: value }),
+        });
     };
 
     const linkedDeteccionIds = useMemo(
@@ -547,9 +487,11 @@ export default function DncPage() {
                                                                     ({ ...prev, [det.id]: e.target.value }))}
                                                                 onBlur={async () => {
                                                                     const value = detComments[det.id] ?? '';
-                                                                    await supabase.from('detecciones')
-                                                                        .update({ comentario_dnc: value.trim() || null })
-                                                                        .eq('id', det.id);
+                                                                    await fetch('/dnc/data', {
+                                                                        method: 'PATCH',
+                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({ type: 'deteccion', id: det.id, comentario: value }),
+                                                                    });
                                                                 }}
                                                                 placeholder="Comentario..."
                                                                 className="w-full text-xs bg-transparent border-0 outline-none focus:bg-white focus:ring-1 focus:ring-[#2166be] rounded px-1 py-0.5 placeholder:text-gray-300 transition-all"
