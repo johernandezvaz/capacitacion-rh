@@ -9,15 +9,17 @@ const globalForDb = globalThis as unknown as {
 };
 
 function getConnectionString(): string {
-  const rawUrl = process.env.DATABASE_URL || 'postgresql://postgres:Demo2026%21@localhost:5432/capacitacion_rh';
-  if (rawUrl.includes('%')) {
-    try {
-      return decodeURIComponent(rawUrl);
-    } catch {
-      return rawUrl;
-    }
+  const rawUrl = process.env.DATABASE_URL;
+
+  if (!rawUrl) {
+    throw new Error('[db] DATABASE_URL is not configured');
   }
-  return rawUrl;
+
+  try {
+    return decodeURIComponent(rawUrl);
+  } catch {
+    return rawUrl;
+  }
 }
 
 export const pool =

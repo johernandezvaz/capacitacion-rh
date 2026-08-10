@@ -117,22 +117,53 @@ function toSession(row: SessionRow): AuthenticatedSession {
   };
 }
 
-export async function getSessionById(sessionId?: string): Promise<AuthenticatedSession | null> {
+export async function getSessionById(
+  sessionId?: string
+): Promise<AuthenticatedSession | null> {
   if (!sessionId) return null;
 
   const tokenSession = await verifySessionToken(sessionId);
-  if (tokenSession) return tokenSession;
+
+  if (tokenSession) {
+    console.log('[auth] Session verified as signed token');
+    return tokenSession;
+  }
 
   try {
-    const result = await query<SessionRow>(
-      `SELECT s.id AS session_id, s.expires_at, u.id AS user_id, u.email, u.password_hash, u.force_password_change 
-       FROM sessions s 
-       INNER JOIN users u ON u.id = s.user_id 
-       WHERE s.id = $1 AND s.expires_at > now()`,
+    console.log('[auth] Looking up session:', sessionId);
+
+    const result = await query(
+      `SELECT
+         s.id AS session_id,
+         s.expires_at,
+         u.id AS user_id,
+         u.email,
+         u.password_hash,
+         u.force_password_change
+       FROM sessions s
+       INNER JOIN users u ON u.id = s.user_id
+       WHERE s.id = $1
+         AND s.expires_at > now()`,
       [sessionId]
     );
-    return result.rows[0] ? toSession(result.rows[0]) : null;
-  } catch {
+
+    console.log('[auth] Session query returned:', result.rows.length);
+
+    if (!result.rows[0]) {
+      console.log('[auth] SESSION NOT FOUND');
+      return null;
+    }
+
+    console.log('[auth] SESSION FOUND:', {
+      id: result.rows[0].session_id,
+      user: result.rows[0].email,
+      forcePasswordChange: result.rows[0].force_password_change,
+    });
+
+    return toSession(result.rows[0]);
+
+  } catch (error) {
+    console.error('[auth] SESSION QUERY ERROR:', error);
     return null;
   }
 }
