@@ -15,6 +15,7 @@ export default function LoginPage() {
     fetch('/api/auth/session').then(async (response) => {
       if (!response.ok) return;
       const { user } = await response.json();
+      if (!user) return;
       if (user.force_password_change === true) {
         router.replace('/change-password');
       } else {

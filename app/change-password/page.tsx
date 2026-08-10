@@ -20,6 +20,10 @@ export default function ChangePasswordPage() {
         return;
       }
       const { user } = await response.json();
+      if (!user) {
+        router.replace('/login');
+        return;
+      }
       if (user.force_password_change !== true) {
         router.replace('/');
         return;
