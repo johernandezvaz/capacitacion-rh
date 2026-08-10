@@ -1,4 +1,8 @@
-import { Pool, QueryResultRow } from 'pg';
+import { Pool, QueryResultRow, types } from 'pg';
+
+types.setTypeParser(1082, (val) => val);
+types.setTypeParser(1114, (val) => val);
+types.setTypeParser(1184, (val) => val);
 
 const globalForDb = globalThis as unknown as {
   dbPool: Pool | undefined;
