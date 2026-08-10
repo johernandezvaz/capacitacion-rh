@@ -12,7 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { OjtEmployeeSelect } from '@/components/ojt-employee-select';
-import { type Employee, type OjtInstance, type OjtRecord } from '@/lib/supabase';
+import { type Employee, type OjtInstance, type OjtRecord } from '@/types/database';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { fmtDate } from '@/lib/detecciones-utils';
@@ -157,9 +157,9 @@ export default function OjtInstanciasPage() {
       <Card key={inst.id} className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-border">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            {inst.status !== 'draft' && (
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border ${STATUS_CLASS[inst.status]}`}>
-                {STATUS_LABEL[inst.status]}
+            {inst.status && inst.status !== 'draft' && (
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border ${STATUS_CLASS[inst.status] ?? ''}`}>
+                {STATUS_LABEL[inst.status] ?? inst.status}
               </span>
             )}
             {inst.average_efectividad != null && (
@@ -193,7 +193,7 @@ export default function OjtInstanciasPage() {
             size="sm"
             variant="outline"
             className="w-full sm:w-auto text-gray-400 border-gray-200 hover:text-gray-600 hover:bg-gray-50"
-            onClick={() => handleToggleBaja(inst.id, inst.es_baja)}
+            onClick={() => handleToggleBaja(inst.id, Boolean(inst.es_baja))}
           >
             {inst.es_baja ? 'Reactivar' : 'Marcar baja'}
           </Button>

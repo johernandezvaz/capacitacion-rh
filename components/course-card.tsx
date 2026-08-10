@@ -6,13 +6,13 @@ import { es } from 'date-fns/locale';
 import { BookOpen, Calendar, Clock, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Course } from '@/lib/supabase';
+import { Course } from '@/types/database';
 
 interface CourseCardProps {
   course: Course;
 }
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; className: string }> = {
   draft: {
     label: 'Borrador',
     className: 'bg-muted text-muted-foreground',
@@ -29,7 +29,7 @@ const statusConfig = {
 
 export function CourseCard({ course }: CourseCardProps) {
   const router = useRouter();
-  const status = statusConfig[course.status];
+  const status = statusConfig[course.status] || statusConfig.active;
 
   return (
     <Card

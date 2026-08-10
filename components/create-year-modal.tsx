@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 interface CreateYearModalProps {
@@ -46,15 +45,20 @@ export function CreateYearModal({
     setIsLoading(true);
 
     try {
-      const { error: insertError } = await supabase
-        .from('training_years')
-        .insert([{ year: yearNumber, plant_id: plantId }]);
+      const response = await fetch('/api/training-years', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ year: yearNumber }),
+        credentials: 'include',
+      });
 
-      if (insertError) {
-        if (insertError.code === '23505') {
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 400 || data.error?.includes('duplicate key') || data.error?.includes('unique constraint') || data.error?.includes('ya existe')) {
           setError('Este año ya existe');
         } else {
-          throw insertError;
+          setError(data.error || 'No se pudo crear el año');
         }
         return;
       }

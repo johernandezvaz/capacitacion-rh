@@ -4,9 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Calendar } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrainingYear } from '@/lib/supabase';
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { TrainingYear } from '@/types/database';
 
 interface YearCardProps {
   year: TrainingYear;
@@ -14,20 +12,7 @@ interface YearCardProps {
 
 export function YearCard({ year }: YearCardProps) {
   const router = useRouter();
-  const [courseCount, setCourseCount] = useState<number>(0);
-
-  useEffect(() => {
-    const fetchCourseCount = async () => {
-      const { count } = await supabase
-        .from('courses')
-        .select('*', { count: 'exact', head: true })
-        .eq('year_id', year.id);
-
-      setCourseCount(count || 0);
-    };
-
-    fetchCourseCount();
-  }, [year.id]);
+  const courseCount = year.course_count || 0;
 
   return (
     <Card

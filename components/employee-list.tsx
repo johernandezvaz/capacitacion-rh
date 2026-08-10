@@ -12,7 +12,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { EmployeeWithQuestionnaires, supabase } from '@/lib/supabase';
+import { EmployeeWithQuestionnaires } from '@/types/database';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmDialog } from './confirm-dialog';
@@ -127,34 +127,14 @@ export function EmployeeList({ employees, onRefresh }: EmployeeListProps) {
         if (!deleteDialog.employee) return;
 
         try {
-            const { error: questionnairesError } = await supabase
-                .from('questionnaires')
-                .delete()
-                .eq('course_participant_id', deleteDialog.employee.participant_id);
+            const res = await fetch(`/api/course-participants/${deleteDialog.employee.participant_id}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
 
-            if (questionnairesError) throw questionnairesError;
-
-            const { error: participantError } = await supabase
-                .from('course_participants')
-                .delete()
-                .eq('id', deleteDialog.employee.participant_id);
-
-            if (participantError) throw participantError;
-
-            const courseId = deleteDialog.employee.course_id;
-            if (courseId) {
-                const { data: courseLink } = await supabase
-                    .from('courses')
-                    .select('deteccion_id')
-                    .eq('id', courseId)
-                    .maybeSingle();
-
-                if (courseLink?.deteccion_id) {
-                    await supabase.from('deteccion_empleados')
-                        .delete()
-                        .eq('deteccion_id', courseLink.deteccion_id)
-                        .eq('employee_id', deleteDialog.employee.id);
-                }
+            if (!res.ok) {
+                const json = await res.json();
+                throw new Error(json.error || 'No se pudo eliminar el participante');
             }
 
             toast({

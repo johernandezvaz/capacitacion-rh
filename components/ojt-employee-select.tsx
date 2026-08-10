@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { supabase, Employee } from '@/lib/supabase';
+import { Employee } from '@/types/database';
 
 interface OjtEmployeeSelectProps {
   value: string;
@@ -56,11 +56,6 @@ export function OjtEmployeeSelect({
     setInputValue(employee.nombre);
     setShowDropdown(false);
     onSelect(employee);
-  };
-
-  const handleClear = () => {
-    setInputValue('');
-    onSelect(null);
   };
 
   return (

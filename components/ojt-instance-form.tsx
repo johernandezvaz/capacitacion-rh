@@ -7,12 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { OjtEmployeeSelect } from '@/components/ojt-employee-select';
 import { OjtSignatureCanvas } from '@/components/ojt-signature-canvas';
-import {
-  supabase, Employee, OjtRecord, OjtInstanceSignature,
-} from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { generateOjtInstancePdf } from '@/lib/ojt-pdf';
+import type { Employee, OjtRecord, OjtInstanceSignature } from '@/types/database';
 
 type InstanceEntryRow = {
   entry_id: string;
@@ -90,72 +88,42 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
   const [sigUrls, setSigUrls] = useState({ empleado: '', jefe_directo: '', recursos_humanos: '' });
 
   useEffect(() => {
-    console.log('[OjtInstanceForm] mount — isPublic:', isPublic, 'plantId:', plantId);
-    supabase.from('employees')
-      .select('id, nombre, puesto, employee_number, area, evaluador, created_at, es_baja, fecha_baja')
-      .order('nombre')
-      .then(({ data, error }) => {
-        console.log('[OjtInstanceForm] employees loaded:', data?.length, 'error:', error?.message);
-        setEmployees(data || []);
-      });
-  }, []);
+    fetch(`/employees/data${plantId ? `?plant_id=${plantId}` : ''}`, { credentials: 'include' })
+      .then(res => res.json())
+      .then(json => setEmployees(json.employees || []))
+      .catch(err => console.error('Error loading employees:', err));
+  }, [plantId]);
 
   useEffect(() => {
-    if (!instanceId || !templateId) return;
-    console.log('[OjtInstanceForm] loading instance — instanceId:', instanceId, 'templateId:', templateId, 'plantId:', plantId, 'isPublic:', isPublic);
+    if (!instanceId) return;
     (async () => {
       setIsLoading(true);
       try {
-        const { data: tmpl } = await supabase
-          .from('ojt_records')
-          .select('*, jefe_directo:employees!ojt_records_jefe_directo_id_fkey(nombre)')
-          .eq('id', templateId)
-          .maybeSingle();
-        setTemplate(tmpl ?? null);
-        setJefeNombre((tmpl as any)?.jefe_directo?.nombre ?? '');
+        const res = await fetch(`/api/ojt/instances/${instanceId}`, { credentials: 'include' });
+        if (!res.ok) throw new Error('Error al cargar datos de la instancia OJT');
+        const json = await res.json();
 
-        const { data: inst } = await supabase
-          .from('ojt_instances')
-          .select(`
-            *,
-            empleado:employees!ojt_instances_employee_id_fkey(id, nombre),
-            jefe:employees!ojt_instances_jefe_directo_id_fkey(id, nombre)
-          `)
-          .eq('id', instanceId)
-          .maybeSingle();
+        setTemplate(json.template ?? null);
+        setJefeNombre(json.template?.jefe_directo_nombre ?? '');
+
+        const inst = json.instance;
         if (inst) {
           setEmployeeId(inst.employee_id);
-          setEmployeeLabel((inst as any).empleado?.nombre ?? '');
+          setEmployeeLabel(inst.empleado_nombre ?? '');
           setJefeDirectoId(inst.jefe_directo_id ?? null);
-          setJefeDirectoLabel((inst as any).jefe?.nombre ?? '');
+          setJefeDirectoLabel(inst.jefe_nombre ?? '');
           setNombre(inst.nombre ?? '');
           setFechaInicio(inst.fecha_inicio ?? '');
           setFechaTermino(inst.fecha_termino ?? '');
         }
 
-        const { data: rows } = await supabase
-          .from('ojt_sections')
-          .select(`
-            id, tipo, nombre, orden,
-            ojt_entries (
-              id, orden, conocimiento_requerido, habilidades, fuentes_informacion,
-              procedimientos_internos, metodo_entrenamiento, duracion, puesto_responsable,
-              ojt_instance_entries!ojt_instance_entries_entry_id_fkey (
-                id, instance_id, efectividad, responsable_nombre, responsable_firma_url,
-                empleado_firma_url, fecha_planeada_terminacion, fecha_real_inicio, fecha_real_termino, comentarios
-              )
-            )
-          `)
-          .eq('record_id', templateId)
-          .order('orden');
-
-        const built: SectionGroup[] = (rows || []).map((s: any) => ({
+        const built: SectionGroup[] = (json.sections || []).map((s: any) => ({
           section_id: s.id,
           section_nombre: s.nombre,
           tipo: s.tipo,
           orden: s.orden,
-          rows: [...(s.ojt_entries || [])].sort((a: any, b: any) => a.orden - b.orden).map((e: any) => {
-            const ie = (e.ojt_instance_entries || []).find((x: any) => x.instance_id === instanceId) ?? null;
+          rows: (s.entries || []).map((e: any) => {
+            const ie = e.instance_entry;
             return {
               entry_id: e.id,
               conocimiento_requerido: e.conocimiento_requerido,
@@ -179,12 +147,11 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
         }));
         setGroups(built);
 
-        const { data: sigs } = await supabase.from('ojt_instance_signatures').select('*').eq('instance_id', instanceId);
         const sigMap: Record<string, OjtInstanceSignature> = {};
         const names = { empleado: '', jefe_directo: '', recursos_humanos: '' };
         const dates = { empleado: '', jefe_directo: '', recursos_humanos: '' };
         const urls = { empleado: '', jefe_directo: '', recursos_humanos: '' };
-        (sigs || []).forEach((s: OjtInstanceSignature) => {
+        (json.signatures || []).forEach((s: OjtInstanceSignature) => {
           sigMap[s.signer_type] = s;
           names[s.signer_type as keyof typeof names] = s.signer_name ?? '';
           dates[s.signer_type as keyof typeof dates] = s.signed_at ?? '';
@@ -194,15 +161,13 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
         setSigNames(names);
         setSigDates(dates);
         setSigUrls(urls);
-        console.log('[OjtInstanceForm] data loaded OK');
       } catch (err: any) {
-        console.error('[OjtInstanceForm] load error:', err);
+        console.error('Error loading instance data:', err);
       } finally {
-        console.log('[OjtInstanceForm] setIsLoading(false)');
         setIsLoading(false);
       }
     })();
-  }, [instanceId, templateId]);
+  }, [instanceId]);
 
   const avgEfectividad = useMemo(() => {
     const allRows = groups.flatMap(g => g.rows);
@@ -226,20 +191,32 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
     const row = groups[groupIdx].rows[rowIdx];
     const payload: Record<string, any> = {
       [field]: (field === 'efectividad') ? (value ? parseInt(value) : null) : (value || null),
-      updated_at: new Date().toISOString(),
     };
-    if (row.instance_entry_id) {
-      await supabase.from('ojt_instance_entries').update(payload).eq('id', row.instance_entry_id);
-    } else {
-      const { data: ins } = await supabase.from('ojt_instance_entries')
-        .insert([{ instance_id: instanceId, entry_id: row.entry_id, ...payload }])
-        .select().single();
-      if (ins) {
-        setGroups(prev => prev.map((g, gi) => gi !== groupIdx ? g : {
-          ...g,
-          rows: g.rows.map((r, ri) => ri !== rowIdx ? r : { ...r, instance_entry_id: ins.id }),
-        }));
+
+    try {
+      const res = await fetch(`/api/ojt/instances/${instanceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instance_entry: {
+            id: row.instance_entry_id,
+            entry_id: row.entry_id,
+            ...payload,
+          },
+        }),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.instance_entry_id && !row.instance_entry_id) {
+          setGroups(prev => prev.map((g, gi) => gi !== groupIdx ? g : {
+            ...g,
+            rows: g.rows.map((r, ri) => ri !== rowIdx ? r : { ...r, instance_entry_id: json.instance_entry_id }),
+          }));
+        }
       }
+    } catch (err) {
+      console.error('Error saving instance entry field:', err);
     }
   }, [groups, instanceId]);
 
@@ -257,25 +234,30 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
       rows: g.rows.map((r, ri) => ri !== rIdx ? r : { ...r, responsable_firma_url: url }),
     }));
 
-    if (row.instance_entry_id) {
-      const { error } = await supabase
-        .from('ojt_instance_entries')
-        .update({ responsable_firma_url: url })
-        .eq('id', row.instance_entry_id);
-      if (error) console.error('Error guardando firma responsable:', error);
-    } else {
-      const { data: ins, error } = await supabase
-        .from('ojt_instance_entries')
-        .insert([{ instance_id: instanceId, entry_id: row.entry_id, responsable_firma_url: url }])
-        .select()
-        .single();
-      if (error) console.error('Error insertando firma responsable:', error);
-      if (ins) {
-        setGroups(prev => prev.map((g, gi) => gi !== gIdx ? g : {
-          ...g,
-          rows: g.rows.map((r, ri) => ri !== rIdx ? r : { ...r, instance_entry_id: ins.id }),
-        }));
+    try {
+      const res = await fetch(`/api/ojt/instances/${instanceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instance_entry: {
+            id: row.instance_entry_id,
+            entry_id: row.entry_id,
+            responsable_firma_url: url,
+          },
+        }),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.instance_entry_id && !row.instance_entry_id) {
+          setGroups(prev => prev.map((g, gi) => gi !== gIdx ? g : {
+            ...g,
+            rows: g.rows.map((r, ri) => ri !== rIdx ? r : { ...r, instance_entry_id: json.instance_entry_id }),
+          }));
+        }
       }
+    } catch (err) {
+      console.error('Error guardando firma responsable:', err);
     }
   };
 
@@ -287,25 +269,30 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
       rows: g.rows.map((r, ri) => ri !== rIdx ? r : { ...r, empleado_firma_url: url }),
     }));
 
-    if (row.instance_entry_id) {
-      const { error } = await supabase
-        .from('ojt_instance_entries')
-        .update({ empleado_firma_url: url })
-        .eq('id', row.instance_entry_id);
-      if (error) console.error('Error guardando firma empleado:', error);
-    } else {
-      const { data: ins, error } = await supabase
-        .from('ojt_instance_entries')
-        .insert([{ instance_id: instanceId, entry_id: row.entry_id, empleado_firma_url: url }])
-        .select()
-        .single();
-      if (error) console.error('Error insertando firma empleado:', error);
-      if (ins) {
-        setGroups(prev => prev.map((g, gi) => gi !== gIdx ? g : {
-          ...g,
-          rows: g.rows.map((r, ri) => ri !== rIdx ? r : { ...r, instance_entry_id: ins.id }),
-        }));
+    try {
+      const res = await fetch(`/api/ojt/instances/${instanceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instance_entry: {
+            id: row.instance_entry_id,
+            entry_id: row.entry_id,
+            empleado_firma_url: url,
+          },
+        }),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.instance_entry_id && !row.instance_entry_id) {
+          setGroups(prev => prev.map((g, gi) => gi !== gIdx ? g : {
+            ...g,
+            rows: g.rows.map((r, ri) => ri !== rIdx ? r : { ...r, instance_entry_id: json.instance_entry_id }),
+          }));
+        }
       }
+    } catch (err) {
+      console.error('Error guardando firma empleado:', err);
     }
   };
 
@@ -313,15 +300,25 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
     setIsSaving(true);
     try {
       const avg = avgEfectividad;
-      await supabase.from('ojt_instances').update({
-        employee_id: employeeId,
-        jefe_directo_id: jefeDirectoId,
-        nombre: nombre || null,
-        fecha_inicio: fechaInicio || null,
-        fecha_termino: fechaTermino || null,
-        average_efectividad: avg,
-        updated_at: new Date().toISOString(),
-      }).eq('id', instanceId);
+      const res = await fetch(`/api/ojt/instances/${instanceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: employeeId,
+          jefe_directo_id: jefeDirectoId,
+          nombre: nombre || null,
+          fecha_inicio: fechaInicio || null,
+          fecha_termino: fechaTermino || null,
+          average_efectividad: avg,
+        }),
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || 'No se pudo guardar la instancia');
+      }
+
       toast({ title: 'Guardado', description: 'Instancia actualizada correctamente' });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'No se pudo guardar', variant: 'destructive' });
@@ -331,36 +328,55 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
   };
 
   const saveSignature = async (type: 'empleado' | 'jefe_directo' | 'recursos_humanos') => {
-    const existing = signatures[type];
-    const payload = {
-      instance_id: instanceId,
-      signer_type: type,
-      signer_name: sigNames[type] || null,
-      signed_at: sigDates[type] || null,
-      firma_url: sigUrls[type] || null,
-    };
-    if (existing?.id) {
-      await supabase.from('ojt_instance_signatures').update(payload).eq('id', existing.id);
-    } else {
-      const { data } = await supabase.from('ojt_instance_signatures').insert([payload]).select().single();
-      if (data) setSignatures(prev => ({ ...prev, [type]: data }));
+    try {
+      const res = await fetch(`/api/ojt/instances/${instanceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          signature: {
+            signer_type: type,
+            signer_name: sigNames[type] || null,
+            signed_at: sigDates[type] || null,
+            firma_url: sigUrls[type] || null,
+          },
+        }),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.signature) {
+          setSignatures(prev => ({ ...prev, [type]: json.signature }));
+        }
+      }
+    } catch (err) {
+      console.error('Error guardando firma de liberación:', err);
     }
   };
 
   const updateSigFirmaUrl = async (type: 'empleado' | 'jefe_directo' | 'recursos_humanos', url: string) => {
     setSigUrls(prev => ({ ...prev, [type]: url }));
-    const existing = signatures[type];
-    const payload = {
-      instance_id: instanceId, signer_type: type,
-      signer_name: sigNames[type] || null,
-      signed_at: sigDates[type] || null,
-      firma_url: url,
-    };
-    if (existing?.id) {
-      await supabase.from('ojt_instance_signatures').update(payload).eq('id', existing.id);
-    } else {
-      const { data } = await supabase.from('ojt_instance_signatures').insert([payload]).select().single();
-      if (data) setSignatures(prev => ({ ...prev, [type]: data }));
+    try {
+      const res = await fetch(`/api/ojt/instances/${instanceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          signature: {
+            signer_type: type,
+            signer_name: sigNames[type] || null,
+            signed_at: sigDates[type] || null,
+            firma_url: url,
+          },
+        }),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.signature) {
+          setSignatures(prev => ({ ...prev, [type]: json.signature }));
+        }
+      }
+    } catch (err) {
+      console.error('Error guardando firma de liberación:', err);
     }
   };
 

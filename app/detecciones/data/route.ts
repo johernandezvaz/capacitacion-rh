@@ -39,6 +39,166 @@ export async function GET(request: Request) {
   }
 }
 
+export async function POST(request: Request) {
+  const session = await getSessionFromRequest(request);
+  if (!session) return unauthorized();
+
+  const client = await pool.connect();
+  try {
+    const body = await request.json();
+    const {
+      id,
+      nombre,
+      color,
+      status,
+      plant_id,
+      year_id,
+      inst_interno,
+      inst_externo,
+      proveedor_sugerido,
+      costo,
+      fecha_programada,
+      fecha_real,
+      duration_hours,
+      desarrollo_personal,
+      habilidades_blandas,
+      prevencion_riesgos,
+      habilidades_tecnicas,
+      employee_ids,
+      linked_course_id,
+    } = body;
+
+    if (!nombre || !plant_id || !year_id) {
+      return NextResponse.json({ error: 'Nombre, planta y año son requeridos.' }, { status: 400 });
+    }
+
+    await client.query('BEGIN');
+
+    let detId = id;
+
+    if (detId) {
+      await client.query(
+        `UPDATE detecciones SET
+          nombre = $1, color = $2, status = $3, inst_interno = $4, inst_externo = $5,
+          proveedor_sugerido = $6, costo = $7, fecha_programada = $8, fecha_real = $9,
+          duration_hours = $10, desarrollo_personal = $11, habilidades_blandas = $12,
+          prevencion_riesgos = $13, habilidades_tecnicas = $14
+         WHERE id = $15`,
+        [
+          nombre.trim(),
+          color || '#ef4444',
+          status || null,
+          !!inst_interno,
+          !!inst_externo,
+          proveedor_sugerido ? proveedor_sugerido.trim() : null,
+          costo != null ? parseFloat(costo) : null,
+          fecha_programada || null,
+          fecha_real || null,
+          duration_hours != null ? parseFloat(duration_hours) : null,
+          !!desarrollo_personal,
+          !!habilidades_blandas,
+          !!prevencion_riesgos,
+          !!habilidades_tecnicas,
+          detId,
+        ]
+      );
+    } else {
+      const insRes = await client.query(
+        `INSERT INTO detecciones (
+          nombre, color, status, plant_id, year_id, inst_interno, inst_externo,
+          proveedor_sugerido, costo, fecha_programada, fecha_real, duration_hours,
+          desarrollo_personal, habilidades_blandas, prevencion_riesgos, habilidades_tecnicas
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7,
+          $8, $9, $10, $11, $12,
+          $13, $14, $15, $16
+        ) RETURNING id`,
+        [
+          nombre.trim(),
+          color || '#ef4444',
+          status || null,
+          plant_id,
+          year_id,
+          !!inst_interno,
+          !!inst_externo,
+          proveedor_sugerido ? proveedor_sugerido.trim() : null,
+          costo != null ? parseFloat(costo) : null,
+          fecha_programada || null,
+          fecha_real || null,
+          duration_hours != null ? parseFloat(duration_hours) : null,
+          !!desarrollo_personal,
+          !!habilidades_blandas,
+          !!prevencion_riesgos,
+          !!habilidades_tecnicas,
+        ]
+      );
+      detId = insRes.rows[0].id;
+    }
+
+    if (Array.isArray(employee_ids)) {
+      await client.query(`DELETE FROM deteccion_empleados WHERE deteccion_id = $1`, [detId]);
+      for (const empId of employee_ids) {
+        await client.query(
+          `INSERT INTO deteccion_empleados (deteccion_id, employee_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [detId, empId]
+        );
+      }
+    }
+
+    if (linked_course_id) {
+      await client.query(
+        `UPDATE courses SET
+          deteccion_id = $1, inst_interno = $2, inst_externo = $3, proveedor_sugerido = $4,
+          costo = $5, desarrollo_personal = $6, habilidades_blandas = $7, prevencion_riesgos = $8,
+          habilidades_tecnicas = $9, fecha_programada = $10, fecha_real = $11, duration_hours = $12
+         WHERE id = $13`,
+        [
+          detId,
+          !!inst_interno,
+          !!inst_externo,
+          proveedor_sugerido ? proveedor_sugerido.trim() : null,
+          costo != null ? parseFloat(costo) : null,
+          !!desarrollo_personal,
+          !!habilidades_blandas,
+          !!prevencion_riesgos,
+          !!habilidades_tecnicas,
+          fecha_programada || null,
+          fecha_real || null,
+          duration_hours != null ? parseFloat(duration_hours) : null,
+          linked_course_id,
+        ]
+      );
+    }
+
+    await client.query('COMMIT');
+    return NextResponse.json({ id: detId, ok: true });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('[api/detecciones/data] POST error:', error);
+    return NextResponse.json({ error: error?.message || 'Error al guardar la detección.' }, { status: 500 });
+  } finally {
+    client.release();
+  }
+}
+
+export async function PATCH(request: Request) {
+  if (!(await getSessionFromRequest(request))) return unauthorized();
+  try {
+    const body = await request.json();
+    const { deteccionId, employeeId, color, status } = body;
+    if (!deteccionId || !employeeId) {
+      return NextResponse.json({ error: 'Detección y empleado son requeridos.' }, { status: 400 });
+    }
+    await query(
+      `UPDATE deteccion_empleados SET color = $1, status = $2 WHERE deteccion_id = $3 AND employee_id = $4`,
+      [color, status || null, deteccionId, employeeId]
+    );
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: 'No se pudo actualizar el estado.' }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: Request) {
   if (!(await getSessionFromRequest(request))) return unauthorized();
   const { searchParams } = new URL(request.url);

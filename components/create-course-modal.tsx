@@ -14,7 +14,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 export interface CreateCourseModalPrefill {
@@ -99,28 +98,15 @@ export function CreateCourseModal({
   }, [open, plantId, yearId]);
 
   const loadDetecciones = async () => {
-    const { data: linked } = await supabase
-      .from('courses')
-      .select('deteccion_id')
-      .eq('plant_id', plantId)
-      .eq('year_id', yearId)
-      .not('deteccion_id', 'is', null);
-
-    const linkedIds = (linked || []).map((r: any) => r.deteccion_id).filter(Boolean);
-
-    let query = supabase
-      .from('detecciones')
-      .select('id, nombre, inst_interno, inst_externo, proveedor_sugerido, costo, desarrollo_personal, habilidades_blandas, prevencion_riesgos, habilidades_tecnicas, fecha_programada, fecha_real, duration_hours')
-      .eq('plant_id', plantId)
-      .eq('year_id', yearId)
-      .order('nombre', { ascending: true });
-
-    if (linkedIds.length > 0) {
-      query = query.not('id', 'in', `(${linkedIds.join(',')})`);
+    try {
+      const res = await fetch(`/year/${yearId}/data?plant_id=${plantId}`);
+      if (res.ok) {
+        const json = await res.json();
+        setDetecciones(json.detecciones || []);
+      }
+    } catch (err) {
+      console.error('[CreateCourseModal] Error loading detecciones:', err);
     }
-
-    const { data } = await query;
-    setDetecciones((data as DeteccionOption[]) || []);
   };
 
   useEffect(() => {
@@ -242,16 +228,16 @@ export function CreateCourseModal({
     try {
       const dateValue = startDate || new Date().toISOString().split('T')[0];
 
-      const { data: insertedCourse, error: insertError } = await supabase.from('courses').insert([
-        {
+      const res = await fetch('/api/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           year_id: yearId,
           name: name.trim(),
           date: dateValue,
           start_date: startDate || null,
           end_date: endDate || null,
           duration_hours: durationNumber,
-          status: 'active',
-          plant_id: plantId || null,
           inst_interno: instInterno,
           inst_externo: instExterno,
           proveedor_sugerido: proveedorSugerido.trim() || null,
@@ -264,48 +250,21 @@ export function CreateCourseModal({
           habilidades_tecnicas: habilidadesTecnicas,
           comentario_dnc: comentarioDnc.trim() || null,
           deteccion_id: selectedDeteccionId || null,
-        },
-      ]).select('id').single();
+        }),
+        credentials: 'include',
+      });
 
-      if (insertError) throw insertError;
-
-      if (insertedCourse?.id && !selectedDeteccionId) {
-        const { data: det } = await supabase
-          .from('detecciones')
-          .insert([{
-            nombre: name.trim(),
-            plant_id: plantId,
-            year_id: yearId,
-            color: '#ef4444',
-            status: 'no_tomado',
-            inst_interno: instInterno,
-            inst_externo: instExterno,
-            proveedor_sugerido: proveedorSugerido.trim() || null,
-            costo: costo ? parseFloat(costo) : null,
-            desarrollo_personal: desarrolloPersonal,
-            habilidades_blandas: habilidadesBlandas,
-            prevencion_riesgos: prevencionRiesgos,
-            habilidades_tecnicas: habilidadesTecnicas,
-            fecha_programada: fechaProgramada || null,
-            fecha_real: fechaReal || null,
-            duration_hours: durationNumber || null,
-          }])
-          .select()
-          .single();
-
-        if (det?.id) {
-          await supabase.from('courses')
-            .update({ deteccion_id: det.id })
-            .eq('id', insertedCourse.id);
-        }
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || 'No se pudo crear el curso');
       }
 
       resetForm();
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'No se pudo crear el curso',
+        description: error.message || 'No se pudo crear el curso',
         variant: 'destructive',
       });
     } finally {

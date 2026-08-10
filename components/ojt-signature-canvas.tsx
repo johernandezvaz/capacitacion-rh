@@ -3,7 +3,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase';
 import { PenLine, Trash2 } from 'lucide-react';
 
 interface OjtSignatureCanvasProps {
@@ -89,22 +88,28 @@ export function OjtSignatureCanvas({ currentUrl, instanceId, fieldKey, onSave, d
     const canvas = canvasRef.current; if (!canvas) return;
     setIsUploading(true);
     try {
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
-      if (!blob) throw new Error('No se pudo generar la imagen');
+      const dataUrl = canvas.toDataURL('image/png');
+      const response = await fetch('/api/firmas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dataUrl,
+          instanceId,
+          fieldKey,
+        }),
+        credentials: 'include',
+      });
 
-      const timestamp = Date.now();
-      const path = `${instanceId}/${fieldKey}_${timestamp}.png`;
+      const json = await response.json();
 
-      const { error: upErr } = await supabase.storage
-        .from('signatures')
-        .upload(path, blob, { contentType: 'image/png', upsert: true });
-      if (upErr) throw upErr;
+      if (!response.ok) {
+        throw new Error(json.error || 'Error al guardar la firma');
+      }
 
-      const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(path);
-      onSave(urlData.publicUrl);
+      onSave(json.url);
       setOpen(false);
     } catch (err: any) {
-      alert(err.message || 'Error al guardar firma');
+      alert(err.message || 'Error al guardar la firma');
     } finally {
       setIsUploading(false);
     }
@@ -120,7 +125,6 @@ export function OjtSignatureCanvas({ currentUrl, instanceId, fieldKey, onSave, d
         title={currentUrl ? 'Cambiar firma' : 'Agregar firma'}
       >
         {currentUrl ? (
-          
           <img src={currentUrl} alt="Firma" className="max-h-[44px] max-w-[110px] object-contain" />
         ) : (
           <span className="flex items-center gap-1 text-xs text-muted-foreground py-2">

@@ -5,9 +5,9 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { YearCard } from '@/components/year-card';
 import { CreateYearModal } from '@/components/create-year-modal';
-import { supabase, TrainingYear } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
+import { TrainingYear } from '@/types/database';
 
 export default function HomePage() {
   const { plantId } = useAuth();
@@ -18,14 +18,10 @@ export default function HomePage() {
 
   const fetchYears = async () => {
     try {
-      const { data, error } = await supabase
-        .from('training_years')
-        .select('*')
-        .eq('plant_id', plantId)
-        .order('year', { ascending: false });
-
-      if (error) throw error;
-      setYears(data || []);
+      const response = await fetch('/api/training-years', { credentials: 'include' });
+      if (!response.ok) throw new Error('Error al cargar años');
+      const json = await response.json();
+      setYears(json.data || []);
     } catch (error) {
       toast({
         title: 'Error',
