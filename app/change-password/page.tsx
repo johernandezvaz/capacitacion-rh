@@ -16,21 +16,21 @@ export default function ChangePasswordPage() {
   useEffect(() => {
     fetch('/api/auth/session').then(async (response) => {
       if (!response.ok) {
-        router.replace('/login');
+        window.location.href = '/login';
         return;
       }
       const { user } = await response.json();
       if (!user) {
-        router.replace('/login');
+        window.location.href = '/login';
         return;
       }
       if (user.force_password_change !== true) {
-        router.replace('/');
+        window.location.href = '/';
         return;
       }
       setIsChecking(false);
     });
-  }, [router]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
