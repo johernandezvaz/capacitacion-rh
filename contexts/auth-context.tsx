@@ -66,6 +66,9 @@ export function AuthProvider({
         if (!response.ok) {
           if (mounted) {
             setUser(null);
+            setPlantId(null);
+            setPlantName(null);
+            setRole(null);
             setIsLoading(false);
           }
           return;
@@ -76,13 +79,21 @@ export function AuthProvider({
         if (!mounted) return;
 
         const rawUser = data.user || data.session?.user;
+
         if (!rawUser) {
           setUser(null);
+          setPlantId(null);
+          setPlantName(null);
+          setRole(null);
           setIsLoading(false);
           return;
         }
 
-        const forceChange = rawUser.forcePasswordChange ?? rawUser.force_password_change ?? false;
+        const forceChange =
+          rawUser.forcePasswordChange ??
+          rawUser.force_password_change ??
+          false;
+
         const authUser: AuthUser = {
           id: rawUser.id,
           email: rawUser.email,
@@ -95,12 +106,25 @@ export function AuthProvider({
         };
 
         setUser(authUser);
+
+        setPlantId(data.plant?.id ?? null);
+        setPlantName(data.plant?.name ?? null);
+
+        setRole(
+          data.role === "admin" || data.role === "user"
+            ? data.role
+            : null
+        );
+
         setIsLoading(false);
       } catch (error) {
         console.error("[auth] Error loading session:", error);
 
         if (mounted) {
           setUser(null);
+          setPlantId(null);
+          setPlantName(null);
+          setRole(null);
           setIsLoading(false);
         }
       }
