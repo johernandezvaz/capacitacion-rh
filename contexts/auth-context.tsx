@@ -8,11 +8,17 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 
-type AuthUser = {
+export type AuthUser = {
   id: string;
   email: string;
-  passwordHash: string;
-  forcePasswordChange: boolean;
+  passwordHash?: string;
+  forcePasswordChange?: boolean;
+  force_password_change?: boolean;
+  name?: string;
+  user_metadata?: {
+    name?: string;
+    force_password_change?: boolean;
+  };
 };
 
 interface AuthContextValue {
@@ -69,13 +75,27 @@ export function AuthProvider({
 
         if (!mounted) return;
 
-        if (!data.session?.user) {
+        const rawUser = data.user || data.session?.user;
+        if (!rawUser) {
           setUser(null);
           setIsLoading(false);
           return;
         }
 
-        setUser(data.session.user);
+        const forceChange = rawUser.forcePasswordChange ?? rawUser.force_password_change ?? false;
+        const authUser: AuthUser = {
+          id: rawUser.id,
+          email: rawUser.email,
+          forcePasswordChange: forceChange,
+          force_password_change: forceChange,
+          user_metadata: {
+            name: rawUser.name || rawUser.email,
+            force_password_change: forceChange,
+          },
+        };
+
+        setUser(authUser);
+        setIsLoading(false);
       } catch (error) {
         console.error("[auth] Error loading session:", error);
 

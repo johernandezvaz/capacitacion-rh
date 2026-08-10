@@ -67,7 +67,7 @@ export function Sidebar() {
     setIsOpen(false);
   };
 
-  const displayName = user?.user_metadata?.name || user?.email || '';
+  const displayName = user?.name || user?.user_metadata?.name || user?.email || '';
 
   return (
     <>

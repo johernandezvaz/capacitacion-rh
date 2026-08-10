@@ -20,7 +20,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       router.replace('/login');
       return;
     }
-    if (user.user_metadata?.force_password_change === true) {
+    const isForceChange = user.forcePasswordChange || user.force_password_change || user.user_metadata?.force_password_change === true;
+    if (isForceChange) {
       router.replace('/change-password');
       return;
     }
@@ -45,7 +46,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  if (!user || user.user_metadata?.force_password_change === true) {
+  const isForceChange = user?.forcePasswordChange || user?.force_password_change || user?.user_metadata?.force_password_change === true;
+  if (!user || isForceChange) {
     return null;
   }
 
