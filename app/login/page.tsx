@@ -65,7 +65,7 @@ export default function LoginPage() {
               priority
             />
           </div>
-          <h1 className="text-xl font-bold text-slate-800">Capacitación RH</h1>
+          <h1 className="text-xl font-bold text-slate-800">Sistema de Capacitaciones</h1>
           <p className="text-sm text-slate-500 mt-1">Ingresa tus credenciales para continuar</p>
         </div>
 
