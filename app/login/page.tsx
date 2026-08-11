@@ -58,7 +58,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center mb-8">
           <div className="relative w-48 h-16 mb-4">
             <Image
-              src="/logo.png"
+              src="/safe-demo_logo-blc-Photoroom.png"
               alt="Logo"
               fill
               className="object-contain"
