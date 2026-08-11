@@ -201,7 +201,7 @@ export async function getServerSession() {
 export function sessionCookieOptions(expiresAt: Date) {
   return {
     httpOnly: true,
-    secure: process.env.COOKIE_SECURE === 'false',
+    secure: process.env.COOKIE_SECURE === 'true',
     sameSite: 'lax' as const,
     path: '/',
     expires: expiresAt,
