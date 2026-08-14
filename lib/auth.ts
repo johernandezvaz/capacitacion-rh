@@ -125,12 +125,10 @@ export async function getSessionById(
   const tokenSession = await verifySessionToken(sessionId);
 
   if (tokenSession) {
-    console.log('[auth] Session verified as signed token');
     return tokenSession;
   }
 
   try {
-    console.log('[auth] Looking up session:', sessionId);
 
     const result = await query(
       `SELECT
@@ -147,23 +145,16 @@ export async function getSessionById(
       [sessionId]
     );
 
-    console.log('[auth] Session query returned:', result.rows.length);
 
     if (!result.rows[0]) {
-      console.log('[auth] SESSION NOT FOUND');
       return null;
     }
 
-    console.log('[auth] SESSION FOUND:', {
-      id: result.rows[0].session_id,
-      user: result.rows[0].email,
-      forcePasswordChange: result.rows[0].force_password_change,
-    });
 
     return toSession(result.rows[0]);
 
   } catch (error) {
-    console.error('[auth] SESSION QUERY ERROR:', error);
+
     return null;
   }
 }

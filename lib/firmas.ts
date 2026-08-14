@@ -34,9 +34,12 @@ export async function authorizeInstanceAccess(
     `SELECT i.id
      FROM ojt_instances i
      JOIN ojt_records r ON r.id = i.template_id
-     LEFT JOIN user_plants up ON up.plant_id = r.plant_id AND up.user_id = $2
-     LEFT JOIN users u ON u.id = $2
-     WHERE i.id = $1 AND (u.role = 'admin' OR up.user_id IS NOT NULL)`,
+     LEFT JOIN user_plants up ON up.user_id = $2
+     WHERE i.id = $1
+       AND (
+         (up.role = 'admin')
+         OR (up.plant_id = r.plant_id)
+       )`,
     [instanceId, session.user.id]
   );
 
