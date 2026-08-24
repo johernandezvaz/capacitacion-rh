@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     const qRes = await client.query(
       `INSERT INTO questionnaires (course_participant_id, course_id, employee_id, type, status)
-       VALUES ($1, $2, $3, 'hot', 'pendiente')
+       VALUES ($1, $2, $3, 'hot', 'pending')
        RETURNING id`,
       [participant.id, course_id, employee_id]
     );
