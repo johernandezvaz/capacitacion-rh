@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -81,17 +82,54 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
 
     const fetchQuestionnaire = async () => {
         try {
-            const res = await fetch(`/questionnaire/cold/${resolvedParams.id}/data`);
-            if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.error || 'Cuestionario no encontrado');
+            const { data: qData, error: qError } = await supabase
+                .from('questionnaires')
+                .select(`
+          id,
+          course_participant_id,
+          status,
+          submitted_at,
+          available_from,
+          average_score,
+          observation_1,
+          course_participant:course_participants(
+            id,
+            course_id,
+            course:courses(name, start_date, duration_hours),
+            employee:employees(nombre, employee_number, puesto, area)
+          )
+        `)
+                .eq('id', resolvedParams.id)
+                .eq('type', 'cold')
+                .maybeSingle();
+
+            if (qError) throw qError;
+            if (!qData) {
+                throw new Error('Cuestionario no encontrado');
+            }
+            if (!qData.course_participant || !(qData.course_participant as any).course || !(qData.course_participant as any).employee) {
+                throw new Error('No se pudo cargar la información del curso o empleado asociado');
             }
 
-            const { questionnaire: qData, responses: rData, signatures: sData } = await res.json();
+            const { data: rData, error: rError } = await supabase
+                .from('questionnaire_responses')
+                .select('*')
+                .eq('questionnaire_id', resolvedParams.id)
+                .order('question_key');
 
-            setQuestionnaire(qData);
-            setResponses(rData);
-            setSignatures(sData);
+            if (rError) throw rError;
+
+            const { data: sData, error: sError } = await supabase
+                .from('questionnaire_signatures')
+                .select('*')
+                .eq('questionnaire_id', resolvedParams.id)
+                .order('signed_at');
+
+            if (sError) throw sError;
+
+            setQuestionnaire(qData as any);
+            setResponses(rData as Response[]);
+            setSignatures(sData as Signature[]);
             setObservation1(qData.observation_1 || '');
 
             const now = new Date();
@@ -99,7 +137,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             setIsAvailable(availableDate ? isAfter(now, availableDate) : false);
         } catch (error: any) {
             console.error('Error fetching questionnaire:', error);
-            toast.error(error?.message || 'Error al cargar el cuestionario');
+            toast.error('Error al cargar el cuestionario');
         } finally {
             setLoading(false);
         }
@@ -114,33 +152,28 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             return;
         }
 
-        try {
-            const res = await fetch(`/questionnaire/cold/${resolvedParams.id}/data`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'update_response',
-                    question_key: questionKey,
-                    value,
-                }),
-            });
+        const { error } = await supabase
+            .from('questionnaire_responses')
+            .update({
+                percentage_value: value,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('questionnaire_id', resolvedParams.id)
+            .eq('question_key', questionKey);
 
-            if (!res.ok) {
-                toast.error('Error al guardar la respuesta');
-                return;
-            }
-
-            setResponses(prev =>
-                prev.map(r =>
-                    r.question_key === questionKey
-                        ? { ...r, percentage_value: value }
-                        : r
-                )
-            );
-        } catch (error) {
+        if (error) {
             console.error('Error updating response:', error);
             toast.error('Error al guardar la respuesta');
+            return;
         }
+
+        setResponses(prev =>
+            prev.map(r =>
+                r.question_key === questionKey
+                    ? { ...r, percentage_value: value }
+                    : r
+            )
+        );
     };
 
     const updateObservations = async () => {
@@ -149,16 +182,14 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             return;
         }
 
-        try {
-            await fetch(`/questionnaire/cold/${resolvedParams.id}/data`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'update_observations',
-                    observation_1: observation1,
-                }),
-            });
-        } catch (error) {
+        const { error } = await supabase
+            .from('questionnaires')
+            .update({
+                observation_1: observation1,
+            })
+            .eq('id', resolvedParams.id);
+
+        if (error) {
             console.error('Error updating observations:', error);
         }
     };
@@ -197,21 +228,35 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                 ? validResponses.reduce((sum, r) => sum + (r.percentage_value || 0), 0) / validResponses.length
                 : null;
 
-            const res = await fetch(`/questionnaire/cold/${resolvedParams.id}/data`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'sign_evaluator',
-                    signer_name: evaluatorName.trim(),
+            const { error: qError } = await supabase
+                .from('questionnaires')
+                .update({
                     average_score: average,
                     observation_1: observation1.trim(),
-                }),
-            });
+                })
+                .eq('id', resolvedParams.id);
 
-            if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.error || 'Error al registrar la firma');
-            }
+            if (qError) throw qError;
+
+            const { error: sigError } = await supabase
+                .from('questionnaire_signatures')
+                .insert({
+                    questionnaire_id: resolvedParams.id,
+                    signer_type: 'evaluator',
+                    signer_name: evaluatorName.trim(),
+                });
+
+            if (sigError) throw sigError;
+
+            const { error: completeError } = await supabase
+                .from('questionnaires')
+                .update({
+                    status: 'completed',
+                    submitted_at: new Date().toISOString(),
+                })
+                .eq('id', resolvedParams.id);
+
+            if (completeError) throw completeError;
 
             toast.success('Firma del evaluador registrada y cuestionario completado exitosamente');
 
@@ -220,11 +265,13 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
             }, 1500);
         } catch (error: any) {
             console.error('Error signing questionnaire:', error);
-            toast.error(error?.message || 'Error al registrar la firma');
+            toast.error('Error al registrar la firma');
         } finally {
             setSaving(false);
         }
     };
+
+
 
     const handleDownloadPDF = async () => {
         if (!questionnaire?.submitted_at) {
@@ -484,12 +531,12 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                                     </div>
                                     <div className="text-right">
                                         <p className="text-sm text-green-600">
-                                            <CheckCircle2 className="inline h-4 w-4 mr-1" />
-                                            {format(new Date(evaluatorSignature.signed_at), 'dd/MM/yyyy HH:mm')} hrs
+
                                         </p>
                                     </div>
                                 </div>
                             )}
+
                         </CardContent>
                     </Card>
                 )}
@@ -522,6 +569,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                         </CardContent>
                     </Card>
                 )}
+
 
             </div>
         </div>

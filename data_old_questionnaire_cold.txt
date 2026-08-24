@@ -1,0 +1,30 @@
+Evaluación del Evaluador
+Complete todas las evaluaciones. Use N/A si no aplica.
+
+Eficacia
+
+N/A
+
+<25%
+
+40%
+
+60%
+
+80%
+
+100%
+
+Metodos-Calidad de trabajo
+
+N/A
+
+<25%
+
+40%
+
+60%
+
+80%
+
+100%

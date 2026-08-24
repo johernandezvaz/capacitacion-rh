@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, CheckCircle2, Lock, PenTool, Download } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Lock, Download, Link as LinkIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
@@ -298,104 +298,133 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                     Volver al curso
                 </Button>
 
+                {/* Info Card */}
                 <Card className="mb-6">
                     <CardHeader>
                         <div className="flex items-start justify-between">
                             <div>
-                                <CardTitle className="text-2xl">
-                                    EVALUACIÓN DE REACCIÓN (REACCIÓN INMEDIATA / CALIENTE)
-                                </CardTitle>
-                                <CardDescription className="mt-2">
+                                <CardTitle className="text-2xl mb-2">Evaluación de Reacción</CardTitle>
+                                <CardDescription>
                                     Cuestionario de satisfacción del participante sobre la capacitación recibida
                                 </CardDescription>
                             </div>
-                            {isLocked && (
-                                <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2">
                                     <Button
-                                        onClick={handleDownloadPDF}
-                                        disabled={downloadingPDF}
+                                        onClick={() => {
+                                            const url = `${window.location.origin}/public/questionnaire/${questionnaire.id}`;
+                                            if (navigator.clipboard) {
+                                                navigator.clipboard.writeText(url).then(() => {
+                                                    toast.success('Enlace copiado al portapapeles');
+                                                }).catch(() => {
+                                                    toast.error('No se pudo copiar el enlace');
+                                                });
+                                            } else {
+                                                const ta = document.createElement('textarea');
+                                                ta.value = url;
+                                                ta.style.position = 'fixed';
+                                                ta.style.opacity = '0';
+                                                document.body.appendChild(ta);
+                                                ta.focus();
+                                                ta.select();
+                                                try {
+                                                    document.execCommand('copy');
+                                                    toast.success('Enlace copiado al portapapeles');
+                                                } catch {
+                                                    toast.error('No se pudo copiar el enlace');
+                                                }
+                                                document.body.removeChild(ta);
+                                            }
+                                        }}
                                         variant="outline"
                                         size="sm"
-                                        className="gap-2"
+                                        title="Copiar enlace público"
                                     >
-                                        <Download className="w-4 h-4" />
-                                        {downloadingPDF ? 'Descargando...' : 'Descargar PDF'}
+                                        <LinkIcon className="h-4 w-4 mr-2" />
+                                        Compartir
                                     </Button>
-                                    <div className="flex items-center text-amber-600 bg-amber-50 px-3 py-1.5 rounded-md border border-amber-200">
-                                        <Lock className="w-4 h-4 mr-1" />
-                                        <span className="text-xs font-medium">Completado y bloqueado</span>
-                                    </div>
+                                    {isLocked && (
+                                        <>
+                                            <Button
+                                                onClick={handleDownloadPDF}
+                                                disabled={downloadingPDF}
+                                                variant="outline"
+                                                size="sm"
+                                            >
+                                                <Download className="h-4 w-4 mr-2" />
+                                                {downloadingPDF ? 'Generando...' : 'Descargar PDF'}
+                                            </Button>
+                                            <Lock className="h-6 w-6 text-gray-400" />
+                                        </>
+                                    )}
                                 </div>
-                            )}
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-4 rounded-lg">
+                    <CardContent>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <span className="font-semibold text-gray-700">Nombre del Participante:</span>{' '}
-                                {questionnaire.course_participant.employee.nombre}
+                                <p className="font-semibold text-gray-700">Nombre del curso</p>
+                                <p className="text-gray-600">{questionnaire.course_participant.course.name}</p>
                             </div>
                             <div>
-                                <span className="font-semibold text-gray-700">Número de Empleado:</span>{' '}
-                                {questionnaire.course_participant.employee.employee_number}
+                                <p className="font-semibold text-gray-700">Participante</p>
+                                <p className="text-gray-600">{questionnaire.course_participant.employee.nombre}</p>
                             </div>
                             <div>
-                                <span className="font-semibold text-gray-700">Puesto:</span>{' '}
-                                {questionnaire.course_participant.employee.puesto}
+                                <p className="font-semibold text-gray-700">Puesto</p>
+                                <p className="text-gray-600">{questionnaire.course_participant.employee.puesto}</p>
                             </div>
                             <div>
-                                <span className="font-semibold text-gray-700">Área:</span>{' '}
-                                {questionnaire.course_participant.employee.area}
+                                <p className="font-semibold text-gray-700">Área</p>
+                                <p className="text-gray-600">{questionnaire.course_participant.employee.area}</p>
                             </div>
                             <div>
-                                <span className="font-semibold text-gray-700">Nombre del Curso:</span>{' '}
-                                {questionnaire.course_participant.course.name}
+                                <p className="font-semibold text-gray-700">Fecha del curso</p>
+                                <p className="text-gray-600">
+                                    {questionnaire.course_participant.course.start_date
+                                        ? format(new Date(questionnaire.course_participant.course.start_date + 'T12:00:00'), 'dd/MM/yyyy')
+                                        : format(new Date(), 'dd/MM/yyyy')}
+                                </p>
                             </div>
                             <div>
-                                <span className="font-semibold text-gray-700">Fecha de Inicio:</span>{' '}
-                                {questionnaire.course_participant.course.start_date
-                                    ? format(new Date(questionnaire.course_participant.course.start_date), 'dd/MM/yyyy')
-                                    : 'N/A'}
+                                <p className="font-semibold text-gray-700">Número de empleado</p>
+                                <p className="text-gray-600">{questionnaire.course_participant.employee.employee_number}</p>
                             </div>
                             <div>
-                                <span className="font-semibold text-gray-700">Duración:</span>{' '}
-                                {questionnaire.course_participant.course.duration_hours} hrs
+                                <p className="font-semibold text-gray-700">Duración del curso</p>
+                                <p className="text-gray-600">{questionnaire.course_participant.course.duration_hours} horas</p>
                             </div>
-                            {questionnaire.average_score !== null && (
+                            {isLocked && questionnaire.average_score !== null && (
                                 <div>
-                                    <span className="font-semibold text-gray-700">Promedio General:</span>{' '}
-                                    <span className="font-bold text-blue-600">
-                                        {questionnaire.average_score.toFixed(1)}%
-                                    </span>
+                                    <p className="font-semibold text-gray-700">Promedio</p>
+                                    <p className="text-gray-600">{questionnaire.average_score.toFixed(2)}%</p>
                                 </div>
                             )}
                         </div>
                     </CardContent>
                 </Card>
 
+                {/* Sección 1 - Evaluación Porcentual */}
                 <Card className="mb-6">
                     <CardHeader>
-                        <CardTitle className="text-xl">I. EVALUACIÓN DE LA CAPACITACIÓN</CardTitle>
-                        <CardDescription>
-                            Seleccione el nivel de satisfacción para cada uno de los siguientes aspectos
-                        </CardDescription>
+                        <CardTitle>Sección 1 - Evaluación Porcentual</CardTitle>
+                        <CardDescription>Todas las preguntas son obligatorias</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        {evaluationQuestions.map((q, idx) => (
-                            <div key={q.id} className="border-b pb-4 last:border-0">
-                                <Label className="text-base font-medium mb-3 block">
-                                    {idx + 1}. {q.question_text}
-                                </Label>
+                        {evaluationQuestions.map((q) => (
+                            <div key={q.id} className="space-y-3">
+                                <Label className="text-base font-semibold">{q.question_text}</Label>
                                 <RadioGroup
                                     disabled={isLocked}
                                     value={q.percentage_value?.toString() || ''}
                                     onValueChange={(val) => updateResponse(q.question_key, parseInt(val), 'percentage')}
-                                    className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2"
                                 >
                                     {PERCENTAGE_OPTIONS.map(opt => (
-                                        <div key={opt.value} className="flex items-center space-x-2 border rounded-lg p-3 hover:bg-slate-50 transition-colors">
+                                        <div key={opt.value} className="flex items-center space-x-2">
                                             <RadioGroupItem value={opt.value.toString()} id={`${q.id}-${opt.value}`} />
-                                            <Label htmlFor={`${q.id}-${opt.value}`} className="cursor-pointer font-normal text-sm">
+                                            <Label
+                                                htmlFor={`${q.id}-${opt.value}`}
+                                                className="font-normal cursor-pointer"
+                                            >
                                                 {opt.label}
                                             </Label>
                                         </div>
@@ -406,34 +435,30 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                     </CardContent>
                 </Card>
 
+                {/* Sección 2 - Retroalimentación */}
                 <Card className="mb-6">
                     <CardHeader>
-                        <CardTitle className="text-xl">II. RETROALIMENTACIÓN</CardTitle>
-                        <CardDescription>
-                            Responda a las siguientes preguntas sobre la utilidad de la capacitación
-                        </CardDescription>
+                        <CardTitle>Sección 2 - Retroalimentación</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         {feedbackQuestions.map((q) => {
                             if (q.response_type === 'yes_no') {
                                 return (
-                                    <div key={q.id} className="border-b pb-4 last:border-0">
-                                        <Label className="text-base font-medium mb-3 block">
-                                            {q.question_text}
-                                        </Label>
+                                    <div key={q.id} className="space-y-3">
+                                        <Label className="text-base font-semibold">{q.question_text}</Label>
                                         <RadioGroup
                                             disabled={isLocked}
                                             value={q.yes_no_value === null ? '' : q.yes_no_value ? 'true' : 'false'}
                                             onValueChange={(val) => updateResponse(q.question_key, val === 'true', 'yes_no')}
-                                            className="flex space-x-6 mt-2"
+                                            className="flex gap-4"
                                         >
-                                            <div className="flex items-center space-x-2 border rounded-lg p-3 w-32 hover:bg-slate-50">
+                                            <div className="flex items-center space-x-2">
                                                 <RadioGroupItem value="true" id={`${q.id}-yes`} />
-                                                <Label htmlFor={`${q.id}-yes`} className="cursor-pointer font-normal">Sí</Label>
+                                                <Label htmlFor={`${q.id}-yes`} className="font-normal cursor-pointer">Sí</Label>
                                             </div>
-                                            <div className="flex items-center space-x-2 border rounded-lg p-3 w-32 hover:bg-slate-50">
+                                            <div className="flex items-center space-x-2">
                                                 <RadioGroupItem value="false" id={`${q.id}-no`} />
-                                                <Label htmlFor={`${q.id}-no`} className="cursor-pointer font-normal">No</Label>
+                                                <Label htmlFor={`${q.id}-no`} className="font-normal cursor-pointer">No</Label>
                                             </div>
                                         </RadioGroup>
                                     </div>
@@ -445,90 +470,88 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                             }
 
                             return (
-                                <div key={q.id} className="border-b pb-4 last:border-0">
-                                    <Label className="text-base font-medium mb-2 block">
-                                        {q.question_text}
-                                    </Label>
+                                <div key={q.id} className="space-y-3">
+                                    <Label className="text-base font-semibold">{q.question_text}</Label>
                                     <Textarea
                                         disabled={isLocked}
                                         value={q.text_value || ''}
                                         onChange={(e) => updateResponse(q.question_key, e.target.value, 'text')}
                                         placeholder="Escriba sus comentarios aquí..."
                                         rows={3}
-                                        className="mt-2"
                                     />
                                 </div>
                             );
                         })}
+
+                        {/* Comentarios adicionales */}
+                        <div className="space-y-3">
+                            <Label className="text-base font-semibold">Comentarios adicionales</Label>
+                            <Textarea
+                                disabled={isLocked}
+                                value={additionalComments}
+                                onChange={(e) => setAdditionalComments(e.target.value)}
+                                placeholder="Cuando me toca la siguiente capacitación?"
+                                rows={3}
+                            />
+                        </div>
                     </CardContent>
                 </Card>
 
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle className="text-xl">III. COMENTARIOS ADICIONALES</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Textarea
-                            disabled={isLocked}
-                            value={additionalComments}
-                            onChange={(e) => setAdditionalComments(e.target.value)}
-                            placeholder="Comentarios adicionales sobre el curso..."
-                            rows={3}
-                        />
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-xl flex items-center gap-2">
-                            <PenTool className="w-5 h-5" />
-                            IV. FIRMA DEL PARTICIPANTE
-                        </CardTitle>
-                        <CardDescription>
-                            {isLocked
-                                ? 'El cuestionario ha sido firmado y enviado'
-                                : 'Ingrese su nombre completo para firmar electrónicamente este cuestionario'}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {employeeSignature ? (
-                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                    <CheckCircle2 className="w-6 h-6 text-green-600" />
+                {/* Firmas registradas */}
+                {signatures.length > 0 && (
+                    <Card className="mb-6">
+                        <CardHeader>
+                            <CardTitle>Firmas</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {employeeSignature && (
+                                <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
                                     <div>
-                                        <div className="font-semibold text-green-900">
-                                            Firmado por: {employeeSignature.signer_name}
-                                        </div>
-                                        <div className="text-xs text-green-700">
-                                            Fecha: {format(new Date(employeeSignature.signed_at), 'dd/MM/yyyy HH:mm')} hrs
-                                        </div>
+                                        <p className="font-semibold text-green-900">Participante</p>
+                                        <p className="text-green-700">{employeeSignature.signer_name}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm text-green-600">
+                                            <CheckCircle2 className="inline h-4 w-4 mr-1" />
+                                            {format(new Date(employeeSignature.signed_at), 'dd/MM/yyyy HH:mm')} hrs
+                                        </p>
                                     </div>
                                 </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Firma del participante */}
+                {!isLocked && !employeeSignature && (
+                    <Card className="mb-6">
+                        <CardHeader>
+                            <CardTitle>Firmado por:</CardTitle>
+                            <CardDescription>
+                                Una vez firmado, no podrá modificar las respuestas
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="employee-name">Nombre del Participante</Label>
+                                <Input
+                                    id="employee-name"
+                                    value={employeeName}
+                                    onChange={(e) => setEmployeeName(e.target.value)}
+                                    placeholder="Ingrese su nombre completo"
+                                />
                             </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <div>
-                                    <Label htmlFor="employeeName">Nombre Completo del Participante *</Label>
-                                    <Input
-                                        id="employeeName"
-                                        value={employeeName}
-                                        onChange={(e) => setEmployeeName(e.target.value)}
-                                        placeholder="Ingrese su nombre completo tal como aparece en el registro"
-                                        className="mt-1"
-                                    />
-                                </div>
-                                <Button
-                                    onClick={handleEmployeeSign}
-                                    disabled={saving}
-                                    className="w-full bg-[#2166be] hover:bg-[#1a5299]"
-                                    size="lg"
-                                >
-                                    {saving ? 'Guardando y Firmando...' : 'Firmar y Enviar Cuestionario'}
-                                </Button>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                            <Button
+                                onClick={handleEmployeeSign}
+                                disabled={saving}
+                                className="w-full"
+                            >
+                                {saving ? 'Firmando...' : 'Firmar Cuestionario'}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
+
             </div>
         </div>
     );
