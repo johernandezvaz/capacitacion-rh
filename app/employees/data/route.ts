@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
     const plantId = searchParams.get('plant_id');
     const checkCourses = searchParams.get('check_courses');
     const employeeId = searchParams.get('employee_id');
+    const search = searchParams.get('search')?.trim() ?? '';
 
     if (checkCourses === 'true' && employeeId) {
       const res = await pool.query(
@@ -20,10 +21,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ employees: [] });
     }
 
-    const res = await pool.query(
-      `SELECT * FROM employees WHERE plant_id = $1 ORDER BY nombre ASC`,
-      [plantId]
-    );
+    let res;
+    if (search) {
+      res = await pool.query(
+        `SELECT * FROM employees
+         WHERE plant_id = $1
+           AND (employee_number ILIKE $2 OR nombre ILIKE $2)
+         ORDER BY nombre ASC`,
+        [plantId, `%${search}%`]
+      );
+    } else {
+      res = await pool.query(
+        `SELECT * FROM employees WHERE plant_id = $1 ORDER BY nombre ASC`,
+        [plantId]
+      );
+    }
 
     return NextResponse.json({ employees: res.rows });
   } catch (error: any) {
