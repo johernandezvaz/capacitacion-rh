@@ -150,7 +150,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
     };
 
     const validateForm = () => {
-        const evaluationResponses = responses.filter(r => r.section === 'evaluation');
+        const evaluationResponses = responses.filter(r => r.section === 'evaluacion');
         const allEvaluationAnswered = evaluationResponses.every(r => r.percentage_value !== null);
 
         if (!allEvaluationAnswered) {
@@ -191,7 +191,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
         setSaving(true);
         try {
             const evaluationResponses = responses.filter(
-                r => r.section === 'evaluation' && r.percentage_value !== null
+                r => r.section === 'evaluacion' && r.percentage_value !== null
             );
             const average = evaluationResponses.reduce((sum, r) => sum + (r.percentage_value || 0), 0) / evaluationResponses.length;
 
@@ -282,7 +282,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
     }
 
     const isLocked = questionnaire.submitted_at !== null;
-    const evaluationQuestions = responses.filter(r => r.section === 'evaluation');
+    const evaluationQuestions = responses.filter(r => r.section === 'evaluacion');
     const feedbackQuestions = responses.filter(r => r.section === 'feedback');
     const employeeSignature = signatures.find(s => s.signer_type === 'employee');
 
@@ -309,54 +309,54 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
-                                    <Button
-                                        onClick={() => {
-                                            const url = `${window.location.origin}/public/questionnaire/${questionnaire.id}`;
-                                            if (navigator.clipboard) {
-                                                navigator.clipboard.writeText(url).then(() => {
-                                                    toast.success('Enlace copiado al portapapeles');
-                                                }).catch(() => {
-                                                    toast.error('No se pudo copiar el enlace');
-                                                });
-                                            } else {
-                                                const ta = document.createElement('textarea');
-                                                ta.value = url;
-                                                ta.style.position = 'fixed';
-                                                ta.style.opacity = '0';
-                                                document.body.appendChild(ta);
-                                                ta.focus();
-                                                ta.select();
-                                                try {
-                                                    document.execCommand('copy');
-                                                    toast.success('Enlace copiado al portapapeles');
-                                                } catch {
-                                                    toast.error('No se pudo copiar el enlace');
-                                                }
-                                                document.body.removeChild(ta);
+                                <Button
+                                    onClick={() => {
+                                        const url = `${window.location.origin}/public/questionnaire/${questionnaire.id}`;
+                                        if (navigator.clipboard) {
+                                            navigator.clipboard.writeText(url).then(() => {
+                                                toast.success('Enlace copiado al portapapeles');
+                                            }).catch(() => {
+                                                toast.error('No se pudo copiar el enlace');
+                                            });
+                                        } else {
+                                            const ta = document.createElement('textarea');
+                                            ta.value = url;
+                                            ta.style.position = 'fixed';
+                                            ta.style.opacity = '0';
+                                            document.body.appendChild(ta);
+                                            ta.focus();
+                                            ta.select();
+                                            try {
+                                                document.execCommand('copy');
+                                                toast.success('Enlace copiado al portapapeles');
+                                            } catch {
+                                                toast.error('No se pudo copiar el enlace');
                                             }
-                                        }}
-                                        variant="outline"
-                                        size="sm"
-                                        title="Copiar enlace público"
-                                    >
-                                        <LinkIcon className="h-4 w-4 mr-2" />
-                                        Compartir
-                                    </Button>
-                                    {isLocked && (
-                                        <>
-                                            <Button
-                                                onClick={handleDownloadPDF}
-                                                disabled={downloadingPDF}
-                                                variant="outline"
-                                                size="sm"
-                                            >
-                                                <Download className="h-4 w-4 mr-2" />
-                                                {downloadingPDF ? 'Generando...' : 'Descargar PDF'}
-                                            </Button>
-                                            <Lock className="h-6 w-6 text-gray-400" />
-                                        </>
-                                    )}
-                                </div>
+                                            document.body.removeChild(ta);
+                                        }
+                                    }}
+                                    variant="outline"
+                                    size="sm"
+                                    title="Copiar enlace público"
+                                >
+                                    <LinkIcon className="h-4 w-4 mr-2" />
+                                    Compartir
+                                </Button>
+                                {isLocked && (
+                                    <>
+                                        <Button
+                                            onClick={handleDownloadPDF}
+                                            disabled={downloadingPDF}
+                                            variant="outline"
+                                            size="sm"
+                                        >
+                                            <Download className="h-4 w-4 mr-2" />
+                                            {downloadingPDF ? 'Generando...' : 'Descargar PDF'}
+                                        </Button>
+                                        <Lock className="h-6 w-6 text-gray-400" />
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
