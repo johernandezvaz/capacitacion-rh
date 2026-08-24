@@ -40,11 +40,11 @@ export async function POST(request: NextRequest) {
       await client.query(
         `INSERT INTO questionnaire_responses (questionnaire_id, question_key, section, question_text, response_type)
          VALUES 
-         ($1, 'q1', 'evaluacion', 'Dominio del tema por el instructor', 'scale'),
-         ($1, 'q2', 'evaluacion', 'Claridad de las explicaciones', 'scale'),
-         ($1, 'q3', 'evaluacion', 'Utilidad del material didáctico', 'scale'),
-         ($1, 'q4', 'evaluacion', 'Cumplimiento de los objetivos del curso', 'scale'),
-         ($1, 'q5', 'evaluacion', 'Instalaciones y equipo utilizado', 'scale')`,
+         ($1, 'q1', 'evaluacion', 'Dominio del tema por el instructor', 'percentage'),
+         ($1, 'q2', 'evaluacion', 'Claridad de las explicaciones', 'percentage'),
+         ($1, 'q3', 'evaluacion', 'Utilidad del material didáctico', 'percentage'),
+         ($1, 'q4', 'evaluacion', 'Cumplimiento de los objetivos del curso', 'percentage'),
+         ($1, 'q5', 'evaluacion', 'Instalaciones y equipo utilizado', 'percentage')`,
         [qId]
       );
     }
