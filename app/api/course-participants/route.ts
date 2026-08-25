@@ -40,11 +40,15 @@ export async function POST(request: NextRequest) {
       await client.query(
         `INSERT INTO questionnaire_responses (questionnaire_id, question_key, section, question_text, response_type)
          VALUES 
-         ($1, 'q1', 'evaluacion', 'Dominio del tema por el instructor', 'percentage'),
-         ($1, 'q2', 'evaluacion', 'Claridad de las explicaciones', 'percentage'),
-         ($1, 'q3', 'evaluacion', 'Utilidad del material didáctico', 'percentage'),
-         ($1, 'q4', 'evaluacion', 'Cumplimiento de los objetivos del curso', 'percentage'),
-         ($1, 'q5', 'evaluacion', 'Instalaciones y equipo utilizado', 'percentage')`,
+         ($1, 'q1', 'evaluation', 'Dominio del tema por el instructor', 'percentage'),
+         ($1, 'q2', 'evaluation', 'Claridad de las explicaciones', 'percentage'),
+         ($1, 'q3', 'evaluation', 'Utilidad del material didáctico', 'percentage'),
+         ($1, 'q4', 'evaluation', 'Cumplimiento de los objetivos del curso', 'percentage'),
+         ($1, 'q5', 'evaluation', 'Instalaciones y equipo utilizado', 'percentage'),
+         ($1, 'content_transferable', 'feedback', '¿El contenido es transferible a la práctica diaria?', 'yes_no'),
+         ($1, 'has_problems', 'feedback', '¿Hay algún problema que deba abordarse?', 'yes_no'),
+         ($1, 'problems_detail', 'feedback', 'Descripción del problema', 'text'),
+         ($1, 'met_expectations', 'feedback', '¿La capacitación brindada cumplió con sus expectativas?', 'yes_no')`,
         [qId]
       );
     }

@@ -150,7 +150,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
     };
 
     const validateForm = () => {
-        const evaluationResponses = responses.filter(r => r.section === 'evaluacion');
+        const evaluationResponses = responses.filter(r => r.section === 'evaluation');
         const allEvaluationAnswered = evaluationResponses.every(r => r.percentage_value !== null);
 
         if (!allEvaluationAnswered) {
@@ -191,7 +191,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
         setSaving(true);
         try {
             const evaluationResponses = responses.filter(
-                r => r.section === 'evaluacion' && r.percentage_value !== null
+                r => r.section === 'evaluation' && r.percentage_value !== null
             );
             const average = evaluationResponses.reduce((sum, r) => sum + (r.percentage_value || 0), 0) / evaluationResponses.length;
 
@@ -282,7 +282,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
     }
 
     const isLocked = questionnaire.submitted_at !== null;
-    const evaluationQuestions = responses.filter(r => r.section === 'evaluacion');
+    const evaluationQuestions = responses.filter(r => r.section === 'evaluation');
     const feedbackQuestions = responses.filter(r => r.section === 'feedback');
     const employeeSignature = signatures.find(s => s.signer_type === 'employee');
 
@@ -303,7 +303,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                     <CardHeader>
                         <div className="flex items-start justify-between">
                             <div>
-                                <CardTitle className="text-2xl mb-2">Evaluación de Reacción</CardTitle>
+                                <CardTitle className="text-2xl mb-2">Cuestionario del Empleado</CardTitle>
                                 <CardDescription>
                                     Cuestionario de satisfacción del participante sobre la capacitación recibida
                                 </CardDescription>
@@ -403,7 +403,6 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                     </CardContent>
                 </Card>
 
-                {/* Sección 1 - Evaluación Porcentual */}
                 <Card className="mb-6">
                     <CardHeader>
                         <CardTitle>Sección 1 - Evaluación Porcentual</CardTitle>
@@ -490,7 +489,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
                                 disabled={isLocked}
                                 value={additionalComments}
                                 onChange={(e) => setAdditionalComments(e.target.value)}
-                                placeholder="Cuando me toca la siguiente capacitación?"
+                                placeholder="Escriba sus comentarios adicionales aquí..."
                                 rows={3}
                             />
                         </div>
