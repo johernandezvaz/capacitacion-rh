@@ -30,8 +30,16 @@ export async function GET(request: Request, { params }: RouteContext) {
            e.*,
            cp.id AS participant_id,
            cp.course_id,
-           (jsonb_agg(to_jsonb(q)) FILTER (WHERE q.type = 'hot'))->0 AS hot_questionnaire,
-           (jsonb_agg(to_jsonb(q)) FILTER (WHERE q.type = 'cold'))->0 AS cold_questionnaire
+           (jsonb_agg(to_jsonb(q) ORDER BY
+             CASE WHEN q.submitted_at IS NOT NULL THEN 0 ELSE 1 END ASC,
+             q.submitted_at DESC NULLS LAST,
+             q.created_at DESC
+           ) FILTER (WHERE q.type = 'hot'))->0 AS hot_questionnaire,
+           (jsonb_agg(to_jsonb(q) ORDER BY
+             CASE WHEN q.submitted_at IS NOT NULL THEN 0 ELSE 1 END ASC,
+             q.submitted_at DESC NULLS LAST,
+             q.created_at DESC
+           ) FILTER (WHERE q.type = 'cold'))->0 AS cold_questionnaire
          FROM course_participants cp
          INNER JOIN employees e ON e.id = cp.employee_id
          LEFT JOIN questionnaires q ON q.course_participant_id = cp.id
