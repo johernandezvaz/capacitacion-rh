@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/auth';
-const AUTH_PATHS = new Set(['/api/auth/login', '/api/auth/logout', '/api/auth/session', '/api/auth/change-password']);
+const AUTH_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/api/auth/session',
+  '/api/auth/change-password',
+  '/api/migrate',
+  '/api/db-info',
+]);
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (pathname.startsWith('/public') || AUTH_PATHS.has(pathname)) return NextResponse.next();
