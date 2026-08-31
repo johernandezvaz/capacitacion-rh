@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       id: sessionResult.rows[0].id,
       expiresAt,
       user: {
-        id: user.id,
+        id: String(user.id),
         email: user.email,
         passwordHash: user.password_hash,
         forcePasswordChange: user.force_password_change,

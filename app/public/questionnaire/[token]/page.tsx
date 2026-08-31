@@ -63,7 +63,7 @@ export default function PublicQuestionnairePage({
   const resolvedId = state.id;
 
   if (state.type === 'hot') {
-    return <HotPage params={Promise.resolve({ id: resolvedId })} />;
+    return <HotPage params={Promise.resolve({ id: resolvedId })} apiBasePath="/public/questionnaire/hot" />;
   }
-  return <ColdPage params={Promise.resolve({ id: resolvedId })} />;
+  return <ColdPage params={Promise.resolve({ id: resolvedId })} apiBasePath="/public/questionnaire/cold" />;
 }

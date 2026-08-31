@@ -62,7 +62,13 @@ const PERCENTAGE_OPTIONS = [
     { label: 'Excelente (100%)', value: 100 },
 ];
 
-export default function HotQuestionnairePage({ params }: { params: Promise<{ id: string }> }) {
+export default function HotQuestionnairePage({
+    params,
+    apiBasePath = '/questionnaire/hot',
+}: {
+    params: Promise<{ id: string }>;
+    apiBasePath?: string;
+}) {
     const resolvedParams = use(params);
     const router = useRouter();
     const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null);
@@ -81,7 +87,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
 
     const fetchQuestionnaire = async () => {
         try {
-            const res = await fetch(`/questionnaire/hot/${resolvedParams.id}/data`);
+            const res = await fetch(`${apiBasePath}/${resolvedParams.id}/data`);
             if (!res.ok) {
                 const errData = await res.json();
                 throw new Error(errData.error || 'Cuestionario no encontrado');
@@ -110,7 +116,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
         if (questionnaire?.submitted_at !== null) return;
 
         try {
-            const res = await fetch(`/questionnaire/hot/${resolvedParams.id}/data`, {
+            const res = await fetch(`${apiBasePath}/${resolvedParams.id}/data`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -195,7 +201,7 @@ export default function HotQuestionnairePage({ params }: { params: Promise<{ id:
             );
             const average = evaluationResponses.reduce((sum, r) => sum + (r.percentage_value || 0), 0) / evaluationResponses.length;
 
-            const res = await fetch(`/questionnaire/hot/${resolvedParams.id}/data`, {
+            const res = await fetch(`${apiBasePath}/${resolvedParams.id}/data`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

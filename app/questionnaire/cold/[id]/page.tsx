@@ -62,7 +62,13 @@ const COLD_PERCENTAGE_OPTIONS = [
     { label: '100%', value: 100 },
 ];
 
-export default function ColdQuestionnairePage({ params }: { params: Promise<{ id: string }> }) {
+export default function ColdQuestionnairePage({
+    params,
+    apiBasePath = '/questionnaire/cold',
+}: {
+    params: Promise<{ id: string }>;
+    apiBasePath?: string;
+}) {
     const resolvedParams = use(params);
     const router = useRouter();
     const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null);
@@ -81,7 +87,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
 
     const fetchQuestionnaire = async () => {
         try {
-            const res = await fetch(`/questionnaire/cold/${resolvedParams.id}/data`);
+            const res = await fetch(`${apiBasePath}/${resolvedParams.id}/data`);
             if (!res.ok) {
                 const errData = await res.json();
                 throw new Error(errData.error || 'Cuestionario no encontrado');
@@ -115,7 +121,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
         }
 
         try {
-            const res = await fetch(`/questionnaire/cold/${resolvedParams.id}/data`, {
+            const res = await fetch(`${apiBasePath}/${resolvedParams.id}/data`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -150,7 +156,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
         }
 
         try {
-            await fetch(`/questionnaire/cold/${resolvedParams.id}/data`, {
+            await fetch(`${apiBasePath}/${resolvedParams.id}/data`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -197,7 +203,7 @@ export default function ColdQuestionnairePage({ params }: { params: Promise<{ id
                 ? validResponses.reduce((sum, r) => sum + (r.percentage_value || 0), 0) / validResponses.length
                 : null;
 
-            const res = await fetch(`/questionnaire/cold/${resolvedParams.id}/data`, {
+            const res = await fetch(`${apiBasePath}/${resolvedParams.id}/data`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
