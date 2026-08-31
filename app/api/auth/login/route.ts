@@ -28,7 +28,10 @@ export async function POST(request: Request) {
       [email.trim().toLowerCase()]
     );
     const user = userResult.rows[0];
-    const passwordMatches = user ? await bcrypt.compare(password, user.password_hash) : false;
+    const passwordMatches =
+      user && typeof user.password_hash === 'string' && user.password_hash.length > 0
+        ? await bcrypt.compare(password, user.password_hash)
+        : false;
 
     if (!user || !passwordMatches) {
       return NextResponse.json({ error: 'Credenciales incorrectas.' }, { status: 401 });
@@ -56,8 +59,14 @@ export async function POST(request: Request) {
     response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions(expiresAt));
 
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login error:', error);
-    return NextResponse.json({ error: 'No fue posible iniciar sesión.' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'No fue posible iniciar sesión.',
+        details: error?.message || String(error),
+      },
+      { status: 500 }
+    );
   }
 }
