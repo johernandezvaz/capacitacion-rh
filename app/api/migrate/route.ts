@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 
 export async function GET() {
-  try {
-    const results: string[] = [];
+  const stepsReport: { step: string; status: 'ok' | 'error'; message?: string }[] = [];
+  let dbInfo: any = {};
+  let usersColumns: any[] = [];
+  let sessionsColumns: any[] = [];
 
-    // 1. Obtener información de la base de datos a la que está conectado este servidor
+  // 1. Información de conexión a la BD
+  try {
     const dbInfoResult = await query(`
       SELECT 
         current_database() AS database,
@@ -14,62 +17,109 @@ export async function GET() {
         inet_server_port() AS server_port,
         version() AS version
     `);
-    const dbInfo = dbInfoResult.rows[0];
+    dbInfo = dbInfoResult.rows[0] || {};
+    stepsReport.push({ step: '1. Conexión a BD', status: 'ok', message: `Conectado a ${dbInfo.database}` });
+  } catch (err: any) {
+    stepsReport.push({ step: '1. Conexión a BD', status: 'error', message: err.message });
+  }
 
-    // 2. Agregar columna force_password_change en users si no existe
+  // 2. Inspeccionar tipo de users.id y columnas de users
+  let userIdType = 'uuid';
+  try {
+    const colsRes = await query(`
+      SELECT column_name, data_type, udt_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users'
+    `);
+    usersColumns = colsRes.rows;
+    const idCol = usersColumns.find((c) => c.column_name === 'id');
+    if (idCol) {
+      userIdType = idCol.udt_name || idCol.data_type || 'uuid';
+    }
+    stepsReport.push({
+      step: '2. Inspección tabla users',
+      status: 'ok',
+      message: `users.id es de tipo: ${userIdType}`,
+    });
+  } catch (err: any) {
+    stepsReport.push({ step: '2. Inspección tabla users', status: 'error', message: err.message });
+  }
+
+  // 3. Agregar columna force_password_change a users si no existe
+  try {
     await query(`
       ALTER TABLE users 
       ADD COLUMN IF NOT EXISTS force_password_change BOOLEAN DEFAULT false NOT NULL;
     `);
-    results.push('Columna force_password_change verificada/creada en users.');
+    stepsReport.push({
+      step: '3. Columna force_password_change',
+      status: 'ok',
+      message: 'Columna agregada o ya existente.',
+    });
+  } catch (err: any) {
+    stepsReport.push({ step: '3. Columna force_password_change', status: 'error', message: err.message });
+  }
 
-    // 3. Crear tabla sessions si no existe
+  // 4. Crear tabla sessions adaptada al tipo de users.id
+  try {
     await query(`
       CREATE TABLE IF NOT EXISTS public.sessions (
         id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
-        user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_id ${userIdType} NOT NULL,
         expires_at timestamp with time zone NOT NULL,
         created_at timestamp with time zone DEFAULT now()
       );
     `);
-    results.push('Tabla sessions verificada/creada.');
+    stepsReport.push({
+      step: '4. Crear tabla sessions',
+      status: 'ok',
+      message: `Tabla sessions creada o existente con user_id ${userIdType}.`,
+    });
+  } catch (err: any) {
+    stepsReport.push({ step: '4. Crear tabla sessions', status: 'error', message: err.message });
+  }
 
-    // 4. Crear índices para sessions si no existen
+  // 5. Crear índices para sessions
+  try {
     await query(`
       CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON public.sessions (expires_at);
       CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON public.sessions (user_id);
     `);
-    results.push('Índices de sessions verificados/creados.');
+    stepsReport.push({ step: '5. Índices de sessions', status: 'ok', message: 'Índices creados o existentes.' });
+  } catch (err: any) {
+    stepsReport.push({ step: '5. Índices de sessions', status: 'error', message: err.message });
+  }
 
-    // 5. Verificar columnas de users
-    const usersColumns = await query(`
-      SELECT column_name, data_type 
+  // 6. Columnas actuales de sessions
+  try {
+    const sCols = await query(`
+      SELECT column_name, data_type, udt_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'sessions'
+    `);
+    sessionsColumns = sCols.rows;
+  } catch {}
+
+  // 7. Columnas actualizadas de users
+  try {
+    const uCols = await query(`
+      SELECT column_name, data_type, udt_name 
       FROM information_schema.columns 
       WHERE table_name = 'users'
     `);
+    usersColumns = uCols.rows;
+  } catch {}
 
-    return NextResponse.json({
-      success: true,
-      message: 'Migración ejecutada con éxito.',
-      database_connection: {
-        database: dbInfo.database,
-        user: dbInfo.user,
-        server_ip: dbInfo.server_ip || 'localhost / socket',
-        server_port: dbInfo.server_port || 5432,
-        version: dbInfo.version,
-      },
-      results,
-      users_columns: usersColumns.rows,
-    });
-  } catch (error: any) {
-    console.error('Migration/DB info error:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Error al consultar BD / ejecutar migración',
-        details: error?.message || String(error),
-      },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    database_info: {
+      database_name: dbInfo.database,
+      db_user: dbInfo.user,
+      server_ip: dbInfo.server_ip || 'localhost / unix socket',
+      server_port: dbInfo.server_port || 5432,
+      postgres_version: dbInfo.version,
+    },
+    steps_report: stepsReport,
+    users_columns: usersColumns,
+    sessions_columns: sessionsColumns,
+  });
 }
