@@ -122,28 +122,35 @@ export async function POST(request: NextRequest) {
     }
 
     if (Array.isArray(sections)) {
+      const keptSecIds: string[] = [];
       // Synchronize sections
       for (let sIdx = 0; sIdx < sections.length; sIdx++) {
         const sec = sections[sIdx];
         let secId = sec.id;
+        const tipoDb = (sec.tipo === 'conocimientos_generales' || sec.tipo === 'general')
+          ? 'conocimientos_generales'
+          : 'actividad';
 
         if (secId && !secId.startsWith('new_')) {
           await client.query(
-            `UPDATE ojt_sections SET nombre = $1, orden = $2 WHERE id = $3`,
-            [sec.nombre ? sec.nombre.trim() : '', sIdx, secId]
+            `UPDATE ojt_sections SET nombre = $1, orden = $2, tipo = $3 WHERE id = $4`,
+            [sec.nombre ? sec.nombre.trim() : '', sIdx, tipoDb, secId]
           );
         } else {
           const secIns = await client.query(
-            `INSERT INTO ojt_sections (record_id, nombre, orden) VALUES ($1, $2, $3) RETURNING id`,
-            [recordId, sec.nombre ? sec.nombre.trim() : '', sIdx]
+            `INSERT INTO ojt_sections (record_id, tipo, nombre, orden) VALUES ($1, $2, $3, $4) RETURNING id`,
+            [recordId, tipoDb, sec.nombre ? sec.nombre.trim() : '', sIdx]
           );
           secId = secIns.rows[0].id;
         }
+        keptSecIds.push(secId);
 
         if (Array.isArray(sec.entries)) {
+          const keptEntIds: string[] = [];
           for (let eIdx = 0; eIdx < sec.entries.length; eIdx++) {
             const ent = sec.entries[eIdx];
-            if (ent.id && !ent.id.startsWith('new_')) {
+            let entId = ent.id;
+            if (entId && !entId.startsWith('new_')) {
               await client.query(
                 `UPDATE ojt_entries SET
                   conocimiento_requerido = $1, habilidades = $2, fuentes_informacion = $3,
@@ -159,15 +166,16 @@ export async function POST(request: NextRequest) {
                   ent.duracion || null,
                   ent.puesto_responsable || null,
                   eIdx,
-                  ent.id,
+                  entId,
                 ]
               );
+              keptEntIds.push(entId);
             } else {
-              await client.query(
+              const entIns = await client.query(
                 `INSERT INTO ojt_entries (
                   section_id, conocimiento_requerido, habilidades, fuentes_informacion,
                   procedimientos_internos, metodo_entrenamiento, duracion, puesto_responsable, orden
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
                 [
                   secId,
                   ent.conocimiento_requerido || null,
@@ -180,9 +188,36 @@ export async function POST(request: NextRequest) {
                   eIdx,
                 ]
               );
+              keptEntIds.push(entIns.rows[0].id);
             }
           }
+
+          // Delete entries that were removed in this section
+          if (keptEntIds.length > 0) {
+            await client.query(
+              `DELETE FROM ojt_entries WHERE section_id = $1 AND NOT (id = ANY($2::uuid[]))`,
+              [secId, keptEntIds]
+            );
+          } else {
+            await client.query(
+              `DELETE FROM ojt_entries WHERE section_id = $1`,
+              [secId]
+            );
+          }
         }
+      }
+
+      // Delete sections that were removed in this record
+      if (keptSecIds.length > 0) {
+        await client.query(
+          `DELETE FROM ojt_sections WHERE record_id = $1 AND NOT (id = ANY($2::uuid[]))`,
+          [recordId, keptSecIds]
+        );
+      } else {
+        await client.query(
+          `DELETE FROM ojt_sections WHERE record_id = $1`,
+          [recordId]
+        );
       }
     }
 

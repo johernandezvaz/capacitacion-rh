@@ -108,10 +108,12 @@ export interface OjtRecord {
   jefe_directo?: Employee | null;
 }
 
+export type OjtSectionTipo = 'conocimientos_generales' | 'actividad';
+
 export interface OjtSection {
   id: string;
   record_id: string;
-  tipo?: string;
+  tipo?: OjtSectionTipo | string;
   nombre?: string;
   orden: number;
   created_at?: string;

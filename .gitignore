@@ -10,7 +10,7 @@
 .ipynb_checkpoints
 /insertar_datos.ipynb
 /lista_empleados.csv
-
+components/old-ojt-form.tsx
 # testing
 /coverage
 
