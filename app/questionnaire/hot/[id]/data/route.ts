@@ -146,6 +146,17 @@ export async function PATCH(
                 [average_score != null ? Number(average_score) : null, additional_comments || null, questionnaireId]
             );
 
+            await pool.query(
+                `UPDATE questionnaires
+                 SET available_from = NOW() + INTERVAL '3 months'
+                 WHERE course_participant_id = (
+                     SELECT course_participant_id FROM questionnaires WHERE id = $1
+                 )
+                 AND type = 'cold'
+                 AND submitted_at IS NULL`,
+                [questionnaireId]
+            );
+
             return NextResponse.json({ success: true });
         }
 
