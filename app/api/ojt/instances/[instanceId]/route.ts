@@ -171,8 +171,7 @@ export async function PATCH(
          ON CONFLICT (instance_id, signer_type) DO UPDATE SET
           signer_name = EXCLUDED.signer_name,
           signed_at = EXCLUDED.signed_at,
-          firma_url = EXCLUDED.firma_url,
-          updated_at = NOW()
+          firma_url = EXCLUDED.firma_url
          RETURNING *`,
         [instanceId, signer_type, signer_name || null, signed_at || null, firma_url || null]
       );
