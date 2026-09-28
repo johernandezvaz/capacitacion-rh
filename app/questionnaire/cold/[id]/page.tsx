@@ -488,12 +488,6 @@ export default function ColdQuestionnairePage({
                                         <p className="font-semibold text-green-900">Evaluador</p>
                                         <p className="text-green-700">{evaluatorSignature.signer_name}</p>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-sm text-green-600">
-                                            <CheckCircle2 className="inline h-4 w-4 mr-1" />
-                                            {format(new Date(evaluatorSignature.signed_at), 'dd/MM/yyyy HH:mm')} hrs
-                                        </p>
-                                    </div>
                                 </div>
                             )}
                         </CardContent>

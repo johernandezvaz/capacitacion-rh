@@ -515,12 +515,6 @@ export default function HotQuestionnairePage({
                                         <p className="font-semibold text-green-900">Participante</p>
                                         <p className="text-green-700">{employeeSignature.signer_name}</p>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-sm text-green-600">
-                                            <CheckCircle2 className="inline h-4 w-4 mr-1" />
-                                            {format(new Date(employeeSignature.signed_at), 'dd/MM/yyyy HH:mm')} hrs
-                                        </p>
-                                    </div>
                                 </div>
                             )}
                         </CardContent>
