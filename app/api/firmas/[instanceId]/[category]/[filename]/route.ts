@@ -5,26 +5,36 @@ import {
   authorizeInstanceAccess,
   getSafeFirmasPath,
 } from '@/lib/firmas';
+import { query } from '@/lib/db';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ instanceId: string; category: string; filename: string }> }
 ) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
     const { instanceId, category, filename } = await params;
 
     if (!instanceId || !category || !filename) {
       return NextResponse.json({ error: 'Parámetros incompletos' }, { status: 400 });
     }
 
-    const hasAccess = await authorizeInstanceAccess(session, instanceId);
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'No tiene autorización para acceder a las firmas de esta instancia' }, { status: 403 });
+    const instanceRes = await query(
+      `SELECT id FROM ojt_instances WHERE id = $1`,
+      [instanceId]
+    );
+    if (!instanceRes.rowCount || instanceRes.rowCount === 0) {
+      return NextResponse.json({ error: 'Instancia no encontrada' }, { status: 404 });
+    }
+
+    const session = await getSessionFromRequest(request);
+    if (session) {
+      const hasAccess = await authorizeInstanceAccess(session, instanceId);
+      if (!hasAccess) {
+        return NextResponse.json(
+          { error: 'No tiene autorización para acceder a las firmas de esta instancia' },
+          { status: 403 }
+        );
+      }
     }
 
     const safePath = getSafeFirmasPath(instanceId, category, filename);
@@ -37,7 +47,7 @@ export async function GET(
 
     const buffer = await fs.readFile(safePath);
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'image/png',

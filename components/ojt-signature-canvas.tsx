@@ -124,7 +124,7 @@ export function OjtSignatureCanvas({ currentUrl, instanceId, fieldKey, onSave, d
         className="flex flex-col items-center justify-center w-full min-h-[48px] border border-dashed border-border rounded hover:border-[#2166be] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         title={currentUrl ? 'Cambiar firma' : 'Agregar firma'}
       >
-        {currentUrl ? (
+        {currentUrl && !currentUrl.startsWith('blob:') ? (
           <img src={currentUrl} alt="Firma" className="max-h-[44px] max-w-[110px] object-contain" />
         ) : (
           <span className="flex items-center gap-1 text-xs text-muted-foreground py-2">

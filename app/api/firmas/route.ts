@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'node:fs/promises';
-import path from 'node:path';
 import { getSessionFromRequest } from '@/lib/auth';
 import {
   authorizeInstanceAccess,
   getSafeFirmasPath,
   resolveSignaturePathInfo,
 } from '@/lib/firmas';
+import { query } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { dataUrl, instanceId, fieldKey, category: categoryInput, filename: filenameInput } = body;
 
@@ -26,9 +21,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'La firma debe ser una imagen PNG en formato Base64 Data URL' }, { status: 400 });
     }
 
-    const hasAccess = await authorizeInstanceAccess(session, instanceId);
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'No tiene autorización para modificar esta instancia OJT' }, { status: 403 });
+    const instanceRes = await query(
+      `SELECT id FROM ojt_instances WHERE id = $1`,
+      [instanceId]
+    );
+    if (!instanceRes.rowCount || instanceRes.rowCount === 0) {
+      return NextResponse.json({ error: 'Instancia no encontrada' }, { status: 404 });
+    }
+
+    const session = await getSessionFromRequest(request);
+    if (session) {
+      const hasAccess = await authorizeInstanceAccess(session, instanceId);
+      if (!hasAccess) {
+        return NextResponse.json({ error: 'No tiene autorización para modificar esta instancia OJT' }, { status: 403 });
+      }
     }
 
     const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '');
@@ -44,7 +50,7 @@ export async function POST(request: NextRequest) {
     const safePath = getSafeFirmasPath(instanceId, category, filename);
 
     await fs.mkdir(safeDir, { recursive: true });
-    await fs.writeFile(safePath, buffer);
+    await fs.writeFile(safePath, new Uint8Array(buffer));
 
     const internalUrl = `/api/firmas/${instanceId}/${category}/${filename}`;
 

@@ -68,6 +68,7 @@ function fmtDate(v?: string | null) {
 async function loadB64(url: string): Promise<string | null> {
   if (!url) return null;
   if (url.startsWith('data:image/')) return url;
+  if (url.startsWith('blob:')) return null;
 
   if (typeof window === 'undefined') {
     try {
@@ -127,135 +128,224 @@ export async function generateOjtInstancePdf(data: OjtInstancePdfData): Promise<
 
   autoTable(doc, {
     startY: Y,
-    margin: { left: M, right: M },
-    styles: bs,
-    headStyles: hs,
-    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 42 } },
-    body: [
-      [{ content: 'DATOS DE LA PLANTILLA', colSpan: 6, styles: { fillColor: SEC, textColor: 255, fontStyle: 'bold' } }],
-      ['Puesto', d(data.template.puesto), 'Período', d(data.template.periodo_entrenamiento), 'Piloto Proceso', data.template.es_piloto_proceso ? (data.template.piloto_proceso_codigo ? PILOTO[data.template.piloto_proceso_codigo] ?? data.template.piloto_proceso_codigo : 'Sí') : 'No'],
-      ['Integrante Brigada', data.template.es_integrante_brigada ? 'Sí' : 'No', '', '', '', ''],
-      [{ content: 'DATOS DEL EMPLEADO Y EVALUACIÓN', colSpan: 6, styles: { fillColor: SEC, textColor: 255, fontStyle: 'bold' } }],
-      ['Empleado', d(data.nombre), 'Jefe Directo', d(data.jefeNombre), 'Efectividad Prom.', data.avgEfectividad != null ? `${data.avgEfectividad}%` : '—'],
-      ['Fecha Inicio', fmtDate(data.fechaInicio), 'Fecha Término', fmtDate(data.fechaTermino), '', ''],
-    ],
+    head: [[
+      { content: 'Puesto', styles: { fontStyle: 'bold' as const } },
+      { content: 'Nombre del Empleado', styles: { fontStyle: 'bold' as const } },
+      { content: 'Fecha Inicio', styles: { fontStyle: 'bold' as const } },
+      { content: 'Fecha Término', styles: { fontStyle: 'bold' as const } },
+    ]],
+    body: [[d(data.template.puesto), d(data.nombre), fmtDate(data.fechaInicio), fmtDate(data.fechaTermino)]],
+    theme: 'grid', headStyles: hs, bodyStyles: bs, margin: { left: M, right: M }, tableWidth: W - M * 2,
   });
+  Y = (doc as any).lastAutoTable.finalY + 1;
 
-  Y = (doc as any).lastAutoTable.finalY + 6;
+  const pilotoVal = data.template.es_piloto_proceso
+    ? (data.template.piloto_proceso_codigo ? (PILOTO[data.template.piloto_proceso_codigo] ?? data.template.piloto_proceso_codigo) : 'Sí')
+    : 'No';
 
-  const tableHead = [[
-    'Conocimiento Requerido', 'Habilidades', 'Fuentes de Info.', 'Procedimientos',
-    'Método Entr.', 'Dur.', 'F. Plan. Térm.', 'F. Real Inic.', 'F. Real Térm.', 'Efect.%',
-    'Firma Emp.', 'Puesto Resp.', 'Responsable', 'Comentarios',
-  ]];
+  autoTable(doc, {
+    startY: Y,
+    head: [[
+      { content: 'Período de Entrenamiento', styles: { fontStyle: 'bold' as const } },
+      { content: 'Jefe Directo', styles: { fontStyle: 'bold' as const } },
+      { content: '¿Piloto de Proceso?', styles: { fontStyle: 'bold' as const } },
+      { content: '¿Integrante de Brigada?', styles: { fontStyle: 'bold' as const } },
+    ]],
+    body: [[d(data.template.periodo_entrenamiento), d(data.jefeNombre), pilotoVal, data.template.es_integrante_brigada ? 'Sí' : 'No']],
+    theme: 'grid', headStyles: hs, bodyStyles: bs, margin: { left: M, right: M }, tableWidth: W - M * 2,
+  });
+  Y = (doc as any).lastAutoTable.finalY + 4;
 
-  const tableBody: any[] = [];
-  const signatureDraws: Array<{ x: number; y: number; w: number; h: number; key: string }> = [];
+  if (data.avgEfectividad != null) {
+    doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(25, 43, 82);
+    doc.text(`Efectividad Promedio: ${data.avgEfectividad}%`, M, Y);
+    Y += 5;
+  }
+
+  type Row = (string | { content: string; colSpan?: number; styles?: object })[];
+  const body: Row[] = [];
+  const meta: Array<{
+    isHeader: boolean;
+    entryId?: string;
+    efectividadVal?: number | null;
+    responsableNombre?: string;
+  }> = [];
 
   for (const g of data.groups) {
-    tableBody.push([{
+    body.push([{
       content: g.section_nombre.toUpperCase(),
       colSpan: 14,
-      styles: { fillColor: SEC, textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      styles: { fillColor: SEC, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left', fontSize: 8 },
     }]);
+    meta.push({ isHeader: true });
 
     for (const r of g.rows) {
-      tableBody.push([
-        d(r.conocimiento_requerido),
-        d(r.habilidades),
-        d(r.fuentes_informacion),
-        d(r.procedimientos_internos),
-        d(r.metodo_entrenamiento),
-        d(r.duracion),
-        fmtDate(r.fecha_planeada_terminacion),
-        fmtDate(r.fecha_real_inicio),
-        fmtDate(r.fecha_real_termino),
-        r.efectividad ? `${r.efectividad}%` : '—',
-        '', // Space for employee signature
+      const efVal = r.efectividad ? parseFloat(r.efectividad) : null;
+      body.push([
+        d(r.conocimiento_requerido), d(r.habilidades), d(r.fuentes_informacion),
+        d(r.procedimientos_internos), d(r.metodo_entrenamiento), d(r.duracion),
+        fmtDate(r.fecha_planeada_terminacion), fmtDate(r.fecha_real_inicio || null),
+        fmtDate(r.fecha_real_termino || null), r.efectividad ? `${r.efectividad}%` : '—',
+        '',
         d(r.puesto_responsable),
-        d(r.responsable_nombre),
+        '',
         d(r.comentarios),
       ]);
+      meta.push({
+        isHeader: false,
+        entryId: r.entry_id,
+        efectividadVal: efVal,
+        responsableNombre: r.responsable_nombre || '',
+      });
     }
   }
 
   autoTable(doc, {
     startY: Y,
-    margin: { left: M, right: M },
-    styles: { fontSize: 7, cellPadding: 2 },
-    headStyles: { fillColor: HDR, textColor: 255, fontStyle: 'bold', fontSize: 7, halign: 'center' },
+    head: [[
+      'Conocimiento\nRequerido', 'Habilidades', 'Fuentes de\nInformación', 'Procedimientos\nInternos',
+      'Método de\nEntrenamiento', 'Duración', 'F. Planeada\nTerminación',
+      'F. Real\nInicio', 'F. Real\nTérmino', 'Efect.\n%', 'Firma\nEmpleado',
+      'Puesto\nResponsable', 'Responsable', 'Comentarios',
+    ]],
+    body: body as any,
+    theme: 'grid',
+    headStyles: { fillColor: HDR, textColor: 255, fontStyle: 'bold', fontSize: 7, halign: 'center', valign: 'middle', minCellHeight: 10 },
+    bodyStyles: { fontSize: 7, cellPadding: 2, valign: 'top', minCellHeight: 22 },
     alternateRowStyles: { fillColor: ALT },
-    body: tableBody,
-    didDrawCell: (dataCell: any) => {
-      if (dataCell.section === 'body') {
-        const rowObj = data.groups.flatMap(g => g.rows)[dataCell.row.index - 1]; // Offset section headers
-        if (!rowObj) return;
-
-        // Draw employee signature in column index 10
-        if (dataCell.column.index === 10 && imgs[`emp_${rowObj.entry_id}`]) {
-          signatureDraws.push({
-            x: dataCell.cell.x + 1,
-            y: dataCell.cell.y + 1,
-            w: dataCell.cell.width - 2,
-            h: dataCell.cell.height - 2,
-            key: `emp_${rowObj.entry_id}`,
-          });
+    margin: { left: M, right: M },
+    tableWidth: W - M * 2,
+    columnStyles: {
+      0: { cellWidth: 22 }, 1: { cellWidth: 18 }, 2: { cellWidth: 20 }, 3: { cellWidth: 20 },
+      4: { cellWidth: 20 }, 5: { cellWidth: 12 }, 6: { cellWidth: 15 },
+      7: { cellWidth: 15 }, 8: { cellWidth: 15 }, 9: { cellWidth: 10 },
+      10: { cellWidth: 20 }, 11: { cellWidth: 18 }, 12: { cellWidth: 24 }, 13: { cellWidth: 'auto' },
+    },
+    didParseCell(hook) {
+      if (hook.section === 'body' && hook.column.index === 9) {
+        const m = meta[hook.row.index];
+        if (m && !m.isHeader && m.efectividadVal != null) {
+          if (m.efectividadVal < 80) {
+            hook.cell.styles.fillColor = [240, 84, 84];
+            hook.cell.styles.textColor = [245, 245, 245];
+          } else {
+            hook.cell.styles.fillColor = [55, 151, 119];
+            hook.cell.styles.textColor = [245, 247, 248];
+          }
         }
-        // Draw responsable signature in column index 12
-        if (dataCell.column.index === 12 && imgs[rowObj.entry_id]) {
-          signatureDraws.push({
-            x: dataCell.cell.x + 1,
-            y: dataCell.cell.y + 1,
-            w: dataCell.cell.width - 2,
-            h: dataCell.cell.height - 2,
-            key: rowObj.entry_id,
-          });
+      }
+    },
+    didDrawCell(hook) {
+      if (hook.section === 'body') {
+        const m = meta[hook.row.index];
+        if (m && !m.isHeader && m.entryId) {
+          const { x, y, width, height } = hook.cell;
+
+          if (hook.column.index === 10 && imgs[`emp_${m.entryId}`]) {
+            const ih = Math.min(height - 4, 10);
+            try { doc.addImage(imgs[`emp_${m.entryId}`], 'PNG', x + 1, y + 1, ih * 2, ih); } catch { /* ignore */ }
+          }
+
+          if (hook.column.index === 12) {
+            const nombreResp = m.responsableNombre || '';
+            const tieneNombre = !!(nombreResp && nombreResp !== '—');
+            const tieneFirma = !!imgs[m.entryId];
+
+            const nombreZoneH = tieneNombre ? 6 : 0;
+            const firmaZoneH = height - nombreZoneH - 2;
+
+            if (tieneFirma) {
+              const sigH = Math.min(firmaZoneH, 10);
+              const sigW = sigH * 2.5;
+              try { doc.addImage(imgs[m.entryId], 'PNG', x + 1, y + 1, sigW, sigH); } catch { /* ignore */ }
+            }
+
+            if (tieneNombre) {
+              doc.setFontSize(6).setFont('helvetica', 'normal').setTextColor(30, 30, 30);
+              doc.text(nombreResp, x + 1, y + height - 2, { maxWidth: width - 2 });
+            }
+          }
         }
       }
     },
   });
 
-  for (const s of signatureDraws) {
-    if (imgs[s.key]) {
-      try { doc.addImage(imgs[s.key], 'PNG', s.x, s.y, Math.min(s.w, 20), Math.min(s.h, 10)); } catch {}
-    }
-  }
+  Y = (doc as any).lastAutoTable.finalY + 5;
 
-  // Liberation signatures at the bottom
-  Y = (doc as any).lastAutoTable.finalY + 8;
-  if (Y > H - 40) {
-    doc.addPage();
-    Y = 20;
-  }
+  const notaLineHeight = 4.5;
+  doc.setFontSize(8).setTextColor(30, 30, 30);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Nota:', M, Y);
+  const notaLabelWidth = doc.getTextWidth('Nota: ');
+  doc.setFont('helvetica', 'normal');
+  doc.text(
+    'Cualquier entrenamiento con una efectividad menor al 80% será sujeto a reentrenamiento o repetición del curso.',
+    M + notaLabelWidth,
+    Y,
+    { maxWidth: W - M * 2 - notaLabelWidth }
+  );
+  Y += notaLineHeight * 2;
 
-  doc.setFont('helvetica', 'bold').setFontSize(10).setTextColor(25, 43, 82);
+  if (Y + 40 > H - 15) { doc.addPage(); Y = 15; }
+  doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(25, 43, 82);
   doc.text('FIRMAS DE LIBERACIÓN', M, Y);
   Y += 4;
 
-  const sigTypes = [
-    { key: 'empleado', label: 'EMPLEADO' },
-    { key: 'jefe_directo', label: 'JEFE DIRECTO' },
-    { key: 'recursos_humanos', label: 'RECURSOS HUMANOS' },
-  ];
+  const sigTypes = ['empleado', 'jefe_directo', 'recursos_humanos'] as const;
 
-  const colW = (W - (M * 2) - 10) / 3;
+  autoTable(doc, {
+    startY: Y,
+    head: [['EMPLEADO', 'JEFE DIRECTO', 'RECURSOS HUMANOS'].map(l => ({ content: l, styles: { halign: 'center' } }))],
+    body: [['', '', '']],
+    theme: 'grid',
+    headStyles: { fillColor: HDR, textColor: 255, fontStyle: 'bold', fontSize: 8, halign: 'center' },
+    bodyStyles: { fontSize: 8, cellPadding: 4, minCellHeight: 40 },
+    columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 'auto' } },
+    margin: { left: M, right: M },
+    tableWidth: W - M * 2,
+    didDrawCell(hook) {
+      if (hook.section === 'body' && hook.row.index === 0) {
+        const t = sigTypes[hook.column.index];
+        const { x, y, width, height } = hook.cell;
+        const pad = 3;
+        const lineH = 4.5;
 
-  sigTypes.forEach((st, i) => {
-    const x = M + i * (colW + 5);
-    doc.setDrawColor(200, 200, 200).setFillColor(250, 250, 250);
-    doc.rect(x, Y, colW, 30, 'FD');
+        doc.setFontSize(7).setFont('helvetica', 'normal').setTextColor(30, 30, 30);
+        const nombreRaw = data.sigNames[t] || '—';
+        const fechaRaw = data.sigDates[t] ? fmtDate(data.sigDates[t]) : '—';
 
-    doc.setFontSize(8).setFont('helvetica', 'bold').setTextColor(100, 100, 100);
-    doc.text(st.label, x + 3, Y + 5);
+        const textZoneW = width * 0.50;
+        const firmaZoneX = x + textZoneW;
+        const firmaZoneW = width * 0.50 - pad;
 
-    if (imgs[`sig_${st.key}`]) {
-      try { doc.addImage(imgs[`sig_${st.key}`], 'PNG', x + (colW / 2) - 15, Y + 7, 30, 12); } catch {}
-    }
+        const nombreLines = doc.splitTextToSize(`Nombre: ${nombreRaw}`, textZoneW - pad * 2);
+        const visibleNombreLines = (nombreLines as string[]).slice(0, 2);
+        const totalTextH = (visibleNombreLines.length + 1) * lineH;
+        const textStartY = y + (height - totalTextH) / 2 + lineH;
 
-    doc.setFontSize(8).setFont('helvetica', 'normal').setTextColor(40, 40, 40);
-    doc.text(`Nombre: ${data.sigNames[st.key] || '—'}`, x + 3, Y + 23);
-    doc.text(`Fecha: ${fmtDate(data.sigDates[st.key])}`, x + 3, Y + 27);
+        doc.text(visibleNombreLines, x + pad, textStartY);
+        doc.text(`Fecha: ${fechaRaw}`, x + pad, textStartY + visibleNombreLines.length * lineH);
+
+        const img = imgs[`sig_${t}`];
+        if (img) {
+          const ih = Math.min(height - pad * 2, 20);
+          const iw = Math.min(ih * 3, firmaZoneW - pad);
+          const imgX = firmaZoneX + (firmaZoneW - iw) / 2;
+          const imgY = y + (height - ih) / 2;
+          try { doc.addImage(img, 'PNG', imgX, imgY, iw, ih); } catch { /* ignore */ }
+        }
+      }
+    },
   });
 
-  doc.save(`OJT_${data.template.titulo || 'Registro'}_${new Date().toISOString().split('T')[0]}.pdf`);
+  const total = (doc.internal as any).getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7).setFont('helvetica', 'normal').setTextColor(120);
+    doc.text('04 S10 F 01 4', M, H - 6);
+    doc.text(`Página ${i} de ${total}`, W - M, H - 6, { align: 'right' });
+  }
+
+  const safe = (data.template.titulo || 'OJT').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
+  doc.save(`OJT_${safe}_${new Date().toISOString().split('T')[0]}.pdf`);
 }
