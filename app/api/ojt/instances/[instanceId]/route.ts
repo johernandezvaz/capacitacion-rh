@@ -137,7 +137,18 @@ export async function PATCH(
       }
 
       if (existingIeId) {
-        const keys = Object.keys(fields).filter(k => fields[k] !== undefined);
+        const editableFields = new Set([
+          'efectividad',
+          'puesto_responsable',
+          'responsable_nombre',
+          'responsable_firma_url',
+          'empleado_firma_url',
+          'fecha_planeada_terminacion',
+          'fecha_real_inicio',
+          'fecha_real_termino',
+          'comentarios',
+        ]);
+        const keys = Object.keys(fields).filter(k => editableFields.has(k) && fields[k] !== undefined);
         if (keys.length > 0) {
           const setClause = keys.map((k, idx) => `"${k}" = $${idx + 1}`).join(', ');
           const values = keys.map(k => fields[k]);
@@ -147,7 +158,18 @@ export async function PATCH(
           );
         }
       } else if (entry_id) {
-        const keys = Object.keys(fields).filter(k => fields[k] !== undefined);
+        const editableFields = new Set([
+          'efectividad',
+          'puesto_responsable',
+          'responsable_nombre',
+          'responsable_firma_url',
+          'empleado_firma_url',
+          'fecha_planeada_terminacion',
+          'fecha_real_inicio',
+          'fecha_real_termino',
+          'comentarios',
+        ]);
+        const keys = Object.keys(fields).filter(k => editableFields.has(k) && fields[k] !== undefined);
         const cols = ['instance_id', 'entry_id', ...keys.map(k => `"${k}"`)].join(', ');
         const placeholders = ['$1', '$2', ...keys.map((_, idx) => `$${idx + 3}`)].join(', ');
         const values = [instanceId, entry_id, ...keys.map(k => fields[k])];

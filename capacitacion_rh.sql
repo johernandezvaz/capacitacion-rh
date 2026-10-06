@@ -873,6 +873,7 @@ CREATE TABLE public.ojt_instance_entries (
     updated_at timestamp with time zone DEFAULT now(),
     empleado_firma_url text,
     fecha_planeada_terminacion date,
+    puesto_responsable text,
     CONSTRAINT ojt_instance_entries_efectividad_check CHECK (((efectividad >= 0) AND (efectividad <= 100)))
 );
 

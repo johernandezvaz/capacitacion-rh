@@ -132,7 +132,9 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
               procedimientos_internos: e.procedimientos_internos,
               metodo_entrenamiento: e.metodo_entrenamiento,
               duracion: e.duracion,
-              puesto_responsable: e.puesto_responsable ?? null,
+              // La instancia puede conservar un puesto distinto al definido en la plantilla.
+              // Si aún no tiene uno propio, muestra el de la plantilla como valor inicial.
+              puesto_responsable: ie?.puesto_responsable ?? e.puesto_responsable ?? null,
               fecha_planeada_terminacion: ie?.fecha_planeada_terminacion ?? '',
               instance_entry_id: ie?.id ?? null,
               fecha_real_inicio: ie?.fecha_real_inicio ?? '',
@@ -220,7 +222,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
     }
   }, [groups, instanceId]);
 
-  const updateRowLocal = (gIdx: number, rIdx: number, field: string, value: string) =>
+  const updateRowLocal = (gIdx: number, rIdx: number, field: string, value: string | null) =>
     setGroups(prev => prev.map((g, gi) => gi !== gIdx ? g : {
       ...g,
       rows: g.rows.map((r, ri) => ri !== rIdx ? r : { ...r, [field]: value }),
@@ -614,8 +616,16 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
                           <p className="text-[10px] text-center text-muted-foreground">Firma Empleado</p>
                         </div>
                       </td>
-                      <td className="border border-border px-2 py-1 text-muted-foreground bg-muted/20">
-                        {row.puesto_responsable || '—'}
+                      <td className="border border-border px-1 py-0.5" style={{ minWidth: '160px' }}>
+                        <input
+                          type="text"
+                          value={row.puesto_responsable || ''}
+                          placeholder="Puesto responsable..."
+                          onChange={e => updateRowLocal(gIdx, rIdx, 'puesto_responsable', e.target.value)}
+                          onBlur={e => saveInstanceEntryField(gIdx, rIdx, 'puesto_responsable', e.target.value)}
+                          className="w-full h-7 px-1.5 text-xs bg-transparent border-none outline-none focus:bg-background focus:border focus:border-ring rounded border border-border"
+                        />
+                        <p className="px-1 pt-0.5 text-[10px] text-muted-foreground">Solo para esta instancia</p>
                       </td>
                       <td className="border border-border px-1 py-0.5" style={{ minWidth: '150px' }}>
                         <div className="space-y-1">
