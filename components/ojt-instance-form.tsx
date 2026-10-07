@@ -58,12 +58,21 @@ interface OjtInstanceFormProps {
   templateId: string;
   plantId?: string | null;
   isPublic?: boolean;
+  publicToken?: string;
 }
 
-export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, isPublic }: OjtInstanceFormProps) {
+export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, isPublic, publicToken }: OjtInstanceFormProps) {
   const { toast } = useToast();
   const { plantId: authPlantId } = useAuth();
   const plantId = propPlantId ?? authPlantId;
+
+  const usePublicApi = Boolean(isPublic && publicToken);
+  const instanceApiUrl = usePublicApi
+    ? `/public/ojt/${encodeURIComponent(publicToken!)}/instance`
+    : `/api/ojt/instances/${instanceId}`;
+  const employeesApiUrl = usePublicApi
+    ? `/public/ojt/${encodeURIComponent(publicToken!)}/employees`
+    : `/employees/data${plantId ? `?plant_id=${plantId}` : ''}`;
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [template, setTemplate] = useState<OjtRecord | null>(null);
@@ -88,18 +97,21 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
   const [sigUrls, setSigUrls] = useState({ empleado: '', jefe_directo: '', recursos_humanos: '' });
 
   useEffect(() => {
-    fetch(`/employees/data${plantId ? `?plant_id=${plantId}` : ''}`, { credentials: 'include' })
-      .then(res => res.json())
+    fetch(employeesApiUrl, { credentials: 'include' })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then(json => setEmployees(json.employees || []))
       .catch(err => console.error('Error loading employees:', err));
-  }, [plantId]);
+  }, [employeesApiUrl]);
 
   useEffect(() => {
     if (!instanceId) return;
     (async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/ojt/instances/${instanceId}`, { credentials: 'include' });
+        const res = await fetch(instanceApiUrl, { credentials: 'include' });
         if (!res.ok) throw new Error('Error al cargar datos de la instancia OJT');
         const json = await res.json();
 
@@ -169,7 +181,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
         setIsLoading(false);
       }
     })();
-  }, [instanceId]);
+  }, [instanceId, instanceApiUrl]);
 
   const avgEfectividad = useMemo(() => {
     const allRows = groups.flatMap(g => g.rows);
@@ -196,7 +208,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
     };
 
     try {
-      const res = await fetch(`/api/ojt/instances/${instanceId}`, {
+      const res = await fetch(instanceApiUrl, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -220,7 +232,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
     } catch (err) {
       console.error('Error saving instance entry field:', err);
     }
-  }, [groups, instanceId]);
+  }, [groups, instanceApiUrl]);
 
   const updateRowLocal = (gIdx: number, rIdx: number, field: string, value: string | null) =>
     setGroups(prev => prev.map((g, gi) => gi !== gIdx ? g : {
@@ -237,7 +249,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
     }));
 
     try {
-      const res = await fetch(`/api/ojt/instances/${instanceId}`, {
+      const res = await fetch(instanceApiUrl, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -272,7 +284,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
     }));
 
     try {
-      const res = await fetch(`/api/ojt/instances/${instanceId}`, {
+      const res = await fetch(instanceApiUrl, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -302,7 +314,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
     setIsSaving(true);
     try {
       const avg = avgEfectividad;
-      const res = await fetch(`/api/ojt/instances/${instanceId}`, {
+      const res = await fetch(instanceApiUrl, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -331,7 +343,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
 
   const saveSignature = async (type: 'empleado' | 'jefe_directo' | 'recursos_humanos') => {
     try {
-      const res = await fetch(`/api/ojt/instances/${instanceId}`, {
+      const res = await fetch(instanceApiUrl, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -358,7 +370,7 @@ export function OjtInstanceForm({ instanceId, templateId, plantId: propPlantId, 
   const updateSigFirmaUrl = async (type: 'empleado' | 'jefe_directo' | 'recursos_humanos', url: string) => {
     setSigUrls(prev => ({ ...prev, [type]: url }));
     try {
-      const res = await fetch(`/api/ojt/instances/${instanceId}`, {
+      const res = await fetch(instanceApiUrl, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

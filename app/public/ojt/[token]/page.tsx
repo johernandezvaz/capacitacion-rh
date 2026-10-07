@@ -75,6 +75,7 @@ export default function PublicOjtPage({
           templateId={state.templateId}
           plantId={state.plantId}
           isPublic={true}
+          publicToken={resolvedParams.token}
         />
       </div>
     </div>

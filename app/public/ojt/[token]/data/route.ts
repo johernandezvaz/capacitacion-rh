@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { resolvePublicOjtToken } from '@/lib/public-ojt';
 
 export async function GET(
     request: NextRequest,
@@ -7,28 +7,13 @@ export async function GET(
 ) {
     try {
         const resolvedParams = await params;
-        const token = resolvedParams.token;
+        const ctx = await resolvePublicOjtToken(resolvedParams.token);
 
-        const res = await pool.query(
-            `SELECT i.id AS instance_id, i.template_id, r.plant_id
-             FROM ojt_instances i
-             LEFT JOIN ojt_records r ON i.template_id = r.id
-             WHERE i.public_token = $1 OR i.id = $1
-             ORDER BY (CASE WHEN i.public_token = $1 THEN 1 ELSE 2 END)
-             LIMIT 1`,
-            [token]
-        );
-
-        if (res.rowCount === 0) {
+        if (!ctx) {
             return NextResponse.json({ error: 'Instancia no encontrada' }, { status: 404 });
         }
 
-        const row = res.rows[0];
-        return NextResponse.json({
-            instanceId: row.instance_id,
-            templateId: row.template_id,
-            plantId: row.plant_id ?? null,
-        });
+        return NextResponse.json(ctx);
     } catch (error: any) {
         console.error('Error in GET /public/ojt/[token]/data:', error);
         return NextResponse.json(

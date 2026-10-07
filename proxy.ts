@@ -10,7 +10,12 @@ const AUTH_PATHS = new Set([
 ]);
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (pathname.startsWith('/public') || AUTH_PATHS.has(pathname)) return NextResponse.next();
+  if (
+    pathname.startsWith('/public') ||
+    pathname === '/api/firmas' ||
+    pathname.startsWith('/api/firmas/') ||
+    AUTH_PATHS.has(pathname)
+  ) return NextResponse.next();
   const session = await getSessionFromRequest(request);
   if (pathname === '/login') {
     if (!session) return NextResponse.next();
