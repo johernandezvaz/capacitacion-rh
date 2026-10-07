@@ -19,6 +19,8 @@ export async function resolvePublicOjtToken(token: string): Promise<PublicOjtCon
     [token]
   );
 
+
+  
   if (!res.rowCount) return null;
 
   const row = res.rows[0];
