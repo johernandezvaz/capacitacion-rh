@@ -13,8 +13,8 @@ export async function resolvePublicOjtToken(token: string): Promise<PublicOjtCon
     `SELECT i.id AS instance_id, i.template_id, r.plant_id
      FROM ojt_instances i
      LEFT JOIN ojt_records r ON i.template_id = r.id
-     WHERE i.public_token = $1 OR i.id::text = $1
-     ORDER BY (CASE WHEN i.public_token = $1 THEN 1 ELSE 2 END)
+     WHERE i.public_token::text = $1::text OR i.id::text = $1::text
+     ORDER BY (CASE WHEN i.public_token::text = $1::text THEN 1 ELSE 2 END)
      LIMIT 1`,
     [token]
   );
